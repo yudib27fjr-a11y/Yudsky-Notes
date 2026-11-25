@@ -157,6 +157,18 @@ svg{display:block}
 #ed figure.vid.sz-s::after{content:"";position:absolute;left:50%;top:50%;width:34px;height:34px;margin:-17px 0 0 -17px;border-radius:50%;background:rgba(0,0,0,.5) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M9 7l9 5-9 5z' fill='white'/%3E%3C/svg%3E") center/20px no-repeat;pointer-events:none}
 #ed figure.vid.sz-s .msz{top:4px;right:4px;width:24px;height:24px;font-size:13px}
 .player{margin:auto;max-width:100%;max-height:100%;background:#000}
+#ed figure.pic{position:relative}
+#ed figure.pic.sz-s .msz{top:4px;right:4px;width:24px;height:24px;font-size:13px}
+.viewer{position:fixed;inset:0;z-index:60;background:#000;display:flex;flex-direction:column;opacity:0;transition:opacity .2s}
+.viewer.show{opacity:1}
+.vtrack{flex:1;display:flex;overflow-x:auto;scroll-snap-type:x mandatory;scrollbar-width:none}
+.vtrack::-webkit-scrollbar{display:none}
+.vslide{flex:0 0 100%;min-width:0;scroll-snap-align:center;display:flex;align-items:center;justify-content:center;overflow:auto}
+.vslide img{max-width:100%;max-height:100%;object-fit:contain;transition:transform .2s;touch-action:pan-x pan-y pinch-zoom}
+.vslide.zoom{align-items:flex-start;justify-content:flex-start}.vslide.zoom img{max-width:none;max-height:none;width:220%}
+.vbar{position:absolute;left:0;right:0;top:0;padding:calc(8px + var(--sat)) 12px 8px;display:flex;align-items:center;justify-content:space-between;color:#fff;background:linear-gradient(rgba(0,0,0,.55),transparent)}
+.vbar button{color:#fff;font-size:17px;padding:8px 10px;min-height:44px}
+.vcount{font-size:15px;font-weight:600}
 #ed img{cursor:pointer}
 #ed figure.vid{position:relative}
 #ed .msz::after{content:'⤢'}
@@ -338,7 +350,7 @@ svg{display:block}
 <script>
 {
 /* ================= penyimpanan di perangkat (IndexedDB) ================= */
-const APP_VERSION = 'v20';
+const APP_VERSION = 'v21';
 const ERRLOG = [];
 addEventListener('error', (e) => ERRLOG.push(new Date().toTimeString().slice(0, 8) + ' ' + (e.message || e.type)));
 addEventListener('unhandledrejection', (e) => ERRLOG.push(new Date().toTimeString().slice(0, 8) + ' ' + ((e.reason && (e.reason.name + ': ' + e.reason.message)) || e.reason)));
@@ -548,7 +560,7 @@ function back(fromPop) {
   if (!fromPop) { ignorePop = true; try { history.back(); } catch { ignorePop = false; } setTimeout(() => ignorePop = false, 600); }
 }
 let ignorePop = false;
-addEventListener('popstate', () => { if (ignorePop) { ignorePop = false; return; } if (S.stack.length > 1) back(true); });
+addEventListener('popstate', () => { if (document.querySelector('.viewer')) return; if (ignorePop) { ignorePop = false; return; } if (S.stack.length > 1) back(true); });
 $$('[data-back]').forEach((b) => b.addEventListener('click', () => back()));
 
 // geser dari tepi kiri untuk kembali
@@ -1070,7 +1082,7 @@ async function hydrate() {
     const u = await fileURL(fig.dataset.fid);
     fig.classList.toggle('missing', !u);
     const v = $('video', fig);
-    if (v && !$('.msz', fig)) { const b = document.createElement('span'); b.className = 'msz'; b.setAttribute('role', 'button'); fig.prepend(b); }
+    if ((v || fig.classList.contains('pic')) && !$('.msz', fig)) { const b = document.createElement('span'); b.className = 'msz'; b.setAttribute('role', 'button'); fig.prepend(b); }
     const pi = fig.classList.contains('pic') ? $('img', fig) : null;
     if (pi && u) { pi.addEventListener('load', () => { const n = S.notes[S.note]; if (n && !n.deletedAt && (!n.img || ed.querySelector('img') === pi)) { const t = thumbOf(pi); if (t && t !== n.img) { n.img = t; saveNote(n); } } }, { once: true }); pi.src = u; }
     if (v) syncVideo(fig);
@@ -1175,6 +1187,30 @@ document.addEventListener('selectionchange', () => {
 });
 
 /* ---- ukuran foto & video: Kecil / Sedang / Besar ---- */
+// lihat foto layar penuh; geser kiri/kanan ke foto lain di catatan ini; ketuk 2x untuk perbesar
+function viewPhotos(start) {
+  const els = $$('figure.att.pic, #ed > img, #ed div > img', ed);
+  const srcs = els.map((el) => (el.tagName === 'IMG' ? el : $('img', el))?.getAttribute('src')).filter(Boolean);
+  if (!srcs.length) return;
+  const i0 = Math.max(0, els.indexOf(start));
+  const v = document.createElement('div'); v.className = 'viewer';
+  v.innerHTML = `<div class="vtrack">${srcs.map((s) => `<div class="vslide"><img src="${s}" alt=""></div>`).join('')}</div>
+    <div class="vbar"><button class="vclose" aria-label="Tutup">✕</button><span class="vcount"></span><button class="vsize">Ukuran</button></div>`;
+  document.body.appendChild(v);
+  const tr = $('.vtrack', v), cnt = $('.vcount', v);
+  const idx = () => Math.round(tr.scrollLeft / tr.clientWidth);
+  const upd = () => { cnt.textContent = srcs.length > 1 ? (idx() + 1) + ' dari ' + srcs.length : ''; };
+  requestAnimationFrame(() => { tr.scrollLeft = i0 * tr.clientWidth; upd(); v.classList.add('show'); });
+  tr.addEventListener('scroll', upd, { passive: true });
+  const close = () => { v.classList.remove('show'); setTimeout(() => v.remove(), 200); try { history.back(); } catch {} };
+  $('.vclose', v).onclick = close;
+  $('.vsize', v).onclick = () => { const el = els[idx()]; v.remove(); try { history.back(); } catch {} mediaMenu(el); };
+  let lastTap = 0;
+  tr.addEventListener('click', (e) => { const sl = e.target.closest('.vslide'); if (!sl) return; const now = Date.now(); if (now - lastTap < 300) sl.classList.toggle('zoom'); lastTap = now; });
+  addEventListener('keydown', function k(e) { if (e.key === 'Escape') { close(); removeEventListener('keydown', k); } if (e.key === 'ArrowRight') tr.scrollBy({ left: tr.clientWidth, behavior: 'smooth' }); if (e.key === 'ArrowLeft') tr.scrollBy({ left: -tr.clientWidth, behavior: 'smooth' }); });
+  // tombol kembali Android menutup tampilan foto
+  try { history.pushState({ viewer: 1 }, ''); addEventListener('popstate', function p() { if (document.body.contains(v)) { v.classList.remove('show'); setTimeout(() => v.remove(), 200); } removeEventListener('popstate', p); }, { once: true }); } catch {}
+}
 async function playFull(fig) {
   const u = await fileURL(fig.dataset.fid); if (!u) return toast('Video tidak ditemukan di HP ini');
   const ov = overlay(`<video class="player" controls autoplay playsinline src="${u}"></video><button class="nb" style="position:absolute;top:calc(8px + var(--sat));right:8px;color:#fff;font-size:28px">✕</button>`);
@@ -1201,12 +1237,13 @@ async function mediaMenu(el) {
 }
 ed.addEventListener('click', (e) => {
   const img = e.target.closest('img');
-  if (img && ed.contains(img)) { e.preventDefault(); return mediaMenu(img.closest('figure.pic') || img); }
+  if (e.target.closest('.msz')) { e.preventDefault(); return mediaMenu(e.target.closest('figure')); }
+  if (img && ed.contains(img)) { e.preventDefault(); return viewPhotos(img.closest('figure.pic') || img); }
   if (e.target.closest('.msz')) { e.preventDefault(); return mediaMenu(e.target.closest('figure')); }
   const sv = e.target.closest('figure.vid.sz-s'); if (sv) { e.preventDefault(); return playFull(sv); }
 });
 ed.addEventListener('contextmenu', (e) => {
-  const v = e.target.closest('figure.vid'); if (v) { e.preventDefault(); mediaMenu(v); }
+  const v = e.target.closest('figure.vid, figure.pic') || (e.target.tagName === 'IMG' && ed.contains(e.target) ? e.target : null); if (v) { e.preventDefault(); mediaMenu(v); }
 });
 
 document.addEventListener('visibilitychange', () => { if (!document.hidden) setTimeout(() => { try { sessionStorage.removeItem('yn-open'); } catch {} }, 3000); });
