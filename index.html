@@ -432,7 +432,7 @@ svg{display:block}
 <script>
 {
 /* ================= penyimpanan di perangkat (IndexedDB) ================= */
-const APP_VERSION = 'v24';
+const APP_VERSION = 'v25';
 const ERRLOG = [];
 addEventListener('error', (e) => ERRLOG.push(new Date().toTimeString().slice(0, 8) + ' ' + (e.message || e.type)));
 addEventListener('unhandledrejection', (e) => ERRLOG.push(new Date().toTimeString().slice(0, 8) + ' ' + ((e.reason && (e.reason.name + ': ' + e.reason.message)) || e.reason)));
@@ -548,6 +548,7 @@ const FICONS = {
   pill: 'M10.6 3.9a5 5 0 0 1 7.1 7.1l-6.7 6.7a5 5 0 0 1-7.1-7.1zM7.3 7.2l7.1 7.1',
   syringe: 'M18 3l3 3M16.5 4.5l3 3M19 6l-9.5 9.5-3-3L16 3M8 14l-4.5 4.5M3 21l1.5-1.5',
   book: 'M4 19.5V5a2 2 0 0 1 2-2h13v15H6a2 2 0 0 0-2 2 2 2 0 0 0 2 2h13',
+  kamus: 'M5 4.5h12a2 2 0 0 1 2 2V20H7a2 2 0 0 1-2-2zM5 18a2 2 0 0 1 2-2h12M9.2 13l2.3-5.5 2.3 5.5M10 11.2h3',
   grad: 'M2 9l10-5 10 5-10 5zM6 11v5c3.5 2.5 8.5 2.5 12 0v-5M22 9v6',
   star: 'M12 3l2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1-4.4-4.3 6.1-.9z',
   brief: 'M3.5 8h17v11h-17zM9 8V5.5h6V8M3.5 13h17',
