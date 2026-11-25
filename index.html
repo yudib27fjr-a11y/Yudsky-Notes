@@ -136,7 +136,7 @@ svg{display:block}
 #ed .fn{font-size:15px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 #ed .fs{font-size:13px;color:var(--sec)}
 #ed figure.missing{opacity:.5}
-.pickers{position:fixed;left:-9999px;top:0;width:1px;height:1px;overflow:hidden;opacity:0}
+.pickers{position:fixed;left:0;top:0;width:1px;height:1px;overflow:hidden;opacity:.01;pointer-events:none;z-index:-1}
 #ed .tblw{overflow-x:auto;margin:8px 0;-webkit-overflow-scrolling:touch}
 #ed table{border-collapse:collapse;min-width:100%;font-size:16px}
 #ed td,#ed th{border:1px solid var(--sep);padding:7px 9px;min-width:84px;vertical-align:top;text-align:left}
@@ -146,6 +146,7 @@ svg{display:block}
 #ed img.sz-m,#ed figure.att.vid.sz-m{width:64%}
 #ed img{cursor:pointer}
 #ed figure.vid{position:relative}
+#ed .msz::after{content:'⤢'}
 #ed .msz{position:absolute;top:8px;right:8px;width:30px;height:30px;border-radius:50%;background:rgba(0,0,0,.55);color:#fff;display:flex;align-items:center;justify-content:center;font-size:16px;line-height:1;z-index:1}
 #ed a{color:var(--tint)}
 .ro #ed{user-select:text}
@@ -859,7 +860,7 @@ async function insertImage(file) {
   c.getContext('2d').drawImage(src, 0, 0, c.width, c.height);
   if (url) URL.revokeObjectURL(url); src.close?.();
   insertBlocks(`<img src="${c.toDataURL('image/jpeg', .82)}">`);
-  onEdit();
+  onEdit(); toast('Foto ditambahkan');
 }
 
 /* ================= lampiran: video & file ================= */
@@ -882,7 +883,7 @@ async function hydrate() {
     const u = await fileURL(fig.dataset.fid);
     fig.classList.toggle('missing', !u);
     const v = $('video', fig);
-    if (v && !$('.msz', fig)) { const b = document.createElement('span'); b.className = 'msz'; b.textContent = '⤢'; b.setAttribute('role', 'button'); fig.prepend(b); }
+    if (v && !$('.msz', fig)) { const b = document.createElement('span'); b.className = 'msz'; b.setAttribute('role', 'button'); fig.prepend(b); }
     if (v && u) { v.src = u + '#t=0.1'; v.addEventListener('loadeddata', () => { const n = S.notes[S.note]; if (n && !n.img && !n.deletedAt) { n.img = thumbOf(v); saveNote(n); } }, { once: true }); }
   }
 }
@@ -895,7 +896,7 @@ async function addFileRecord(file) {
   toast('Menyimpan ' + (file.name || 'lampiran') + '…');
   const rec = { id: 'a' + uid(), name: file.name || (file.type.startsWith('video/') ? 'Video.mp4' : 'File'), type: file.type || 'application/octet-stream', size: file.size, blob: file, at: Date.now() };
   const ok = await DB.putFile(rec);
-  if (!ok) { toast('Gagal menyimpan — memori HP penuh?'); return; }
+  if (!ok) { alertBox({ title: 'Gagal menyimpan lampiran', msg: (file.name || 'File') + ' (' + fmtSize(file.size) + ') tidak bisa disimpan di HP. Memori penuh atau file terlalu besar.', buttons: [{ t: 'OK', b: 1 }] }); return; }
   insertBlocks(figureHTML(rec));
   await hydrate(); onEdit();
 }
@@ -903,7 +904,7 @@ async function addFiles(files) {
   if (!S.note) return;
   if (!DB.ok) await DB.open();
   if (!DB.ok) return alertBox({ title: 'Penyimpanan belum siap', msg: 'Tutup semua tab/jendela Yudsky Notes lain, lalu tutup dan buka lagi aplikasi ini.' + (DB_ERR ? ' (' + DB_ERR + ')' : ''), buttons: [{ t: 'OK', b: 1 }] });
-  const n = S.notes[S.note]; if (!n || n.deletedAt) return;
+  const n = S.notes[S.note]; if (!n || n.deletedAt) return toast('Catatan ini tidak bisa diubah');
   for (const file of files) {
     const isImg = file.type.startsWith('image/') || (!file.type && /\.(jpe?g|png|webp|heic|heif)$/i.test(file.name || ''));
     if (isImg && !/gif|svg/.test(file.type)) { await insertImage(file); continue; }
@@ -920,7 +921,15 @@ $('#bAttach').onclick = async () => {
   const ids = ['#fFoto', '#fVideo', '#fCam', '#fVidCam', '#fAny'];
   if (i >= 0) { try { sessionStorage.setItem('yn-open', S.note); } catch {} $(ids[i]).click(); }
 };
-for (const id of ['#fFoto', '#fVideo', '#fCam', '#fVidCam', '#fAny']) $(id).addEventListener('change', (e) => { try { sessionStorage.removeItem('yn-open'); } catch {} const fs = [...e.target.files]; e.target.value = ''; if (fs.length) addFiles(fs); });
+for (const id of ['#fFoto', '#fVideo', '#fCam', '#fVidCam', '#fAny']) $(id).addEventListener('change', async (e) => {
+  try { sessionStorage.removeItem('yn-open'); } catch {}
+  const fs = [...(e.target.files || [])]; e.target.value = '';
+  if (!fs.length) return toast('Tidak ada file yang dipilih');
+  if (!S.note) return alertBox({ title: 'Catatan tidak terbuka', msg: 'Buka catatan dulu, lalu pilih foto lagi.', buttons: [{ t: 'OK', b: 1 }] });
+  toast('Memproses ' + fs.length + ' lampiran…');
+  try { await addFiles(fs); }
+  catch (err) { alertBox({ title: 'Lampiran gagal masuk', msg: (err && (err.name + ': ' + err.message)) + ' — ' + fs.map((f) => (f.name || '?') + ' (' + (f.type || 'tanpa jenis') + ', ' + fmtSize(f.size) + ')').join(', '), buttons: [{ t: 'OK', b: 1 }] }); }
+});
 /* ---- tabel ---- */
 function curCell() { const n = selNode(); const c = n && n.closest && n.closest('td,th'); return c && ed.contains(c) ? c : null; }
 function cellCaret(td) { caretTo(td, false); }
