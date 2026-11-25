@@ -148,8 +148,15 @@ svg{display:block}
 #ed .tblw.act td,#ed .tblw.act th{border-color:var(--ter)}
 #ed td.cur{background:color-mix(in srgb,var(--tint) 14%,transparent)}
 #ed figure.pic img{display:block;width:100%;margin:0;border-radius:10px;min-height:40px;background:var(--fill)}
-#ed img.sz-s,#ed figure.att.vid.sz-s,#ed figure.att.pic.sz-s{width:38%}
-#ed img.sz-m,#ed figure.att.vid.sz-m,#ed figure.att.pic.sz-m{width:64%}
+/* ukuran: Kecil = berjajar ke samping (seperti iPhone), Sedang = 2 per baris, Besar = selebar layar */
+#ed img.sz-s,#ed figure.att.sz-s{display:inline-block;vertical-align:top;width:auto;height:112px;margin:3px 6px 3px 0;border-radius:10px;overflow:hidden}
+#ed figure.att.sz-s img,#ed figure.att.sz-s video{height:112px;width:auto;max-width:none;min-width:70px;object-fit:cover;border-radius:10px}
+#ed img.sz-s{object-fit:cover;max-width:none}
+#ed img.sz-m,#ed figure.att.sz-m{display:inline-block;vertical-align:top;width:calc(50% - 6px);margin:3px 6px 3px 0}
+#ed figure.att.sz-m img,#ed figure.att.sz-m video{width:100%;max-height:40vh;object-fit:cover}
+#ed figure.vid.sz-s::after{content:"";position:absolute;left:50%;top:50%;width:34px;height:34px;margin:-17px 0 0 -17px;border-radius:50%;background:rgba(0,0,0,.5) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M9 7l9 5-9 5z' fill='white'/%3E%3C/svg%3E") center/20px no-repeat;pointer-events:none}
+#ed figure.vid.sz-s .msz{top:4px;right:4px;width:24px;height:24px;font-size:13px}
+.player{margin:auto;max-width:100%;max-height:100%;background:#000}
 #ed img{cursor:pointer}
 #ed figure.vid{position:relative}
 #ed .msz::after{content:'⤢'}
@@ -305,7 +312,7 @@ svg{display:block}
 <script>
 {
 /* ================= penyimpanan di perangkat (IndexedDB) ================= */
-const APP_VERSION = 'v13';
+const APP_VERSION = 'v14';
 const ERRLOG = [];
 addEventListener('error', (e) => ERRLOG.push(new Date().toTimeString().slice(0, 8) + ' ' + (e.message || e.type)));
 addEventListener('unhandledrejection', (e) => ERRLOG.push(new Date().toTimeString().slice(0, 8) + ' ' + ((e.reason && (e.reason.name + ': ' + e.reason.message)) || e.reason)));
@@ -933,6 +940,7 @@ async function fileURL(fid) {
   const f = await DB.getFile(fid); if (!f) return null;
   const u = URL.createObjectURL(f.blob); urlCache.set(fid, u); return u;
 }
+function syncVideo(fig) { const v = $('video', fig); if (!v) return; const small = fig.classList.contains('sz-s'); v.controls = !small; if (small) { v.muted = true; v.pause(); } }
 async function hydrate() {
   for (const fig of $$('figure.att', ed)) {
     const u = await fileURL(fig.dataset.fid);
@@ -941,13 +949,16 @@ async function hydrate() {
     if (v && !$('.msz', fig)) { const b = document.createElement('span'); b.className = 'msz'; b.setAttribute('role', 'button'); fig.prepend(b); }
     const pi = fig.classList.contains('pic') ? $('img', fig) : null;
     if (pi && u) { pi.addEventListener('load', () => { const n = S.notes[S.note]; if (n && !n.deletedAt && (!n.img || ed.querySelector('img') === pi)) { const t = thumbOf(pi); if (t && t !== n.img) { n.img = t; saveNote(n); } } }, { once: true }); pi.src = u; }
+    if (v) syncVideo(fig);
     if (v && u) { v.src = u + '#t=0.1'; v.addEventListener('loadeddata', () => { const n = S.notes[S.note]; if (n && !n.img && !n.deletedAt) { n.img = thumbOf(v); saveNote(n); } }, { once: true }); }
   }
 }
+let nextSize = '';
 function figureHTML(rec) {
   const a = `contenteditable="false" data-fid="${esc(rec.id)}" data-name="${esc(rec.name)}" data-size="${rec.size}" data-type="${esc(rec.type)}"`;
-  if (rec.pic) return `<figure class="att pic" ${a}><img alt=""></figure>`;
-  if (rec.type.startsWith('video/')) return `<figure class="att vid" ${a}><video controls playsinline preload="metadata"></video></figure>`;
+  const sz = nextSize ? ' ' + nextSize : '';
+  if (rec.pic) return `<figure class="att pic${sz}" ${a}><img alt=""></figure>`;
+  if (rec.type.startsWith('video/')) return `<figure class="att vid${sz}" ${a}><video controls playsinline preload="metadata"></video></figure>`;
   return `<figure class="att file" ${a}><span class="fic">${esc(extOf(rec.name) || 'file')}</span><span class="fmeta"><span class="fn">${esc(rec.name)}</span><span class="fs">${esc(fmtSize(rec.size))}</span></span></figure>`;
 }
 async function addFileRecord(file, pic) {
@@ -963,13 +974,17 @@ async function addFiles(files) {
   if (!DB.ok) await DB.open();
   if (!DB.ok) return alertBox({ title: 'Penyimpanan belum siap', msg: 'Tutup semua tab/jendela Yudsky Notes lain, lalu tutup dan buka lagi aplikasi ini.' + (DB_ERR ? ' (' + DB_ERR + ')' : ''), buttons: [{ t: 'OK', b: 1 }] });
   const n = S.notes[S.note]; if (!n || n.deletedAt) return toast('Catatan ini tidak bisa diubah');
+  const media = files.filter((f) => /^(image|video)\//.test(f.type) || /\.(jpe?g|png|webp|heic|heif|mp4|mov|3gp|webm)$/i.test(f.name || ''));
+  nextSize = media.length >= 2 ? 'sz-s' : '';   // pilih beberapa sekaligus -> tampil kecil berjajar
+  try {
   for (const file of files) {
     const isImg = file.type.startsWith('image/') || (!file.type && /\.(jpe?g|png|webp|heic|heif)$/i.test(file.name || ''));
     if (isImg && !/gif|svg/.test(file.type)) { await insertImage(file); continue; }
     if (file.size > 500 * 1048576) { toast('“' + file.name + '” terlalu besar (maks 500 MB)'); continue; }
     await addFileRecord(file);
   }
-  await hydrate(); onEdit(); flushSave(); toast('Lampiran tersimpan');
+  } finally { nextSize = ''; }
+  await hydrate(); onEdit(); flushSave(); toast(media.length >= 2 ? media.length + ' lampiran ditambahkan (tampilan kecil)' : 'Lampiran tersimpan');
 }
 $('#bAttach').addEventListener('pointerdown', (e) => e.preventDefault());
 $('#bAttach').onclick = async () => {
@@ -1036,17 +1051,24 @@ document.addEventListener('selectionchange', () => {
 });
 
 /* ---- ukuran foto & video: Kecil / Sedang / Besar ---- */
+async function playFull(fig) {
+  const u = await fileURL(fig.dataset.fid); if (!u) return toast('Video tidak ditemukan di HP ini');
+  const ov = overlay(`<video class="player" controls autoplay playsinline src="${u}"></video><button class="nb" style="position:absolute;top:calc(8px + var(--sat));right:8px;color:#fff;font-size:28px">✕</button>`);
+  ov.style.background = '#000';
+  $('button', ov).onclick = () => { $('video', ov).pause(); ov.close(); };
+}
 async function mediaMenu(el) {
   const ro = ed.contentEditable !== 'true';
   const cur = el.classList.contains('sz-s') ? 0 : el.classList.contains('sz-m') ? 1 : 2;
   const items = [{ t: 'Tampilan Kecil', chk: cur === 0 }, { t: 'Tampilan Sedang', chk: cur === 1 }, { t: 'Tampilan Besar', chk: cur === 2 }];
   const isPic = el.tagName === 'IMG' || el.classList.contains('pic');
-  if (isPic) items.push({ t: 'Lihat Penuh' });
+  items.push({ t: isPic ? 'Lihat Penuh' : 'Putar Layar Penuh' });
   if (!ro) items.push({ t: isPic ? 'Hapus Foto' : 'Hapus Video', des: 1 });
   const i = await sheet({ title: isPic ? 'Foto' : 'Video', items: items.map((x, k) => ({ ...x, t: (x.chk ? '✓ ' : '') + x.t })) });
   if (i < 0) return;
   const label = items[i].t;
-  if (i <= 2) { if (ro) return toast('Pulihkan catatan dulu untuk mengubah'); el.classList.remove('sz-s', 'sz-m'); if (i === 0) el.classList.add('sz-s'); if (i === 1) el.classList.add('sz-m'); onEdit(); return; }
+  if (i <= 2) { if (ro) return toast('Pulihkan catatan dulu untuk mengubah'); el.classList.remove('sz-s', 'sz-m'); if (i === 0) el.classList.add('sz-s'); if (i === 1) el.classList.add('sz-m'); if (el.classList.contains('vid')) syncVideo(el); onEdit(); return; }
+  if (label === 'Putar Layar Penuh') return playFull(el);
   if (label === 'Lihat Penuh') {
     const ov = overlay(`<img src="${(el.tagName === 'IMG' ? el : $('img', el)).getAttribute('src')}" style="margin:auto;max-width:100%;max-height:100%;object-fit:contain">`);
     ov.style.background = '#000'; ov.addEventListener('click', () => ov.close()); return;
@@ -1057,6 +1079,7 @@ ed.addEventListener('click', (e) => {
   const img = e.target.closest('img');
   if (img && ed.contains(img)) { e.preventDefault(); return mediaMenu(img.closest('figure.pic') || img); }
   if (e.target.closest('.msz')) { e.preventDefault(); return mediaMenu(e.target.closest('figure')); }
+  const sv = e.target.closest('figure.vid.sz-s'); if (sv) { e.preventDefault(); return playFull(sv); }
 });
 ed.addEventListener('contextmenu', (e) => {
   const v = e.target.closest('figure.vid'); if (v) { e.preventDefault(); mediaMenu(v); }
