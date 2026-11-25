@@ -112,7 +112,9 @@ svg{display:block}
 .ndate{text-align:center;font-size:13px;color:var(--sec);margin:4px 0 6px}
 #ed{outline:none;padding:0 20px 40px;min-height:60vh;font-size:17px;line-height:1.38;caret-color:var(--tint);word-wrap:break-word;overflow-wrap:anywhere}
 #ed:empty::before{content:"Mulai menulis…";color:var(--ter)}
-#ed>:first-child:not(ul):not(ol),#ed h1{font-size:28px;font-weight:700;line-height:1.2;margin:0 0 2px}
+#ed h1{font-size:28px;font-weight:700;line-height:1.2;margin:0 0 2px}
+#ed h1+h1,#ed h2+h1{margin-top:4px}
+.fstyles button.on{background:var(--tint);color:#fff}
 #ed h2{font-size:22px;font-weight:700;margin:6px 0 2px}
 #ed h3{font-size:19px;font-weight:600;margin:4px 0 2px}
 #ed pre{font:15px/1.4 ui-monospace,Menlo,"Roboto Mono",monospace;white-space:pre-wrap;margin:2px 0}
@@ -559,7 +561,7 @@ function newNote() {
   if (S.folder === 'trash') S.folder = 'notes';
   if (S.stack[S.stack.length - 1] === 'folders' && !wide()) push('list');
   openNote(n.id);
-  ed.innerHTML = '<div><br></div>';
+  ed.innerHTML = '<h1><br></h1>';
   setTimeout(() => { ed.focus(); placeCaretEnd(); }, wide() ? 0 : 380);
   renderList(); renderFolders();
 }
@@ -573,7 +575,7 @@ function openNote(id, quiet) {
   const ro = !!n.deletedAt;
   $('#pNote').classList.toggle('ro', ro); $('#pNote').classList.remove('none');
   ed.contentEditable = ro ? 'false' : 'true';
-  ed.innerHTML = n.html; hydrate();
+  ed.innerHTML = n.html; normalizeBlocks(!n.v2); hydrate();
   $('#nDate').textContent = longDate(n.updatedAt);
   $('#nTitleS').textContent = n.title || '';
   $('#sNote').scrollTop = 0; $('#pNote .nav').classList.remove('solid');
@@ -618,7 +620,7 @@ function thumbOf(img) {
 }
 function onEdit() {
   const n = S.notes[S.note]; if (!n || n.deletedAt) return;
-  n.html = serialize(); n.updatedAt = Date.now(); derive(n);
+  n.html = serialize(); n.v2 = true; n.updatedAt = Date.now(); derive(n);
   $('#nDate').textContent = longDate(n.updatedAt); $('#nTitleS').textContent = n.title;
   clearTimeout(saveT); saveT = setTimeout(flushSave, 400);
 }
@@ -629,12 +631,86 @@ function flushSave() {
   if (wide()) { renderList(); renderSearchAll(); }
   renderFolders();
 }
-ed.addEventListener('beforeinput', () => {
-  // pastikan baris pertama selalu berupa blok, supaya otomatis jadi Judul
-  if (!ed.firstElementChild || ed.firstChild.nodeType === 3) {
-    const txt = ed.textContent; ed.innerHTML = '<div>' + (txt ? esc(txt) : '<br>') + '</div>';
-    const r = document.createRange(); r.selectNodeContents(ed.firstChild); r.collapse(false);
-    getSelection().removeAllRanges(); getSelection().addRange(r);
+/* ---- blok teks: baris pertama Judul, Enter kembali ke teks biasa (seperti iPhone) ---- */
+const BLOCKS = ['DIV', 'P', 'H1', 'H2', 'H3', 'PRE'];
+function caretTo(node, atEnd) { const r = document.createRange(); r.selectNodeContents(node); r.collapse(!atEnd); const s = getSelection(); s.removeAllRanges(); s.addRange(r); saveSel(); }
+function topBlock(node) { while (node && node.parentNode !== ed) node = node.parentNode; return node && node !== ed ? node : null; }
+function normalizeBlocks(legacy) {
+  // teks lepas -> blok
+  for (const n of [...ed.childNodes]) {
+    if (n.nodeType === 3 && n.textContent.trim()) { const d = document.createElement('div'); n.replaceWith(d); d.appendChild(n); }
+    else if (n.nodeType === 3) n.remove();
+  }
+  // baris yang dipisah <br> di dalam satu blok -> blok terpisah
+  for (const b of [...ed.children]) {
+    if (!BLOCKS.includes(b.tagName) || b.tagName === 'PRE') continue;
+    const brs = [...b.childNodes].filter((x) => x.nodeName === 'BR');
+    if (!brs.length || (brs.length === 1 && b.lastChild === brs[0])) continue;
+    let cur = document.createElement(b.tagName), first = true; const out = [];
+    for (const x of [...b.childNodes]) {
+      if (x.nodeName === 'BR') { if (!cur.childNodes.length) cur.appendChild(document.createElement('br')); out.push(cur); cur = document.createElement(first ? 'div' : 'div'); first = false; }
+      else cur.appendChild(x);
+    }
+    if (cur.childNodes.length) out.push(cur);
+    b.replaceWith(...out);
+  }
+  if (!ed.firstChild) ed.innerHTML = '<h1><br></h1>';
+  // catatan lama: baris pertama dulu otomatis bergaya Judul -> jadikan Judul sungguhan
+  if (legacy && ed.firstElementChild && ed.firstElementChild.tagName === 'DIV') {
+    const h = document.createElement('h1'); h.append(...ed.firstElementChild.childNodes); ed.firstElementChild.replaceWith(h);
+  }
+}
+function setBlock(tag) {
+  restoreSel();
+  const sel = getSelection(); if (!sel.rangeCount) return;
+  const r = sel.getRangeAt(0);
+  let a = topBlock(r.startContainer), z = topBlock(r.endContainer);
+  if (!a) { normalizeBlocks(); a = z = ed.firstElementChild; }
+  if (a.closest('ul,ol') || a.tagName === 'UL' || a.tagName === 'OL' || a.tagName === 'FIGURE') { document.execCommand('formatBlock', false, tag); onEdit(); return; }
+  const list = []; for (let n = a; n; n = n.nextElementSibling) { list.push(n); if (n === z) break; }
+  const off = r.startOffset, sc = r.startContainer;
+  let last = null;
+  for (const b of list) {
+    if (!BLOCKS.includes(b.tagName) || b.tagName === tag.toUpperCase()) { last = b; continue; }
+    const nb = document.createElement(tag); nb.append(...b.childNodes); if (!nb.childNodes.length) nb.appendChild(document.createElement('br'));
+    b.replaceWith(nb); last = nb;
+  }
+  try { const rr = document.createRange(); rr.setStart(sc, Math.min(off, sc.nodeType === 3 ? sc.length : sc.childNodes.length)); rr.collapse(true); sel.removeAllRanges(); sel.addRange(rr); saveSel(); }
+  catch { if (last) caretTo(last, true); }
+  onEdit(); updateFmtState();
+}
+function splitBlock() {
+  const sel = getSelection(); if (!sel.rangeCount) return false;
+  const r = sel.getRangeAt(0);
+  const blk = topBlock(r.startContainer);
+  if (!blk || !BLOCKS.includes(blk.tagName) || blk.tagName === 'PRE') return false;
+  if (!r.collapsed) r.deleteContents();
+  const tail = document.createRange(); tail.setStart(r.startContainer, r.startOffset); tail.setEnd(blk, blk.childNodes.length);
+  const frag = tail.extractContents();
+  // judul/heading -> baris berikutnya teks biasa; teks biasa tetap teks biasa
+  const nb = document.createElement(['H1', 'H2', 'H3'].includes(blk.tagName) ? 'div' : blk.tagName.toLowerCase());
+  nb.appendChild(frag);
+  const empty = (el) => !el.textContent.length && !el.querySelector('img,br,figure');
+  if (empty(nb) || !nb.textContent.length && !nb.querySelector('img,figure')) { nb.innerHTML = '<br>'; }
+  if (empty(blk) || (!blk.textContent.length && !blk.querySelector('img,figure'))) blk.innerHTML = '<br>';
+  blk.after(nb);
+  caretTo(nb, false);
+  nb.scrollIntoView({ block: 'nearest' });
+  return true;
+}
+ed.addEventListener('beforeinput', (e) => {
+  if (!ed.firstElementChild || [...ed.childNodes].some((n) => n.nodeType === 3 && n.textContent.trim())) {
+    const had = ed.textContent; normalizeBlocks();
+    if (!had) caretTo(ed.firstElementChild, true);
+  }
+  if ((e.inputType === 'insertParagraph' || e.inputType === 'insertLineBreak') && !selNode()?.closest?.('li,pre')) {
+    if (splitBlock()) { e.preventDefault(); onEdit(); }
+  }
+});
+ed.addEventListener('keydown', (e) => {
+  // cadangan untuk keyboard fisik/browser yang tidak mengirim beforeinput
+  if (e.key === 'Enter' && !e.shiftKey && !e.isComposing && !selNode()?.closest?.('li,pre') && e.defaultPrevented === false && !('onbeforeinput' in ed)) {
+    if (splitBlock()) { e.preventDefault(); onEdit(); }
   }
 });
 ed.addEventListener('input', (e) => {
@@ -705,12 +781,16 @@ $('#bCheck').onclick = toggleChecklist;
 $('#bFmt').onclick = () => { $('#fmt').classList.contains('show') ? hideFmt() : ($('#fmt').classList.add('show'), updateFmtState()); };
 $('#bFmtX').onclick = hideFmt;
 function hideFmt() { $('#fmt').classList.remove('show'); }
-$$('#fmt [data-blk]').forEach((b) => b.onclick = () => { restoreSel(); document.execCommand('formatBlock', false, b.dataset.blk); onEdit(); });
+$$('#fmt [data-blk]').forEach((b) => b.onclick = () => setBlock(b.dataset.blk));
 $$('#fmt [data-cmd]').forEach((b) => b.onclick = () => { restoreSel(); document.execCommand(b.dataset.cmd); onEdit(); updateFmtState(); });
 function updateFmtState() {
   if (!$('#fmt').classList.contains('show')) return;
+  const blk = topBlock(selNode()), tag = blk ? blk.tagName.toLowerCase() : 'div';
+  $$('#fmt [data-blk]').forEach((b) => b.classList.toggle('on', b.dataset.blk === (tag === 'p' ? 'div' : tag)));
+  const inHead = /^h[123]$/.test(tag);
   for (const c of ['bold', 'italic', 'underline', 'strikeThrough']) {
     let on = false; try { on = document.queryCommandState(c); } catch {}
+    if (c === 'bold' && inHead) on = !!selNode()?.closest?.('b,strong');
     $(`#fmt [data-cmd="${c}"]`).classList.toggle('on', on);
   }
 }
