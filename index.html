@@ -161,7 +161,7 @@ svg{display:block}
 #ed figure.vid{position:relative}
 #ed .msz::after{content:'⤢'}
 #ed .msz{position:absolute;top:8px;right:8px;width:30px;height:30px;border-radius:50%;background:rgba(0,0,0,.55);color:#fff;display:flex;align-items:center;justify-content:center;font-size:16px;line-height:1;z-index:1}
-#ed a{color:var(--tint)}
+#ed a{color:var(--tint);text-decoration:underline;text-decoration-thickness:1px;text-underline-offset:2px;cursor:pointer;word-break:break-all}
 .ro #ed{user-select:text}
 .banner{display:none;margin:4px 16px 10px;padding:12px 14px;border-radius:12px;background:var(--fill);font-size:15px;color:var(--sec);align-items:center;gap:10px}
 .ro .banner{display:flex}.banner span{flex:1}
@@ -338,7 +338,7 @@ svg{display:block}
 <script>
 {
 /* ================= penyimpanan di perangkat (IndexedDB) ================= */
-const APP_VERSION = 'v19';
+const APP_VERSION = 'v20';
 const ERRLOG = [];
 addEventListener('error', (e) => ERRLOG.push(new Date().toTimeString().slice(0, 8) + ' ' + (e.message || e.type)));
 addEventListener('unhandledrejection', (e) => ERRLOG.push(new Date().toTimeString().slice(0, 8) + ' ' + ((e.reason && (e.reason.name + ': ' + e.reason.message)) || e.reason)));
@@ -687,7 +687,7 @@ function openNote(id, quiet) {
   $('#pNote').classList.toggle('ro', ro); $('#pNote').classList.remove('none');
   applyNoteLook(n); closeFind();
   ed.contentEditable = ro ? 'false' : 'true';
-  ed.innerHTML = n.html; normalizeBlocks(!n.v2); hydrate(); savedRange = null;
+  ed.innerHTML = n.html; normalizeBlocks(!n.v2); linkify(); hydrate(); savedRange = null;
   $('#nDate').textContent = longDate(n.updatedAt);
   $('#nTitleS').textContent = n.title || '';
   $('#sNote').scrollTop = 0; $('#pNote .nav').classList.remove('solid');
@@ -882,7 +882,43 @@ ed.addEventListener('keydown', (e) => {
     if (splitBlock()) { e.preventDefault(); onEdit(); }
   }
 });
+/* ---- tautan otomatis: web, email, nomor HP ---- */
+const LINK_RE = /((?:https?:\/\/|www\.)[^\s<>"']+|[\w.+-]+@[\w-]+\.[\w.-]+|(?:\+62|\b08)\d[\d\s-]{7,13}\d\b|\b[a-z0-9-]+\.(?:com|id|co\.id|ac\.id|go\.id|net|org|io|me|app|ly|gl)(?:\/[^\s<>"']*)?)/gi;
+function hrefFor(t) {
+  if (/@/.test(t) && !/^https?:/i.test(t)) return 'mailto:' + t;
+  if (/^(\+62|08)/.test(t)) return 'tel:' + t.replace(/[\s-]/g, '');
+  return /^https?:/i.test(t) ? t : 'https://' + t;
+}
+function linkify() {
+  const sel = getSelection(), caretNode = sel.rangeCount ? sel.getRangeAt(0).startContainer : null;
+  const w = document.createTreeWalker(ed, NodeFilter.SHOW_TEXT, { acceptNode: (t) => t.parentElement.closest('a,pre,figure') || t === caretNode ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_ACCEPT });
+  const nodes = []; let t; while ((t = w.nextNode())) if (LINK_RE.test(t.data)) nodes.push(t);
+  let changed = false;
+  for (const node of nodes) {
+    LINK_RE.lastIndex = 0;
+    const frag = document.createDocumentFragment(); let last = 0, m;
+    while ((m = LINK_RE.exec(node.data))) {
+      let txt = m[0].replace(/[.,;:!?)\]]+$/, '');   // tanda baca di akhir bukan bagian tautan
+      if (!txt) continue;
+      frag.append(node.data.slice(last, m.index));
+      const a = document.createElement('a'); a.href = hrefFor(txt); a.textContent = txt; frag.append(a);
+      last = m.index + txt.length; LINK_RE.lastIndex = last;
+    }
+    if (last) { frag.append(node.data.slice(last)); node.replaceWith(frag); changed = true; }
+  }
+  LINK_RE.lastIndex = 0;
+  return changed;
+}
+let linkT = null;
+// ketuk tautan -> langsung terbuka
+ed.addEventListener('click', (e) => {
+  const a = e.target.closest('a[href]'); if (!a || !ed.contains(a)) return;
+  e.preventDefault(); e.stopPropagation();
+  const href = a.getAttribute('href');
+  if (/^(tel|mailto):/.test(href)) location.href = href; else window.open(href, '_blank', 'noopener');
+}, true);
 ed.addEventListener('input', (e) => {
+  clearTimeout(linkT); linkT = setTimeout(() => { if (!e.isComposing && linkify()) onEdit(); }, 900);
   if (e.inputType === 'insertParagraph') {
     const li = selNode()?.closest?.('li');
     if (li && li.classList.contains('done') && !li.textContent.trim()) li.classList.remove('done');
@@ -909,6 +945,7 @@ ed.addEventListener('paste', (e) => {
 
 // keyboard: tombol Selesai & toolbar di atas keyboard
 ed.addEventListener('focus', () => { $('#bDone').style.display = ''; $('#bCopy').style.display = 'none'; });
+ed.addEventListener('blur', () => { if (linkify()) onEdit(); });
 ed.addEventListener('blur', () => setTimeout(() => { if (document.activeElement !== ed) { $('#bDone').style.display = 'none'; $('#bCopy').style.display = $('#bNoteMore').style.display = ''; } }, 50));
 $('#bDone').onclick = () => { ed.blur(); hideFmt(); flushSave(); };
 if (window.visualViewport) {
