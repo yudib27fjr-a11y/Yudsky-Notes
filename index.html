@@ -1506,6 +1506,8 @@ async function convertAppleNote(src, recMap) {
   await cleanAppleNode(doc.body, box, pics);
   // bungkus luar tunggal -> buka
   while (box.children.length === 1 && box.firstElementChild.tagName === 'DIV' && box.firstElementChild.querySelector('div,h1,h2,ul,ol,table')) box.firstElementChild.replaceWith(...box.firstElementChild.childNodes);
+  // <div><h1>..</h1></div>, <div><ul>..</ul></div> dari Apple -> buka pembungkusnya
+  for (const dv of [...box.children]) if (dv.tagName === 'DIV' && dv.children.length === 1 && /^(H1|H2|H3|UL|OL|TABLE|PRE|DIV)$/.test(dv.firstElementChild.tagName) && !dv.textContent.replace(dv.firstElementChild.textContent, '').trim()) dv.replaceWith(dv.firstElementChild);
   // baris dengan huruf besar -> Judul/Heading
   for (const sp of [...box.querySelectorAll('span[data-h]')]) {
     const blk = sp.closest('div'); const tag = sp.dataset.h;
