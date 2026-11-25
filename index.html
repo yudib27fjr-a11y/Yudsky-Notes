@@ -164,8 +164,9 @@ svg{display:block}
 #ed ul.cl li::before{content:"";position:absolute;left:0;top:2px;width:22px;height:22px;border-radius:50%;border:1.5px solid var(--ter);box-sizing:border-box}
 #ed ul.cl li.done::before{background:var(--tint) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M6 12.5l4 4 8-9' fill='none' stroke='white' stroke-width='2.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center/16px no-repeat;border-color:var(--tint)}
 #ed ul.cl li.done{color:var(--sec)}
-#ed img{max-width:100%;border-radius:10px;display:block;margin:6px 0}
-#ed figure.att{margin:8px 0;user-select:none;-webkit-user-select:none}
+#ed img{max-width:calc(100% - 36px);border-radius:10px;display:block;margin:12px 0}
+#ed figure.att{margin:12px 0;user-select:none;-webkit-user-select:none}
+#ed figure.att.pic:not(.sz-s):not(.sz-m),#ed figure.att.vid:not(.sz-s):not(.sz-m){width:calc(100% - 36px)}   /* celah kanan untuk diketuk */
 #ed figure.vid video{display:block;width:100%;max-height:60vh;border-radius:12px;background:#000}
 #ed figure.file{display:flex;align-items:center;gap:12px;padding:10px 12px;border-radius:12px;background:var(--fill);cursor:pointer;max-width:420px}
 #ed figure.file:active{opacity:.7}
@@ -186,12 +187,12 @@ svg{display:block}
 #ed td,#ed th{border:1px solid var(--sep);padding:7px 9px;min-width:84px;vertical-align:top;text-align:left}
 #ed .tblw.act td,#ed .tblw.act th{border-color:var(--ter)}
 #ed td.cur{background:color-mix(in srgb,var(--tint) 14%,transparent)}
-#ed figure.pic img{display:block;width:100%;margin:0;border-radius:10px;min-height:40px;background:var(--fill)}
+#ed figure.pic img{display:block;width:100%;max-width:100%;margin:0;border-radius:10px;min-height:40px;background:var(--fill)}
 /* ukuran: Kecil = berjajar ke samping (seperti iPhone), Sedang = 2 per baris, Besar = selebar layar */
-#ed img.sz-s,#ed figure.att.sz-s{display:inline-block;vertical-align:top;width:auto;height:112px;margin:3px 6px 3px 0;border-radius:10px;overflow:hidden}
+#ed img.sz-s,#ed figure.att.sz-s{display:inline-block;vertical-align:top;width:auto;height:112px;margin:8px 14px 8px 0;border-radius:10px;overflow:hidden}
 #ed figure.att.sz-s img,#ed figure.att.sz-s video{height:112px;width:auto;max-width:none;min-width:70px;object-fit:cover;border-radius:10px}
 #ed img.sz-s{object-fit:cover;max-width:none}
-#ed img.sz-m,#ed figure.att.sz-m{display:inline-block;vertical-align:top;width:calc(50% - 6px);margin:3px 6px 3px 0}
+#ed img.sz-m,#ed figure.att.sz-m{display:inline-block;vertical-align:top;width:calc(50% - 22px);margin:10px 18px 10px 0}
 #ed figure.att.sz-m img,#ed figure.att.sz-m video{width:100%;max-height:40vh;object-fit:cover}
 #ed figure.vid.sz-s::after{content:"";position:absolute;left:50%;top:50%;width:34px;height:34px;margin:-17px 0 0 -17px;border-radius:50%;background:rgba(0,0,0,.5) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M9 7l9 5-9 5z' fill='white'/%3E%3C/svg%3E") center/20px no-repeat;pointer-events:none}
 #ed figure.vid.sz-s .msz{top:4px;right:4px;width:24px;height:24px;font-size:13px}
@@ -231,7 +232,7 @@ svg{display:block}
 #ed img{cursor:pointer}
 #ed figure.vid{position:relative}
 #ed .msz::after{content:'⤢'}
-#ed .msz{position:absolute;top:8px;right:8px;width:30px;height:30px;border-radius:50%;background:rgba(0,0,0,.55);color:#fff;display:flex;align-items:center;justify-content:center;font-size:16px;line-height:1;z-index:1}
+#ed .msz{position:absolute;top:6px;right:6px;width:28px;height:28px;border-radius:50%;background:rgba(0,0,0,.45);color:#fff;display:flex;align-items:center;justify-content:center;font-size:16px;line-height:1;z-index:1}
 #ed a{color:var(--tint);text-decoration:underline;text-decoration-thickness:1px;text-underline-offset:2px;cursor:pointer;word-break:break-all}
 .ro #ed{user-select:text}
 .banner{display:none;margin:4px 16px 10px;padding:12px 14px;border-radius:12px;background:var(--fill);font-size:15px;color:var(--sec);align-items:center;gap:10px}
@@ -438,7 +439,7 @@ svg{display:block}
 <script>
 {
 /* ================= penyimpanan di perangkat (IndexedDB) ================= */
-const APP_VERSION = 'v28';
+const APP_VERSION = 'v29';
 const ERRLOG = [];
 addEventListener('error', (e) => ERRLOG.push(new Date().toTimeString().slice(0, 8) + ' ' + (e.message || e.type)));
 addEventListener('unhandledrejection', (e) => ERRLOG.push(new Date().toTimeString().slice(0, 8) + ' ' + ((e.reason && (e.reason.name + ': ' + e.reason.message)) || e.reason)));
