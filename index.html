@@ -338,7 +338,7 @@ svg{display:block}
 <script>
 {
 /* ================= penyimpanan di perangkat (IndexedDB) ================= */
-const APP_VERSION = 'v16';
+const APP_VERSION = 'v17';
 const ERRLOG = [];
 addEventListener('error', (e) => ERRLOG.push(new Date().toTimeString().slice(0, 8) + ' ' + (e.message || e.type)));
 addEventListener('unhandledrejection', (e) => ERRLOG.push(new Date().toTimeString().slice(0, 8) + ' ' + ((e.reason && (e.reason.name + ': ' + e.reason.message)) || e.reason)));
@@ -826,7 +826,48 @@ function splitBlock() {
   nb.scrollIntoView({ block: 'nearest' });
   return true;
 }
+// tombol hapus: satu ketukan = satu lampiran (foto/video/file), tidak pernah sekaligus banyak
+const isMedia = (el) => el && (el.matches('figure.att') || el.tagName === 'IMG');
+function caretAtBlockStart() {
+  const sel = getSelection(); if (!sel.rangeCount || !sel.isCollapsed) return null;
+  const r = sel.getRangeAt(0), blk = topBlock(r.startContainer); if (!blk) return null;
+  const pre = document.createRange(); pre.selectNodeContents(blk); pre.setEnd(r.startContainer, r.startOffset);
+  return pre.toString().length === 0 && !pre.cloneContents().querySelector('img,figure') ? blk : null;
+}
+function caretAtBlockEnd() {
+  const sel = getSelection(); if (!sel.rangeCount || !sel.isCollapsed) return null;
+  const r = sel.getRangeAt(0), blk = topBlock(r.startContainer); if (!blk) return null;
+  const post = document.createRange(); post.selectNodeContents(blk); post.setStart(r.startContainer, r.startOffset);
+  return post.toString().length === 0 && !post.cloneContents().querySelector('img,figure') ? blk : null;
+}
+function removeOne(el) {
+  el.style.transition = 'opacity .15s'; el.style.opacity = '0';
+  setTimeout(() => { el.remove(); onEdit(); }, 120);
+}
 ed.addEventListener('beforeinput', (e) => {
+  if (e.inputType === 'deleteContentBackward' || e.inputType === 'deleteContentForward') {
+    const sel = getSelection();
+    // seleksi yang mencakup beberapa lampiran (sering terjadi di keyboard Android): hapus satu saja
+    if (sel.rangeCount && !sel.isCollapsed) {
+      const r = sel.getRangeAt(0), frag = r.cloneContents();
+      if (frag.querySelectorAll('figure.att, img').length > 1 && !frag.textContent.trim()) {
+        e.preventDefault();
+        const all = $$('figure.att, #ed > img', ed).filter((x) => r.intersectsNode(x));
+        const one = e.inputType === 'deleteContentBackward' ? all[all.length - 1] : all[0];
+        if (one) removeOne(one); sel.collapseToEnd(); return;
+      }
+    }
+    const back = e.inputType === 'deleteContentBackward';
+    const blk = back ? caretAtBlockStart() : caretAtBlockEnd();
+    if (blk) {
+      const nb = back ? blk.previousElementSibling : blk.nextElementSibling;
+      if (isMedia(nb)) { e.preventDefault(); removeOne(nb); return; }
+      if (isMedia(blk)) { e.preventDefault(); removeOne(blk); return; }
+      if (nb && nb.classList.contains('tblw') && back) {   // jangan hapus tabel; pindah ke sel terakhir
+        e.preventDefault(); const cells = $$('td,th', nb); if (cells.length) caretTo(cells[cells.length - 1], true); return;
+      }
+    }
+  }
   if (!ed.firstElementChild || [...ed.childNodes].some((n) => n.nodeType === 3 && n.textContent.trim())) {
     const had = ed.textContent; normalizeBlocks();
     if (!had) caretTo(ed.firstElementChild, true);
