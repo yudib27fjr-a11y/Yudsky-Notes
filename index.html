@@ -219,6 +219,11 @@ svg{display:block}
 .lockscr .fp svg{width:40px;height:40px}
 .lockscr .pinb{color:var(--tint);font-size:17px;padding:10px}
 .nb.hist{min-width:38px;padding:0 4px}.nb.hist:disabled{opacity:.3}
+.dropline{position:fixed;z-index:58;background:var(--tint);border-radius:3px;pointer-events:none;box-shadow:0 0 0 3px color-mix(in srgb,var(--tint) 30%,transparent);transition:top .08s,left .08s}
+.dragghost{position:fixed;z-index:59;pointer-events:none;opacity:.85;transform:scale(1.04) rotate(-1.5deg);box-shadow:0 12px 30px rgba(0,0,0,.45);border-radius:12px;overflow:hidden}
+.dragghost img,.dragghost video{display:block;width:100%;height:100%;object-fit:cover}
+#ed figure.att.lifting{opacity:.35;transition:opacity .15s}
+#ed figure img,#ed figure video,#ed img{-webkit-touch-callout:none;-webkit-user-drag:none}
 .viewer{position:fixed;inset:0;z-index:60;background:#000;display:flex;flex-direction:column;opacity:0;transition:opacity .2s}
 .viewer.show{opacity:1}
 .vtrack{flex:1;display:flex;overflow-x:auto;scroll-snap-type:x mandatory;scrollbar-width:none}
@@ -439,7 +444,7 @@ svg{display:block}
 <script>
 {
 /* ================= penyimpanan di perangkat (IndexedDB) ================= */
-const APP_VERSION = 'v29';
+const APP_VERSION = 'v30';
 const ERRLOG = [];
 addEventListener('error', (e) => ERRLOG.push(new Date().toTimeString().slice(0, 8) + ' ' + (e.message || e.type)));
 addEventListener('unhandledrejection', (e) => ERRLOG.push(new Date().toTimeString().slice(0, 8) + ' ' + ((e.reason && (e.reason.name + ': ' + e.reason.message)) || e.reason)));
@@ -1483,8 +1488,94 @@ ed.addEventListener('click', (e) => {
   const sv = e.target.closest('figure.vid.sz-s'); if (sv) { e.preventDefault(); return playFull(sv); }
 });
 ed.addEventListener('contextmenu', (e) => {
-  const v = e.target.closest('figure.vid, figure.pic') || (e.target.tagName === 'IMG' && ed.contains(e.target) ? e.target : null); if (v) { e.preventDefault(); mediaMenu(v); }
+  const v = e.target.closest('figure.att') || (e.target.tagName === 'IMG' && ed.contains(e.target) ? e.target : null);
+  if (!v) return; e.preventDefault();
+  if (!drag.touch && v.matches('figure.vid, figure.pic, img')) mediaMenu(v);   // klik kanan mouse
 });
+/* ---- seret foto/video/file: tekan lama lalu geser ---- */
+const drag = { touch: false, el: null, timer: null, x0: 0, y0: 0, ghost: null, line: null, target: null, moved: false, scrollT: null };
+const dragItem = (t) => { const el = t.closest && (t.closest('figure.att') || (t.tagName === 'IMG' && t.parentElement === ed ? t : null)); return el && ed.contains(el) ? el : null; };
+ed.addEventListener('touchstart', (e) => {
+  if (e.touches.length !== 1 || ed.contentEditable !== 'true' || e.target.closest('.msz')) return;
+  const el = dragItem(e.target); if (!el) return;
+  drag.touch = true; drag.el = el; drag.moved = false; drag.x0 = e.touches[0].clientX; drag.y0 = e.touches[0].clientY;
+  clearTimeout(drag.timer);
+  drag.timer = setTimeout(() => startDrag(drag.x0, drag.y0), 380);
+}, { passive: true });
+function startDrag(x, y) {
+  const el = drag.el; if (!el) return;
+  navigator.vibrate?.(15);
+  const b = el.getBoundingClientRect();
+  const g = document.createElement('div'); g.className = 'dragghost';
+  const media = el.tagName === 'IMG' ? el : $('img,video', el);
+  g.innerHTML = media ? `<img src="${media.tagName === 'VIDEO' ? '' : media.getAttribute('src')}">` : el.outerHTML;
+  const w = Math.min(b.width, 180), h = Math.min(b.height, 180) || 60;
+  g.style.cssText += `width:${w}px;height:${h}px`; g.dataset.w = w; g.dataset.h = h;
+  if (media && media.tagName === 'VIDEO') g.style.background = '#000';
+  document.body.appendChild(g); drag.ghost = g;
+  const ln = document.createElement('div'); ln.className = 'dropline'; document.body.appendChild(ln); drag.line = ln;
+  el.classList.add('lifting');
+  moveDrag(x, y);
+}
+function dropTargetAt(x, y) {
+  // anak langsung editor yang paling dekat dengan titik jari (selain yang diseret)
+  const kids = [...ed.children].filter((k) => k !== drag.el);
+  let best = null, bd = 1e9;
+  for (const k of kids) {
+    const b = k.getBoundingClientRect();
+    const dy = y < b.top ? b.top - y : y > b.bottom ? y - b.bottom : 0;
+    const inl = k.matches('.sz-s, .sz-m');
+    const dx = inl ? (x < b.left ? b.left - x : x > b.right ? x - b.right : 0) : 0;
+    const d = dy * 3 + dx;
+    if (d < bd) { bd = d; best = k; }
+  }
+  if (!best) return null;
+  const b = best.getBoundingClientRect();
+  const inline = best.matches('.sz-s, .sz-m') && drag.el.matches('.sz-s, .sz-m');
+  const before = inline ? x < b.left + b.width / 2 : y < b.top + b.height / 2;
+  return { ref: best, before, inline, b };
+}
+function moveDrag(x, y) {
+  const g = drag.ghost; if (!g) return;
+  g.style.left = (x - g.dataset.w / 2) + 'px'; g.style.top = (y - g.dataset.h / 2) + 'px';
+  const t = dropTargetAt(x, y); drag.target = t; const ln = drag.line;
+  if (!t) { ln.style.display = 'none'; return; }
+  ln.style.display = '';
+  if (t.inline) { Object.assign(ln.style, { left: (t.before ? t.b.left - 8 : t.b.right + 5) + 'px', top: t.b.top + 'px', width: '3px', height: t.b.height + 'px' }); }
+  else { const ex = ed.getBoundingClientRect(); Object.assign(ln.style, { left: (ex.left + 16) + 'px', top: (t.before ? t.b.top - 6 : t.b.bottom + 4) + 'px', width: (ex.width - 32) + 'px', height: '3px' }); }
+  // gulir otomatis di dekat tepi atas/bawah
+  const sc = $('#sNote'), sb = sc.getBoundingClientRect();
+  clearInterval(drag.scrollT);
+  const sp = y < sb.top + 110 ? -12 : y > sb.bottom - 150 ? 12 : 0;
+  if (sp) drag.scrollT = setInterval(() => { sc.scrollTop += sp; moveDrag(x, y); }, 30);
+}
+ed.addEventListener('touchmove', (e) => {
+  if (!drag.el) return;
+  const t = e.touches[0];
+  if (!drag.ghost) { if (Math.hypot(t.clientX - drag.x0, t.clientY - drag.y0) > 10) { clearTimeout(drag.timer); drag.el = null; } return; }
+  e.preventDefault(); drag.moved = true; moveDrag(t.clientX, t.clientY);
+}, { passive: false });
+function endDrag(cancel) {
+  clearTimeout(drag.timer); clearInterval(drag.scrollT);
+  const el = drag.el, t = drag.target, wasDragging = !!drag.ghost;
+  drag.ghost?.remove(); drag.line?.remove(); drag.ghost = drag.line = null; drag.el = null; drag.target = null;
+  if (el) el.classList.remove('lifting');
+  setTimeout(() => { drag.touch = false; }, 400);
+  if (wasDragging) { drag.just = true; setTimeout(() => { drag.just = false; }, 450); }
+  if (!wasDragging || !el) return;
+  if (!drag.moved || cancel || !t) { if (!drag.moved && el.matches('figure.pic, figure.vid, img')) mediaMenu(el); else if (!drag.moved && el.matches('figure.file')) el.click(); return; }
+  const prev = el.previousElementSibling, next = el.nextElementSibling;
+  if (t.before) t.ref.before(el); else t.ref.after(el);
+  // rapikan baris kosong yang tertinggal
+  if (prev && next && prev.tagName === 'DIV' && next.tagName === 'DIV' && !next.textContent.trim() && !next.querySelector('img,figure,table') && !prev.textContent.trim()) next.remove();
+  if (!el.nextElementSibling) { const d = document.createElement('div'); d.innerHTML = '<br>'; el.after(d); }
+  el.animate?.([{ transform: 'scale(.96)', opacity: .5 }, { transform: 'none', opacity: 1 }], { duration: 220, easing: 'ease-out' });
+  onEdit(); toast('Dipindahkan');
+}
+ed.addEventListener('touchend', () => endDrag(false));
+ed.addEventListener('touchcancel', () => endDrag(true));
+// setelah seret, jangan ikut membuka foto
+ed.addEventListener('click', (e) => { if (drag.just && dragItem(e.target)) { e.preventDefault(); e.stopImmediatePropagation(); } }, true);
 
 document.addEventListener('visibilitychange', () => { if (!document.hidden) setTimeout(() => { try { sessionStorage.removeItem('yn-open'); } catch {} }, 3000); });
 // ketuk kartu file untuk membuka
