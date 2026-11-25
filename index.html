@@ -74,6 +74,11 @@ svg{display:block}
 .row+.row::before,.rw+.rw .row::before{content:"";position:absolute;top:0;right:0;left:52px;border-top:.5px solid var(--sep)}
 .rw+.rw .row::before{left:16px}
 .row .fi{color:var(--tint);flex:none}
+.fslot{width:32px;flex:none;display:flex;align-items:center;justify-content:center}
+.fslot .ftxt{max-width:32px;min-width:26px;padding:0 2px}
+.editing .row .ren{display:inline}.editing .row .chev{display:none}
+.editing .row.mv .drag{display:block}
+.row.mv.dragging{transition:none}
 .row .fimg{width:26px;height:26px;border-radius:7px;object-fit:cover;flex:none}
 .ftxt{min-width:26px;height:26px;padding:0 4px;border-radius:7px;background:var(--tint);color:#fff;display:inline-flex;align-items:center;justify-content:center;font-weight:800;letter-spacing:-.02em;line-height:1;flex:none;font-family:-apple-system,"SF Pro Rounded",Inter,Roboto,sans-serif}
 .pk-g .ftxt{min-width:30px;height:30px;font-size:13px}
@@ -451,7 +456,7 @@ svg{display:block}
 <script>
 {
 /* ================= penyimpanan di perangkat (IndexedDB) ================= */
-const APP_VERSION = 'v33';
+const APP_VERSION = 'v34';
 const ERRLOG = [];
 addEventListener('error', (e) => ERRLOG.push(new Date().toTimeString().slice(0, 8) + ' ' + (e.message || e.type)));
 addEventListener('unhandledrejection', (e) => ERRLOG.push(new Date().toTimeString().slice(0, 8) + ' ' + ((e.reason && (e.reason.name + ': ' + e.reason.message)) || e.reason)));
@@ -517,7 +522,7 @@ const live = () => Object.values(S.notes).filter((n) => !n.deletedAt);
 const trashed = () => Object.values(S.notes).filter((n) => n.deletedAt);
 const notesIn = (fid) => fid === 'all' ? live() : fid === 'trash' ? trashed() : live().filter((n) => n.folderId === fid);
 
-async function saveMeta() { await DB.setMeta('folders', S.folders); await DB.setMeta('sort', S.sort); await DB.setMeta('notesName', FIXED.notes); await DB.setMeta('lock', LOCK); await DB.setMeta('notesIcon', notesIcon); await DB.setMeta('theme', THEME); if (!DB.ok) lsSave(); }
+async function saveMeta() { await DB.setMeta('folders', S.folders); await DB.setMeta('sort', S.sort); await DB.setMeta('notesName', FIXED.notes); await DB.setMeta('lock', LOCK); await DB.setMeta('notesIcon', notesIcon); await DB.setMeta('fixIcons', fixIcons); await DB.setMeta('folderOrder', folderOrder); await DB.setMeta('fixNames', { all: FIXED.all, trash: FIXED.trash }); await DB.setMeta('theme', THEME); if (!DB.ok) lsSave(); }
 async function saveNote(n) { if (DB.ok) return DB.putNote(n); return lsSave(); }
 async function dropNote(id) { delete S.notes[id]; if (DB.ok) await DB.delNote(id); else lsSave(); }
 function lsSave() { try { localStorage.setItem('catatan-ios', JSON.stringify({ folders: S.folders, notes: S.notes, sort: S.sort })); return true; } catch { toast('Gagal menyimpan! Tutup semua tab Yudsky Notes lalu buka lagi'); return null; } }
@@ -584,11 +589,14 @@ const FICONS = {
   lock: 'M5 10.5h14v10H5zM8 10.5V7.5a4 4 0 0 1 8 0v3',
   people: 'M9 11a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7zM2.5 20a6.5 6.5 0 0 1 13 0M16 4.3a3.5 3.5 0 0 1 0 6.4M18.5 20a6.5 6.5 0 0 0-2.5-5.1',
   flask: 'M9 3h6M10 3v6L4.5 18.5A1.7 1.7 0 0 0 6 21h12a1.7 1.7 0 0 0 1.5-2.5L14 9V3M7 15h10',
+  trash: 'M4 6.5h16M9.5 6.5V4.5h5v2M6 6.5l1 13a1.5 1.5 0 0 0 1.5 1.4h7a1.5 1.5 0 0 0 1.5-1.4l1-13M10 10.5v7M14 10.5v7',
   clip: 'M20 11.5l-7.6 7.6a5 5 0 0 1-7.1-7.1l8.3-8.3a3.4 3.4 0 0 1 4.8 4.8l-8.3 8.3a1.7 1.7 0 0 1-2.4-2.4l7.6-7.6',
 };
 const FCOLORS = ['', '#FF3B30', '#FF9500', '#FFCC00', '#34C759', '#00C7BE', '#007AFF', '#5856D6', '#AF52DE', '#FF2D55', '#A2845E', '#8E8E93'];
 let notesIcon = null;
-function iconOf(id) { if (id === 'notes') return notesIcon; const f = S.folders.find((x) => x.id === id); return f && f.icon; }
+let fixIcons = {};          // ikon kustom untuk Semua Catatan & Baru Dihapus
+let folderOrder = [];       // urutan folder (termasuk folder utama 'notes')
+function iconOf(id) { if (id === 'notes') return notesIcon; if (id === 'all' || id === 'trash') return fixIcons[id] || null; const f = S.folders.find((x) => x.id === id); return f && f.icon; }
 function txtBadge(t, color) {
   const n = [...t].length, fs = n <= 1 ? 16 : n === 2 ? 13 : n === 3 ? 10.5 : n === 4 ? 8.5 : 7.5;
   return `<span class="ftxt" style="font-size:${fs}px;${color ? 'background:' + esc(color) : ''}">${esc(t)}</span>`;
@@ -602,14 +610,22 @@ function folderIconHTML(ic) {
   const path = FICONS[(ic && ic.sym) || 'folder'] || FICONS.folder;
   return `<svg class="ic fi" viewBox="0 0 24 24" style="${ic && ic.color ? 'color:' + esc(ic.color) : ''}"><path d="${path}"/></svg>`;
 }
+function orderedIds() {
+  const valid = ['notes', ...S.folders.map((f) => f.id)];
+  const out = folderOrder.filter((id) => valid.includes(id));
+  for (const id of valid) if (!out.includes(id)) out.push(id);
+  return out;
+}
 function renderFolders() {
-  const customs = [...S.folders];   // urutan bebas (bisa diseret di mode Edit)
+  const ids = orderedIds();
   const rows = [];
-  const row = (id, name, icon, cls = '') => `<button class="row ${cls} ${S.folder === id && wide() ? 'sel' : ''}" data-f="${esc(id)}"><span class="minus">−</span>${icon}<span class="nm">${esc(name)}</span><span class="ct">${notesIn(id).length}</span><span class="ren">Ubah</span>${I.chev}<span class="drag" aria-label="Seret">≡</span></button>`;
-  if (customs.length) rows.push(row('all', FIXED.all, I.folder));
-  rows.push(row('notes', FIXED.notes, folderIconHTML(notesIcon)));
-  for (const f of customs) rows.push(row(f.id, f.name, folderIconHTML(f.icon), 'custom'));
-  if (trashed().length) rows.push(row('trash', FIXED.trash, I.trash));
+  const row = (id, name, icon, cls = '') => `<button class="row ${cls} ${S.folder === id && wide() ? 'sel' : ''}" data-f="${esc(id)}"><span class="minus">−</span><span class="fslot">${icon}</span><span class="nm">${esc(name)}</span><span class="ct">${notesIn(id).length}</span><span class="ren">Ubah</span>${I.chev}<span class="drag" aria-label="Seret">≡</span></button>`;
+  if (S.folders.length) rows.push(row('all', FIXED.all, folderIconHTML(fixIcons.all)));
+  for (const id of ids) {
+    if (id === 'notes') rows.push(row('notes', FIXED.notes, folderIconHTML(notesIcon), 'mv'));
+    else { const f = S.folders.find((x) => x.id === id); rows.push(row(f.id, f.name, folderIconHTML(f.icon), 'mv custom')); }
+  }
+  if (trashed().length || S.editFolders) rows.push(row('trash', FIXED.trash, folderIconHTML(fixIcons.trash || { sym: 'trash' })));
   $('#folders').innerHTML = `<div class="sh">Di Ponsel Ini</div><div class="group">${rows.join('')}</div>`;
   $('#pFolders').classList.toggle('editing', S.editFolders);
   $('#bEdit').textContent = S.editFolders ? 'Selesai' : 'Edit';
@@ -793,13 +809,14 @@ $('#folders').addEventListener('click', async (e) => {
   const id = r.dataset.f;
   const f = S.folders.find((x) => x.id === id);
   if (S.editFolders && e.target.closest('.drag')) return;
-  if (S.editFolders && (id === 'notes' || f)) {
+  if (fdrag.just) return;
+  if (S.editFolders) {
     if (f && e.target.closest('.minus')) return deleteFolder(f);
-    const name = id === 'notes' ? FIXED.notes : f.name;
+    const name = folderName(id);
     const i = await sheet({ title: name, items: [{ t: 'Ganti Nama' }, { t: 'Ganti Ikon' }] });
     if (i === 0) {
-      const { btn, value } = await alertBox({ title: 'Ganti Nama Folder', msg: id === 'notes' ? 'Folder utama (tidak bisa dihapus).' : '', input: name, buttons: [{ t: 'Batal' }, { t: 'Simpan', b: 1 }] });
-      if (btn === 1 && value.trim()) { if (id === 'notes') FIXED.notes = value.trim(); else f.name = value.trim(); await saveMeta(); renderAll(); }
+      const { btn, value } = await alertBox({ title: 'Ganti Nama Folder', msg: f ? '' : 'Folder bawaan (tidak bisa dihapus).', input: name, buttons: [{ t: 'Batal' }, { t: 'Simpan', b: 1 }] });
+      if (btn === 1 && value.trim()) { if (f) f.name = value.trim(); else FIXED[id] = value.trim(); await saveMeta(); renderAll(); }
     }
     if (i === 1) iconPicker(id, name);
     return;
@@ -823,37 +840,55 @@ $('#bNewFolder').onclick = async () => {
   S.folders.push(f); await saveMeta(); renderFolders();
 };
 
-// seret ≡ untuk mengatur urutan folder
-{
-  let drag = null;
-  $('#folders').addEventListener('pointerdown', (e) => {
-    const h = e.target.closest('.drag'); if (!h || !S.editFolders) return;
-    e.preventDefault();
-    const row = h.closest('.row'); try { h.setPointerCapture(e.pointerId); } catch {}
-    drag = { row, grab: e.clientY - row.getBoundingClientRect().top };
-    row.classList.add('dragging');
-  });
-  $('#folders').addEventListener('pointermove', (e) => {
-    if (!drag) return;
-    const row = drag.row, want = e.clientY - drag.grab;
-    const place = () => { row.style.transform = ''; const top = row.getBoundingClientRect().top; row.style.transform = `translateY(${want - top}px)`; };
-    place();
-    const mid = want + row.offsetHeight / 2;
-    for (const r of $$('.row.custom', $('#folders'))) {
-      if (r === row) continue;
-      const bx = r.getBoundingClientRect();
-      if (mid > bx.top && mid < bx.bottom) { r.parentNode.insertBefore(row, mid < bx.top + bx.height / 2 ? r : r.nextSibling); place(); break; }
-    }
-  });
-  const end = async () => {
-    if (!drag) return;
-    drag.row.classList.remove('dragging'); drag.row.style.transform = '';
-    const order = $$('.row.custom', $('#folders')).map((r) => r.dataset.f);
-    S.folders.sort((a, b) => order.indexOf(a.id) - order.indexOf(b.id));
-    drag = null; await saveMeta(); renderFolders();
-  };
-  $('#folders').addEventListener('pointerup', end); $('#folders').addEventListener('pointercancel', end);
+// seret folder untuk mengatur urutan: tekan lama lalu geser (atau tarik ≡ di mode Edit)
+const fdrag = { row: null, grab: 0, timer: null, y0: 0, just: false };
+function fdStart(row, y) {
+  fdrag.row = row; fdrag.grab = y - row.getBoundingClientRect().top;
+  row.classList.add('dragging'); navigator.vibrate?.(12);
 }
+function fdMove(y) {
+  const row = fdrag.row; if (!row) return;
+  const want = y - fdrag.grab;
+  const place = () => { row.style.transform = ''; const top = row.getBoundingClientRect().top; row.style.transform = `translateY(${want - top}px)`; };
+  place();
+  const mid = want + row.offsetHeight / 2;
+  for (const r of $$('.row.mv', $('#folders'))) {
+    if (r === row) continue;
+    const bx = r.getBoundingClientRect();
+    if (mid > bx.top && mid < bx.bottom) { r.parentNode.insertBefore(row, mid < bx.top + bx.height / 2 ? r : r.nextSibling); place(); break; }
+  }
+}
+async function fdEnd() {
+  clearTimeout(fdrag.timer);
+  const row = fdrag.row; if (!row) return;
+  row.classList.remove('dragging'); row.style.transform = ''; fdrag.row = null;
+  fdrag.just = true; setTimeout(() => { fdrag.just = false; }, 400);
+  folderOrder = $$('.row.mv', $('#folders')).map((r) => r.dataset.f);
+  S.folders.sort((a, b) => folderOrder.indexOf(a.id) - folderOrder.indexOf(b.id));
+  await saveMeta(); renderFolders();
+}
+// mode Edit: tarik tanda ≡ (mouse/jari)
+$('#folders').addEventListener('pointerdown', (e) => {
+  const h = e.target.closest('.drag'); if (!h || !S.editFolders) return;
+  e.preventDefault(); try { h.setPointerCapture(e.pointerId); } catch {}
+  fdStart(h.closest('.row'), e.clientY);
+});
+$('#folders').addEventListener('pointermove', (e) => { if (fdrag.row && e.pointerType !== 'touch') fdMove(e.clientY); else if (fdrag.row && S.editFolders) fdMove(e.clientY); });
+$('#folders').addEventListener('pointerup', () => { if (fdrag.row && S.editFolders) fdEnd(); });
+// tanpa mode Edit: tekan lama folder lalu geser
+$('#folders').addEventListener('touchstart', (e) => {
+  const row = e.target.closest('.row.mv'); if (!row || S.editFolders || e.touches.length !== 1) return;
+  fdrag.y0 = e.touches[0].clientY; clearTimeout(fdrag.timer);
+  fdrag.timer = setTimeout(() => fdStart(row, fdrag.y0), 420);
+}, { passive: true });
+$('#folders').addEventListener('touchmove', (e) => {
+  if (S.editFolders) { if (fdrag.row) e.preventDefault(); return; }
+  if (!fdrag.row) { if (Math.abs(e.touches[0].clientY - fdrag.y0) > 8) clearTimeout(fdrag.timer); return; }
+  e.preventDefault(); fdMove(e.touches[0].clientY);
+}, { passive: false });
+$('#folders').addEventListener('touchend', () => { clearTimeout(fdrag.timer); if (fdrag.row) fdEnd(); });
+$('#folders').addEventListener('touchcancel', () => { clearTimeout(fdrag.timer); if (fdrag.row) fdEnd(); });
+$('#folders').addEventListener('contextmenu', (e) => { if (e.target.closest('.row')) e.preventDefault(); });
 
 /* ================= catatan: buat, buka, simpan ================= */
 const ed = $('#ed');
@@ -2179,7 +2214,7 @@ function iconPicker(id, name) {
     $$('[data-x]', pk).forEach((b) => { b.classList.toggle('on', cur.txt === b.dataset.x); const sp = $('.ftxt', b); if (sp) sp.style.background = cur.color || ''; });
     $$('[data-c]', pk).forEach((b) => b.classList.toggle('on', (cur.color || '') === b.dataset.c && !cur.img && !cur.emo));
   };
-  const save = async () => { const v = Object.keys(cur).length ? cur : null; if (id === 'notes') notesIcon = v; else { const f = S.folders.find((x) => x.id === id); if (f) f.icon = v; } await saveMeta(); renderFolders(); };
+  const save = async () => { const v = Object.keys(cur).length ? cur : null; if (id === 'all' || id === 'trash') fixIcons[id] = v; else if (id === 'notes') notesIcon = v; else { const f = S.folders.find((x) => x.id === id); if (f) f.icon = v; } await saveMeta(); renderFolders(); };
   pk.onclick = async (e) => {
     const c = e.target.closest('[data-c]'), sy = e.target.closest('[data-s]');
     const tx = e.target.closest('[data-x]');
@@ -2410,7 +2445,7 @@ setTimeout(() => { if (!booted) alertBox({ title: 'Memuat catatan terlalu lama',
     BOOT = 'membaca folder';
     S.folders = Array.isArray(await DB.getMeta('folders')) ? await DB.getMeta('folders') : [];
     S.sort = (await DB.getMeta('sort')) || 'updated';
-    { const nn = await DB.getMeta('notesName'); if (typeof nn === 'string' && nn) FIXED.notes = nn; const lk = await DB.getMeta('lock'); if (lk && typeof lk === 'object') LOCK = { ...LOCK, ...lk }; const ni = await DB.getMeta('notesIcon'); if (ni && typeof ni === 'object') notesIcon = ni; const th = await DB.getMeta('theme'); if (th && typeof th === 'object') THEME = { ...THEME, ...th }; applyTheme(); }
+    { const nn = await DB.getMeta('notesName'); if (typeof nn === 'string' && nn) FIXED.notes = nn; const lk = await DB.getMeta('lock'); if (lk && typeof lk === 'object') LOCK = { ...LOCK, ...lk }; const fi = await DB.getMeta('fixIcons'); if (fi && typeof fi === 'object') fixIcons = fi; const fo = await DB.getMeta('folderOrder'); if (Array.isArray(fo)) folderOrder = fo; const fn = await DB.getMeta('fixNames'); if (fn && fn.all) FIXED.all = fn.all; if (fn && fn.trash) FIXED.trash = fn.trash; const ni = await DB.getMeta('notesIcon'); if (ni && typeof ni === 'object') notesIcon = ni; const th = await DB.getMeta('theme'); if (th && typeof th === 'object') THEME = { ...THEME, ...th }; applyTheme(); }
     BOOT = 'membaca catatan';
     for (const n of (await DB.allNotes()) || []) if (n && n.id) S.notes[n.id] = n;
     BOOT = 'merapikan';
