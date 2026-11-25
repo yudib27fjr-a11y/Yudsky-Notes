@@ -318,7 +318,7 @@ const DB = (() => {
   });
   const tx = (store, mode, fn) => new Promise((res) => {
     if (!db) return res(null);
-    try { const t = db.transaction(store, mode); const out = fn(t.objectStore(store)); t.oncomplete = () => res(out ? out.result : true); t.onerror = () => res(null); }
+    try { const t = mode === 'readwrite' ? db.transaction(store, mode, { durability: 'strict' }) : db.transaction(store, mode); const out = fn(t.objectStore(store)); t.oncomplete = () => res(out ? out.result : true); t.onerror = () => res(null); t.onabort = () => res(null); try { t.commit && t.commit(); } catch {} }
     catch { res(null); }
   });
   return {
@@ -355,9 +355,9 @@ const trashed = () => Object.values(S.notes).filter((n) => n.deletedAt);
 const notesIn = (fid) => fid === 'all' ? live() : fid === 'trash' ? trashed() : live().filter((n) => n.folderId === fid);
 
 async function saveMeta() { await DB.setMeta('folders', S.folders); await DB.setMeta('sort', S.sort); if (!DB.ok) lsSave(); }
-async function saveNote(n) { if (DB.ok) await DB.putNote(n); else lsSave(); }
+async function saveNote(n) { if (DB.ok) return DB.putNote(n); return lsSave(); }
 async function dropNote(id) { delete S.notes[id]; if (DB.ok) await DB.delNote(id); else lsSave(); }
-function lsSave() { try { localStorage.setItem('catatan-ios', JSON.stringify({ folders: S.folders, notes: S.notes, sort: S.sort })); } catch {} }
+function lsSave() { try { localStorage.setItem('catatan-ios', JSON.stringify({ folders: S.folders, notes: S.notes, sort: S.sort })); return true; } catch { toast('Gagal menyimpan! Tutup semua tab Yudsky Notes lalu buka lagi'); return null; } }
 
 /* ================= format tanggal (id-ID) ================= */
 const fTime = new Intl.DateTimeFormat('id-ID', { hour: '2-digit', minute: '2-digit' });
@@ -638,12 +638,24 @@ function onEdit() {
   const n = S.notes[S.note]; if (!n || n.deletedAt) return;
   n.html = serialize(); n.v2 = true; n.updatedAt = Date.now(); derive(n);
   $('#nDate').textContent = longDate(n.updatedAt); $('#nTitleS').textContent = n.title;
-  clearTimeout(saveT); saveT = setTimeout(flushSave, 400);
+  persistNow(n);                                   // simpan langsung, setiap ketikan
+  clearTimeout(saveT); saveT = setTimeout(flushSave, 400);   // daftar diperbarui setelah jeda
+}
+// antrean simpan: tiap ketikan langsung ditulis; bila masih menulis, versi terbaru ditulis segera setelahnya
+const writing = new Set(), pending = new Map();
+async function persistNow(n) {
+  if (!(n.text.trim() || n.img || n.att)) return;
+  if (writing.has(n.id)) { pending.set(n.id, n); return; }
+  writing.add(n.id);
+  const ok = await saveNote(n);
+  writing.delete(n.id);
+  if (ok === null && DB.ok) toast('Gagal menyimpan — memori HP penuh?');
+  if (pending.has(n.id)) { const m = pending.get(n.id); pending.delete(n.id); persistNow(m); }
 }
 function flushSave() {
   clearTimeout(saveT);
   const n = S.notes[S.note]; if (!n) return;
-  if (n.text.trim() || n.img || n.att) saveNote(n);
+  persistNow(n);
   if (wide()) { renderList(); renderSearchAll(); }
   renderFolders();
 }
@@ -737,6 +749,7 @@ ed.addEventListener('input', (e) => {
   onEdit();
 });
 addEventListener('pagehide', flushSave);
+document.addEventListener('freeze', flushSave);
 document.addEventListener('visibilitychange', () => { if (document.hidden) flushSave(); });
 
 // centang daftar periksa
