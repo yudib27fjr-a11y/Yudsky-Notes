@@ -236,6 +236,24 @@ svg{display:block}
 .dragghost img,.dragghost video{display:block;width:100%;height:100%;object-fit:cover}
 #ed figure.att.lifting{opacity:.35;transition:opacity .15s}
 #ed figure img,#ed figure video,#ed img{-webkit-touch-callout:none;-webkit-user-drag:none}
+.ipk{position:fixed;inset:0;z-index:57;background:var(--bg);display:flex;flex-direction:column;transform:translateY(100%);transition:transform .3s cubic-bezier(.2,.85,.25,1)}
+.ipk.show{transform:none}
+.ipk-nav{display:flex;align-items:center;justify-content:space-between;padding:calc(6px + var(--sat)) 8px 6px;border-bottom:.5px solid var(--sep);background:var(--bar)}
+.ipk-nav b{font-size:17px}
+.ipk-tools{padding:10px 0 4px}.ipk-tools .search{margin-bottom:10px}
+.ipk-chips{display:flex;gap:8px;padding:0 16px;overflow-x:auto;scrollbar-width:none}
+.ipk-chips button{flex:none;padding:7px 12px;border-radius:16px;background:var(--fill);font-size:14px;color:var(--ink)}
+.ipk-list{flex:1;overflow-y:auto;padding-bottom:calc(30px + var(--sab))}
+.ipk-sh{font-size:18px}.ipk-sh small{font-size:14px;color:var(--sec);font-weight:400}
+.ipk-fall{font-size:14px;color:var(--tint);font-weight:500}
+.ipk-row{position:relative;display:flex;align-items:center;gap:12px;width:100%;padding:10px 16px;text-align:left;background:var(--cell)}
+.ipk-row+.ipk-row::before{content:"";position:absolute;top:0;left:50px;right:0;border-top:.5px solid var(--sep)}
+.ipk-ck{width:22px;height:22px;border-radius:50%;border:1.5px solid var(--ter);flex:none}
+.ipk-row.on .ipk-ck{background:var(--tint) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M6 12.5l4 4 8-9' fill='none' stroke='white' stroke-width='2.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center/16px no-repeat;border-color:var(--tint)}
+.ipk-tx{min-width:0;display:flex;flex-direction:column;gap:2px}
+.ipk-tx b{font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ipk-tx small{font-size:13px;color:var(--sec);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ipk-tx i{color:var(--tint);font-style:normal}
 .viewer{position:fixed;inset:0;z-index:60;background:#000;display:flex;flex-direction:column;opacity:0;transition:opacity .2s}
 .viewer.show{opacity:1}
 .vtrack{flex:1;display:flex;overflow-x:auto;scroll-snap-type:x mandatory;scrollbar-width:none}
@@ -456,7 +474,7 @@ svg{display:block}
 <script>
 {
 /* ================= penyimpanan di perangkat (IndexedDB) ================= */
-const APP_VERSION = 'v35';
+const APP_VERSION = 'v36';
 const ERRLOG = [];
 addEventListener('error', (e) => ERRLOG.push(new Date().toTimeString().slice(0, 8) + ' ' + (e.message || e.type)));
 addEventListener('unhandledrejection', (e) => ERRLOG.push(new Date().toTimeString().slice(0, 8) + ' ' + ((e.reason && (e.reason.name + ': ' + e.reason.message)) || e.reason)));
@@ -2022,17 +2040,14 @@ async function exportCopy() { try { await navigator.clipboard.writeText(backup()
 $('#fImport').addEventListener('change', async (e) => {
   const fs = [...e.target.files].sort((a, b) => a.name.localeCompare(b.name, 'id', { numeric: true })); e.target.value = '';
   if (!fs.length) return;
+  // file hasil ekspor iCloud -> tampilkan daftar untuk memilih catatan mana yang diimpor
+  let head = ''; try { head = await fs[0].slice(0, 200).text(); } catch {}
+  if (/"app"\s*:\s*"icloud-export"/.test(head)) return pickAndImportICloud(fs);
   if (fs.length === 1) return importData(await fs[0].text());
-  // beberapa file sekaligus (hasil ekspor iCloud yang dipecah)
-  let done = 0, skipped = 0, bad = 0;
-  for (let k = 0; k < fs.length; k++) {
-    toast('File ' + (k + 1) + '/' + fs.length + '…');
-    let d; try { d = JSON.parse(await fs[k].text()); } catch { bad++; continue; }
-    if (d && d.app === 'icloud-export') { const r = await importICloud(d, true); done += r.done; skipped += r.skipped; }
-    else { await importData(JSON.stringify(d)); }
-  }
-  alertBox({ title: 'Impor iCloud selesai', msg: done + ' catatan diimpor dari ' + fs.length + ' file' + (skipped ? ', ' + skipped + ' sudah ada (dilewati)' : '') + (bad ? ', ' + bad + ' file tidak terbaca' : '') + '.', buttons: [{ t: 'OK', b: 1 }] });
+  let bad = 0;
+  for (const f of fs) { try { await importData(await f.text()); } catch { bad++; } }
 });
+
 async function importPaste() {
   const { btn, value } = await alertBox({ title: 'Tempel Cadangan', msg: 'Tempel isi cadangan (.json) di bawah.', area: true, buttons: [{ t: 'Batal' }, { t: 'Pulihkan', b: 1 }] });
   if (btn === 1) importData(value);
@@ -2151,7 +2166,7 @@ function textInfo(html) {
   holder.remove();
   return { title: (lines[0] || '').slice(0, 120), preview: (lines[1] || (atts.length ? atts.length + ' lampiran' : '')).slice(0, 160), text: lines.join('\n').slice(0, 5000), att: atts.length, files: atts.map((f) => f.dataset.fid) };
 }
-async function importICloud(d, quiet) {
+async function importICloud(d, quiet, force) {
   if (!DB.ok) { toast('Penyimpanan belum siap'); return { done: 0, skipped: 0 }; }
   const list = Array.isArray(d.notes) ? d.notes : [];
   toast('Mengimpor ' + list.length + ' catatan' + (d.of > 1 ? ' (bagian ' + d.part + '/' + d.of + ')' : '') + '…');
@@ -2171,7 +2186,8 @@ async function importICloud(d, quiet) {
   for (const src of list) {
     try {
       const old = S.notes[src.id];
-      if (old && (old.updatedAt || 0) >= (src.updatedAt || 0)) { skipped++; continue; }   // sudah ada & tidak lebih baru
+      if (old && !old.deletedAt && (old.updatedAt || 0) >= (src.updatedAt || 0) && !force) { skipped++; continue; }
+      if (old && force && !old.deletedAt && old.html && old.updatedAt > (src.updatedAt || 0)) { skipped++; continue; }   // versi di HP lebih baru: jangan ditimpa   // sudah ada & tidak lebih baru
       const { html, img } = await convertAppleNote(src, recMap);
       const n = { id: String(src.id), folderId: fmap[src.folder] || 'notes', html, v2: true, pinned: false, img,
         createdAt: +src.createdAt || Date.now(), updatedAt: +src.updatedAt || Date.now(), ...textInfo(html) };
@@ -2183,8 +2199,74 @@ async function importICloud(d, quiet) {
   if (quiet) return { done, skipped };
   alertBox({ title: 'Impor iCloud selesai', msg: done + ' catatan diimpor' + (skipped ? ', ' + skipped + ' sudah ada (dilewati)' : '') + '.\nFolder dari iPhone ikut dibuat.', buttons: [{ t: 'OK', b: 1 }] });
 }
+/* ---- pilih catatan iCloud yang mau diimpor ---- */
+const htmlText = (h) => { const t = document.createElement('textarea'); t.innerHTML = String(h || '').replace(/<(br|\/div|\/p|\/h\d|\/li|\/tr)[^>]*>/gi, '\n').replace(/<[^>]+>/g, ''); return t.value.split('\n').map((x) => x.trim()).filter(Boolean); };
+async function pickAndImportICloud(fs) {
+  toast('Membaca file iCloud…');
+  const metas = [];
+  for (let k = 0; k < fs.length; k++) {
+    let d; try { d = JSON.parse(await fs[k].text()); } catch { continue; }
+    if (!d || d.app !== 'icloud-export') continue;
+    for (const n of d.notes || []) {
+      const lines = htmlText(n.html);
+      metas.push({ k, id: String(n.id), folder: n.folder || 'Catatan', title: (lines[0] || 'Catatan Baru').slice(0, 90), sub: (lines[1] || '').slice(0, 80),
+        at: +n.updatedAt || 0, att: (n.extra || []).length + ((String(n.html).match(/<img[^>]+src="data:image/gi) || []).length), have: !!S.notes[String(n.id)] });
+    }
+    d = null;
+  }
+  if (!metas.length) return toast('Tidak ada catatan di file ini');
+  const sel = new Set(await icloudPicker(metas)); if (!sel.size) return;
+  let done = 0, skipped = 0;
+  const parts = [...new Set(metas.filter((m) => sel.has(m.id)).map((m) => m.k))];
+  for (const k of parts) {
+    toast('Mengimpor… (' + (parts.indexOf(k) + 1) + '/' + parts.length + ')');
+    let d; try { d = JSON.parse(await fs[k].text()); } catch { continue; }
+    d.notes = (d.notes || []).filter((n) => sel.has(String(n.id)));
+    const need = new Set(d.notes.flatMap((n) => (n.extra || []).map((x) => x.fid)));
+    d.files = (d.files || []).filter((f) => need.has(f.id));
+    d.folders = [...new Set(d.notes.map((n) => n.folder))];
+    const r = await importICloud(d, true, true); done += r.done; skipped += r.skipped; d = null;
+  }
+  renderAll();
+  alertBox({ title: 'Impor selesai', msg: done + ' catatan diimpor' + (skipped ? ', ' + skipped + ' sudah ada (dilewati)' : '') + '.', buttons: [{ t: 'OK', b: 1 }] });
+}
+function icloudPicker(metas) {
+  return new Promise((resolve) => {
+    const groups = {}; for (const m of metas) (groups[m.folder] = groups[m.folder] || []).push(m);
+    for (const g of Object.values(groups)) g.sort((a, b) => b.at - a.at);
+    const chosen = new Set(); let q = '';
+    const el = document.createElement('div'); el.className = 'ipk';
+    el.innerHTML = `<header class="ipk-nav"><button class="nb ipk-x">Batal</button><b>Pilih dari iCloud</b><button class="nb bold ipk-ok">Impor</button></header>
+      <div class="ipk-tools"><label class="search"><svg class="ic" viewBox="0 0 24 24"><circle cx="10.5" cy="10.5" r="6.5"/><path d="M20 20l-4.8-4.8"/></svg><input placeholder="Cari judul atau isi" type="search"></label>
+      <div class="ipk-chips"><button data-all="1">Pilih Semua</button><button data-all="0">Kosongkan</button><button data-new="1">Hanya yang Belum Ada</button></div></div>
+      <div class="ipk-list"></div>`;
+    document.body.appendChild(el); requestAnimationFrame(() => el.classList.add('show'));
+    const list = $('.ipk-list', el), ok = $('.ipk-ok', el);
+    const vis = (m) => !q || (m.title + ' ' + m.sub + ' ' + m.folder).toLowerCase().includes(q);
+    const render = () => {
+      list.innerHTML = Object.entries(groups).map(([f, arr]) => {
+        const shown = arr.filter(vis); if (!shown.length) return '';
+        const allOn = shown.every((m) => chosen.has(m.id));
+        return `<div class="sh ipk-sh"><span>${esc(f)} <small>${arr.length}</small></span><button class="ipk-fall" data-f="${esc(f)}">${allOn ? 'Batal Pilih' : 'Pilih Folder'}</button></div><div class="group">${shown.map((m) =>
+          `<button class="ipk-row ${chosen.has(m.id) ? 'on' : ''}" data-id="${esc(m.id)}"><span class="ipk-ck"></span><span class="ipk-tx"><b>${esc(m.title)}</b><small>${esc(fShort.format(m.at || 0))}${m.att ? ' · ' + m.att + ' lampiran' : ''}${m.have ? ' · <i>sudah ada</i>' : ''}${m.sub ? ' · ' + esc(m.sub) : ''}</small></span></button>`).join('')}</div>`;
+      }).join('') || '<div class="empty">Tidak ada yang cocok</div>';
+      ok.textContent = chosen.size ? 'Impor (' + chosen.size + ')' : 'Impor'; ok.disabled = !chosen.size; ok.style.opacity = chosen.size ? 1 : .4;
+    };
+    const close = (v) => { el.classList.remove('show'); setTimeout(() => el.remove(), 250); resolve(v); };
+    el.addEventListener('click', (e) => {
+      const r = e.target.closest('.ipk-row'), fa = e.target.closest('.ipk-fall'), ch = e.target.closest('[data-all],[data-new]');
+      if (r) { const id = r.dataset.id; chosen.has(id) ? chosen.delete(id) : chosen.add(id); r.classList.toggle('on'); ok.textContent = chosen.size ? 'Impor (' + chosen.size + ')' : 'Impor'; ok.disabled = !chosen.size; ok.style.opacity = chosen.size ? 1 : .4; return; }
+      if (fa) { const arr = groups[fa.dataset.f].filter(vis); const allOn = arr.every((m) => chosen.has(m.id)); for (const m of arr) allOn ? chosen.delete(m.id) : chosen.add(m.id); render(); return; }
+      if (ch) { const shown = metas.filter(vis); if (ch.dataset.all === '1') shown.forEach((m) => chosen.add(m.id)); else if (ch.dataset.all === '0') chosen.clear(); else { chosen.clear(); shown.filter((m) => !m.have).forEach((m) => chosen.add(m.id)); } render(); return; }
+      if (e.target.closest('.ipk-x')) close([]);
+      if (e.target.closest('.ipk-ok') && chosen.size) close([...chosen]);
+    });
+    $('input', el).addEventListener('input', (e) => { q = e.target.value.trim().toLowerCase(); render(); });
+    render();
+  });
+}
 function icloudHelp() {
-  alertBox({ title: 'Impor dari iCloud', msg: '1. Di MacBook, buka Terminal lalu tempel perintah dari README repo Yudsky-Notes.\n2. Folder "Yudsky iCloud" muncul di Desktop.\n3. Kirim semua file di folder itu ke HP ini (Google Drive/kabel/WhatsApp).\n4. Ketuk Pilih File, lalu pilih SEMUA file yudsky-icloud sekaligus (tekan lama untuk memilih banyak).', buttons: [{ t: 'Batal' }, { t: 'Pilih File', b: 1 }] })
+  alertBox({ title: 'Impor dari iCloud', msg: '1. Di MacBook, buka Terminal lalu tempel perintah dari README repo Yudsky-Notes.\n2. Folder "Yudsky iCloud" muncul di Desktop.\n3. Kirim semua file di folder itu ke HP ini (Google Drive/kabel/WhatsApp).\n4. Ketuk Pilih File, pilih semua file yudsky-icloud sekaligus, lalu centang catatan yang ingin diimpor.', buttons: [{ t: 'Batal' }, { t: 'Pilih File', b: 1 }] })
     .then(({ btn }) => { if (btn === 1) $('#fImport').click(); });
 }
 
