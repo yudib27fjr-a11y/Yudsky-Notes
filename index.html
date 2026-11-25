@@ -142,8 +142,9 @@ svg{display:block}
 #ed td,#ed th{border:1px solid var(--sep);padding:7px 9px;min-width:84px;vertical-align:top;text-align:left}
 #ed .tblw.act td,#ed .tblw.act th{border-color:var(--ter)}
 #ed td.cur{background:color-mix(in srgb,var(--tint) 14%,transparent)}
-#ed img.sz-s,#ed figure.att.vid.sz-s{width:38%}
-#ed img.sz-m,#ed figure.att.vid.sz-m{width:64%}
+#ed figure.pic img{display:block;width:100%;margin:0;border-radius:10px;min-height:40px;background:var(--fill)}
+#ed img.sz-s,#ed figure.att.vid.sz-s,#ed figure.att.pic.sz-s{width:38%}
+#ed img.sz-m,#ed figure.att.vid.sz-m,#ed figure.att.pic.sz-m{width:64%}
 #ed img{cursor:pointer}
 #ed figure.vid{position:relative}
 #ed .msz::after{content:'⤢'}
@@ -611,21 +612,24 @@ function closeNote() {
 
 let saveT = null;
 function derive(n) {
-  const lines = (ed.innerText || '').split('\n').map((s) => s.trim()).filter(Boolean);
+  // teks catatan tanpa isi lampiran (nama file/label tidak dijadikan judul)
+  const raw = [...ed.children].filter((el) => !el.matches('figure.att, img')).map((el) => el.innerText).join('\n');
+  const lines = raw.split('\n').map((s) => s.trim()).filter(Boolean);
   n.title = (lines[0] || '').slice(0, 120);
   n.preview = (lines[1] || '').slice(0, 160);
   n.text = lines.join('\n').slice(0, 5000);
   const atts = $$('figure.att', ed);
   n.att = atts.length;
   n.files = atts.map((f) => f.dataset.fid);
-  if (!n.preview && atts.length) n.preview = atts.length === 1 ? (atts[0].classList.contains('vid') ? 'Video' : atts[0].dataset.name) : atts.length + ' lampiran';
-  const media = ed.querySelector('img, figure.vid video');
+  if (!n.preview && atts.length) n.preview = atts.length === 1 ? (atts[0].classList.contains('vid') ? 'Video' : atts[0].classList.contains('pic') ? 'Foto' : atts[0].dataset.name) : atts.length + ' lampiran';
+  const media = ed.querySelector('img, figure.vid video');  // foto (lama/baru) atau video
   n.img = media ? thumbOf(media) : '';
 }
 const thumbCache = new Map();
 function thumbOf(img) {
   const isV = img.tagName === 'VIDEO';
-  const src = isV ? 'v:' + img.closest('figure').dataset.fid : (img.getAttribute('src') || '');
+  const fig = img.closest('figure.att');
+  const src = fig ? 'f:' + fig.dataset.fid : (img.getAttribute('src') || '');
   if (thumbCache.has(src)) return thumbCache.get(src);
   try {
     const W = isV ? img.videoWidth : img.naturalWidth, H = isV ? img.videoHeight : img.naturalHeight;
@@ -841,26 +845,34 @@ function updateFmtState() {
 }
 
 /* ================= gambar ================= */
+const withTimeout = (p, ms) => Promise.race([p, new Promise((_, rej) => setTimeout(() => rej(new Error('waktu habis')), ms))]);
+// kecilkan foto kamera (bisa 50 MP) jadi maks 2048 px, tanpa memuat seluruh foto ke memori
+async function shrinkPhoto(file) {
+  const MAX = 2048;
+  let bmp = null;
+  try { bmp = await withTimeout(createImageBitmap(file, { imageOrientation: 'from-image', resizeWidth: MAX, resizeQuality: 'medium' }), 12000); } catch {}
+  if (bmp && bmp.width && bmp.height > MAX * 1.05) { // foto potret: tinggi terlalu besar -> skala ulang
+    const k = MAX / bmp.height, w = Math.round(bmp.width * k); bmp.close?.();
+    try { bmp = await withTimeout(createImageBitmap(file, { imageOrientation: 'from-image', resizeWidth: w, resizeQuality: 'medium' }), 12000); } catch { bmp = null; }
+  }
+  if (!bmp || !bmp.width) return null;
+  // foto kecil tidak perlu diperbesar
+  const c = document.createElement('canvas'); c.width = bmp.width; c.height = bmp.height;
+  c.getContext('2d').drawImage(bmp, 0, 0); bmp.close?.();
+  return await withTimeout(new Promise((r) => c.toBlob((b) => r(b), 'image/jpeg', .85)), 12000).catch(() => null);
+}
+const canShow = (file) => withTimeout(new Promise((r) => { const u = URL.createObjectURL(file); const im = new Image(); im.onload = () => { URL.revokeObjectURL(u); r(true); }; im.onerror = () => { URL.revokeObjectURL(u); r(false); }; im.src = u; }), 15000).catch(() => false);
 async function insertImage(file) {
-  let src = null, W = 0, H = 0, url = null;
-  try { src = await createImageBitmap(file, { imageOrientation: 'from-image' }); W = src.width; H = src.height; }
-  catch {
-    url = URL.createObjectURL(file);
-    src = await new Promise((r) => { const im = new Image(); im.onload = () => r(im); im.onerror = () => r(null); im.src = url; });
-    if (src) { W = src.naturalWidth; H = src.naturalHeight; }
+  toast('Memproses foto…');
+  let blob = await shrinkPhoto(file).catch(() => null);
+  if (!blob) {
+    // tidak bisa dikecilkan: pakai foto asli bila browser bisa menampilkannya, kalau tidak simpan sebagai file
+    if (await canShow(file)) blob = file;
+    else { toast('Format foto ini tidak bisa ditampilkan — disimpan sebagai file'); return addFileRecord(file); }
   }
-  if (!src || !W) {
-    // format yang tidak bisa ditampilkan browser (mis. HEIC) -> simpan sebagai file
-    if (url) URL.revokeObjectURL(url);
-    toast('Format foto ini tidak bisa ditampilkan — disimpan sebagai file');
-    return addFileRecord(file);
-  }
-  const max = 1600, k = Math.min(1, max / Math.max(W, H));
-  const c = document.createElement('canvas'); c.width = Math.round(W * k); c.height = Math.round(H * k);
-  c.getContext('2d').drawImage(src, 0, 0, c.width, c.height);
-  if (url) URL.revokeObjectURL(url); src.close?.();
-  insertBlocks(`<img src="${c.toDataURL('image/jpeg', .82)}">`);
-  onEdit(); toast('Foto ditambahkan');
+  const name = (file.name || 'Foto').replace(/\.(heic|heif|png|webp)$/i, '.jpg');
+  await addFileRecord(new File([blob], name, { type: blob.type || file.type || 'image/jpeg' }), true);
+  toast('Foto ditambahkan');
 }
 
 /* ================= lampiran: video & file ================= */
@@ -869,7 +881,7 @@ const fmtSize = (b) => b < 1024 ? b + ' B' : b < 1048576 ? (b / 1024).toFixed(0)
 const extOf = (name) => ((name || '').split('.').pop() || '').slice(0, 4);
 function serialize() {
   const c = ed.cloneNode(true);
-  for (const v of c.querySelectorAll('figure.vid video')) { v.removeAttribute('src'); v.removeAttribute('poster'); }
+  for (const v of c.querySelectorAll('figure.vid video, figure.pic img')) { v.removeAttribute('src'); v.removeAttribute('poster'); }
   c.querySelectorAll('.msz').forEach((x) => x.remove()); c.querySelectorAll('td.cur').forEach((x) => x.classList.remove('cur')); c.querySelectorAll('.tblw.act').forEach((x) => x.classList.remove('act'));
   return c.innerHTML;
 }
@@ -884,17 +896,20 @@ async function hydrate() {
     fig.classList.toggle('missing', !u);
     const v = $('video', fig);
     if (v && !$('.msz', fig)) { const b = document.createElement('span'); b.className = 'msz'; b.setAttribute('role', 'button'); fig.prepend(b); }
+    const pi = fig.classList.contains('pic') ? $('img', fig) : null;
+    if (pi && u) { pi.addEventListener('load', () => { const n = S.notes[S.note]; if (n && !n.deletedAt && (!n.img || ed.querySelector('img') === pi)) { const t = thumbOf(pi); if (t && t !== n.img) { n.img = t; saveNote(n); } } }, { once: true }); pi.src = u; }
     if (v && u) { v.src = u + '#t=0.1'; v.addEventListener('loadeddata', () => { const n = S.notes[S.note]; if (n && !n.img && !n.deletedAt) { n.img = thumbOf(v); saveNote(n); } }, { once: true }); }
   }
 }
 function figureHTML(rec) {
   const a = `contenteditable="false" data-fid="${esc(rec.id)}" data-name="${esc(rec.name)}" data-size="${rec.size}" data-type="${esc(rec.type)}"`;
+  if (rec.pic) return `<figure class="att pic" ${a}><img alt=""></figure>`;
   if (rec.type.startsWith('video/')) return `<figure class="att vid" ${a}><video controls playsinline preload="metadata"></video></figure>`;
   return `<figure class="att file" ${a}><span class="fic">${esc(extOf(rec.name) || 'file')}</span><span class="fmeta"><span class="fn">${esc(rec.name)}</span><span class="fs">${esc(fmtSize(rec.size))}</span></span></figure>`;
 }
-async function addFileRecord(file) {
-  toast('Menyimpan ' + (file.name || 'lampiran') + '…');
-  const rec = { id: 'a' + uid(), name: file.name || (file.type.startsWith('video/') ? 'Video.mp4' : 'File'), type: file.type || 'application/octet-stream', size: file.size, blob: file, at: Date.now() };
+async function addFileRecord(file, pic) {
+  if (!pic) toast('Menyimpan ' + (file.name || 'lampiran') + '…');
+  const rec = { pic: !!pic, id: 'a' + uid(), name: file.name || (file.type.startsWith('video/') ? 'Video.mp4' : 'File'), type: file.type || 'application/octet-stream', size: file.size, blob: file, at: Date.now() };
   const ok = await DB.putFile(rec);
   if (!ok) { alertBox({ title: 'Gagal menyimpan lampiran', msg: (file.name || 'File') + ' (' + fmtSize(file.size) + ') tidak bisa disimpan di HP. Memori penuh atau file terlalu besar.', buttons: [{ t: 'OK', b: 1 }] }); return; }
   insertBlocks(figureHTML(rec));
@@ -982,21 +997,22 @@ async function mediaMenu(el) {
   const ro = ed.contentEditable !== 'true';
   const cur = el.classList.contains('sz-s') ? 0 : el.classList.contains('sz-m') ? 1 : 2;
   const items = [{ t: 'Tampilan Kecil', chk: cur === 0 }, { t: 'Tampilan Sedang', chk: cur === 1 }, { t: 'Tampilan Besar', chk: cur === 2 }];
-  if (el.tagName === 'IMG') items.push({ t: 'Lihat Penuh' });
-  if (!ro) items.push({ t: el.tagName === 'IMG' ? 'Hapus Foto' : 'Hapus Video', des: 1 });
-  const i = await sheet({ title: el.tagName === 'IMG' ? 'Foto' : 'Video', items: items.map((x, k) => ({ ...x, t: (x.chk ? '✓ ' : '') + x.t })) });
+  const isPic = el.tagName === 'IMG' || el.classList.contains('pic');
+  if (isPic) items.push({ t: 'Lihat Penuh' });
+  if (!ro) items.push({ t: isPic ? 'Hapus Foto' : 'Hapus Video', des: 1 });
+  const i = await sheet({ title: isPic ? 'Foto' : 'Video', items: items.map((x, k) => ({ ...x, t: (x.chk ? '✓ ' : '') + x.t })) });
   if (i < 0) return;
   const label = items[i].t;
   if (i <= 2) { if (ro) return toast('Pulihkan catatan dulu untuk mengubah'); el.classList.remove('sz-s', 'sz-m'); if (i === 0) el.classList.add('sz-s'); if (i === 1) el.classList.add('sz-m'); onEdit(); return; }
   if (label === 'Lihat Penuh') {
-    const ov = overlay(`<img src="${el.getAttribute('src')}" style="margin:auto;max-width:100%;max-height:100%;object-fit:contain">`);
+    const ov = overlay(`<img src="${(el.tagName === 'IMG' ? el : $('img', el)).getAttribute('src')}" style="margin:auto;max-width:100%;max-height:100%;object-fit:contain">`);
     ov.style.background = '#000'; ov.addEventListener('click', () => ov.close()); return;
   }
   if (label.startsWith('Hapus')) { const nx = el.nextElementSibling; if (nx && nx.tagName === 'DIV' && !nx.textContent.trim() && !nx.querySelector('img,figure,table')) nx.remove(); el.remove(); onEdit(); }
 }
 ed.addEventListener('click', (e) => {
   const img = e.target.closest('img');
-  if (img && ed.contains(img)) { e.preventDefault(); return mediaMenu(img); }
+  if (img && ed.contains(img)) { e.preventDefault(); return mediaMenu(img.closest('figure.pic') || img); }
   if (e.target.closest('.msz')) { e.preventDefault(); return mediaMenu(e.target.closest('figure')); }
 });
 ed.addEventListener('contextmenu', (e) => {
