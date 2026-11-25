@@ -74,6 +74,42 @@ svg{display:block}
 .row+.row::before,.rw+.rw .row::before{content:"";position:absolute;top:0;right:0;left:52px;border-top:.5px solid var(--sep)}
 .rw+.rw .row::before{left:16px}
 .row .fi{color:var(--tint);flex:none}
+.row .fimg{width:26px;height:26px;border-radius:7px;object-fit:cover;flex:none}
+.row .femo{width:26px;text-align:center;font-size:20px;line-height:1;flex:none}
+/* pemilih ikon & tema */
+.picker{position:fixed;left:0;right:0;bottom:0;z-index:56;max-height:82vh;overflow-y:auto;background:var(--sheet);backdrop-filter:blur(30px);-webkit-backdrop-filter:blur(30px);border-radius:18px 18px 0 0;padding:14px 16px calc(18px + var(--sab));box-shadow:0 -6px 30px rgba(0,0,0,.3);transform:translateY(105%);transition:transform .28s cubic-bezier(.2,.85,.25,1)}
+.picker.show{transform:none}
+.pk-h{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}.pk-h b{font-size:17px}
+.pk-h button{color:var(--tint);font-weight:600;font-size:17px;padding:6px}
+.pk-t{font-size:13px;color:var(--sec);margin:14px 2px 8px;text-transform:none}
+.pk-g{display:grid;grid-template-columns:repeat(6,1fr);gap:10px}
+.pk-g button{aspect-ratio:1;border-radius:12px;background:var(--cell2);display:flex;align-items:center;justify-content:center;color:var(--ink)}
+.pk-g button.on{outline:2.5px solid var(--tint);outline-offset:1px}
+.pk-g .ic{width:24px;height:24px}
+.pk-c{display:flex;gap:10px;flex-wrap:wrap}
+.pk-c button{width:34px;height:34px;border-radius:50%}
+.pk-c button.on{outline:3px solid var(--ink);outline-offset:2px}
+.pk-row{display:flex;gap:10px;flex-wrap:wrap;margin-top:10px}
+.pk-row button{flex:1;min-width:120px;height:44px;border-radius:12px;background:var(--cell2);color:var(--tint);font-weight:600}
+.pk-prev{display:flex;align-items:center;gap:12px;padding:10px 12px;border-radius:12px;background:var(--cell);margin-bottom:4px}
+.pk-prev .nm{font-size:17px}
+.th-g{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
+.th-g button{height:64px;border-radius:12px;border:.5px solid var(--sep);position:relative;overflow:hidden;font-size:11px;color:var(--ink);display:flex;align-items:flex-end;justify-content:center;padding-bottom:5px;background-size:cover;background-position:center}
+.th-g button.on{outline:2.5px solid var(--tint);outline-offset:1px}
+.th-g button span{background:var(--cell);padding:1px 6px;border-radius:6px}
+.pk-range{width:100%;accent-color:var(--tint)}
+/* tema latar untuk halaman Folder & daftar catatan */
+:root[data-bgt] #pFolders,:root[data-bgt] #pList{background:linear-gradient(170deg,var(--g1),var(--g2))}
+:root[data-bgt] .group{background:color-mix(in srgb,var(--cell) 82%,transparent)}
+:root[data-bgt] .group .row,:root[data-bgt] .rw{background:transparent}
+:root[data-bgt] .rw .row{background:color-mix(in srgb,var(--cell) 0%,transparent)}
+:root.wall #pFolders,:root.wall #pList{background:var(--wall) center/cover no-repeat}
+:root.wall #pFolders::before,:root.wall #pList::before{content:"";position:absolute;inset:0;background:light-dark(rgba(255,255,255,var(--dim)),rgba(0,0,0,var(--dim)));pointer-events:none}
+:root.wall #pFolders>*,:root.wall #pList>*{position:relative}
+:root.wall #pFolders>.nav,:root.wall #pList>.nav,:root.wall .tb,:root.wall #pFolders>.ptr,:root.wall #pList>.ptr{position:absolute}
+:root.wall .group{background:color-mix(in srgb,var(--cell) 78%,transparent);backdrop-filter:blur(14px) saturate(160%);-webkit-backdrop-filter:blur(14px) saturate(160%)}
+:root.wall .group .row,:root.wall .rw{background:transparent}
+:root.wall .ltitle,:root.wall .sh,:root.wall .brand{text-shadow:0 1px 8px light-dark(rgba(255,255,255,.7),rgba(0,0,0,.6))}
 .row .nm{flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .row .ct{color:var(--sec)}
 .row .chev{width:8px;height:14px;stroke:var(--ter);stroke-width:2.4;flex:none}
@@ -371,7 +407,7 @@ svg{display:block}
 <script>
 {
 /* ================= penyimpanan di perangkat (IndexedDB) ================= */
-const APP_VERSION = 'v22';
+const APP_VERSION = 'v23';
 const ERRLOG = [];
 addEventListener('error', (e) => ERRLOG.push(new Date().toTimeString().slice(0, 8) + ' ' + (e.message || e.type)));
 addEventListener('unhandledrejection', (e) => ERRLOG.push(new Date().toTimeString().slice(0, 8) + ' ' + ((e.reason && (e.reason.name + ': ' + e.reason.message)) || e.reason)));
@@ -437,7 +473,7 @@ const live = () => Object.values(S.notes).filter((n) => !n.deletedAt);
 const trashed = () => Object.values(S.notes).filter((n) => n.deletedAt);
 const notesIn = (fid) => fid === 'all' ? live() : fid === 'trash' ? trashed() : live().filter((n) => n.folderId === fid);
 
-async function saveMeta() { await DB.setMeta('folders', S.folders); await DB.setMeta('sort', S.sort); await DB.setMeta('notesName', FIXED.notes); await DB.setMeta('lock', LOCK); if (!DB.ok) lsSave(); }
+async function saveMeta() { await DB.setMeta('folders', S.folders); await DB.setMeta('sort', S.sort); await DB.setMeta('notesName', FIXED.notes); await DB.setMeta('lock', LOCK); await DB.setMeta('notesIcon', notesIcon); await DB.setMeta('theme', THEME); if (!DB.ok) lsSave(); }
 async function saveNote(n) { if (DB.ok) return DB.putNote(n); return lsSave(); }
 async function dropNote(id) { delete S.notes[id]; if (DB.ok) await DB.delNote(id); else lsSave(); }
 function lsSave() { try { localStorage.setItem('catatan-ios', JSON.stringify({ folders: S.folders, notes: S.notes, sort: S.sort })); return true; } catch { toast('Gagal menyimpan! Tutup semua tab Yudsky Notes lalu buka lagi'); return null; } }
@@ -479,13 +515,48 @@ const I = {
 };
 
 /* ================= render: folder ================= */
+const FICONS = {
+  folder: 'M3 7.5A1.5 1.5 0 0 1 4.5 6h4.3l2 2h8.7A1.5 1.5 0 0 1 21 9.5v8a1.5 1.5 0 0 1-1.5 1.5h-15A1.5 1.5 0 0 1 3 17.5z',
+  heart: 'M12 20s-7.5-4.6-7.5-10.2A4.3 4.3 0 0 1 12 7.3a4.3 4.3 0 0 1 7.5 2.5C19.5 15.4 12 20 12 20z',
+  ecg: 'M2.5 12h4l2-5 3.5 11 2.5-7 1.5 1h5.5',
+  steth: 'M6 3.5v5a4 4 0 0 0 8 0v-5M10 12.5v2.5a5 5 0 0 0 10 0v-2M20 13a2 2 0 1 0 0-4 2 2 0 0 0 0 4z',
+  pill: 'M10.6 3.9a5 5 0 0 1 7.1 7.1l-6.7 6.7a5 5 0 0 1-7.1-7.1zM7.3 7.2l7.1 7.1',
+  syringe: 'M18 3l3 3M16.5 4.5l3 3M19 6l-9.5 9.5-3-3L16 3M8 14l-4.5 4.5M3 21l1.5-1.5',
+  book: 'M4 19.5V5a2 2 0 0 1 2-2h13v15H6a2 2 0 0 0-2 2 2 2 0 0 0 2 2h13',
+  grad: 'M2 9l10-5 10 5-10 5zM6 11v5c3.5 2.5 8.5 2.5 12 0v-5M22 9v6',
+  star: 'M12 3l2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1-4.4-4.3 6.1-.9z',
+  brief: 'M3.5 8h17v11h-17zM9 8V5.5h6V8M3.5 13h17',
+  calendar: 'M4 5.5h16V20H4zM4 10h16M8 3v4M16 3v4',
+  ball: 'M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zM12 7.5l4 2.9-1.5 4.6h-5L8 10.4zM12 3v4.5M21 10.4l-5 0M15 21l-.5-6M9 21l.5-6M3 10.4h5',
+  car: 'M4.5 16h15v-4l-2-5.5h-11l-2 5.5zM4.5 12h15M7 16v2.5M17 16v2.5',
+  home: 'M4 11l8-7 8 7v9H4zM10 20v-5.5h4V20',
+  money: 'M3 7h18v10H3zM12 14.5a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5zM6 10v4M18 10v4',
+  cart: 'M3 4h2.5l2 11.5h11l2-8H6.5M9 20.5a1 1 0 1 0 0-2 1 1 0 0 0 0 2zM18 20.5a1 1 0 1 0 0-2 1 1 0 0 0 0 2z',
+  bolt: 'M13 2.5L4.5 14h7l-1 7.5L19 10h-7z',
+  music: 'M9 18V5l11-2v13M9 18a2.5 2.5 0 1 1-5 0 2.5 2.5 0 0 1 5 0zM20 16a2.5 2.5 0 1 1-5 0 2.5 2.5 0 0 1 5 0z',
+  plane: 'M10.5 13.5L3 11l1.5-1.5 8 1 4-4.5c1-1 3-1.5 3.5-1s0 2.5-1 3.5l-4.5 4 1 8L14 22l-2.5-7.5-4 3.5v2.5l-1.5 1-1-3.5-3.5-1 1-1.5H5z',
+  idea: 'M9 18h6M10 21h4M12 3a6 6 0 0 0-3.5 10.9c.6.5 1 1.2 1 2.1h5c0-.9.4-1.6 1-2.1A6 6 0 0 0 12 3z',
+  lock: 'M5 10.5h14v10H5zM8 10.5V7.5a4 4 0 0 1 8 0v3',
+  people: 'M9 11a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7zM2.5 20a6.5 6.5 0 0 1 13 0M16 4.3a3.5 3.5 0 0 1 0 6.4M18.5 20a6.5 6.5 0 0 0-2.5-5.1',
+  flask: 'M9 3h6M10 3v6L4.5 18.5A1.7 1.7 0 0 0 6 21h12a1.7 1.7 0 0 0 1.5-2.5L14 9V3M7 15h10',
+  clip: 'M20 11.5l-7.6 7.6a5 5 0 0 1-7.1-7.1l8.3-8.3a3.4 3.4 0 0 1 4.8 4.8l-8.3 8.3a1.7 1.7 0 0 1-2.4-2.4l7.6-7.6',
+};
+const FCOLORS = ['', '#FF3B30', '#FF9500', '#FFCC00', '#34C759', '#00C7BE', '#007AFF', '#5856D6', '#AF52DE', '#FF2D55', '#A2845E', '#8E8E93'];
+let notesIcon = null;
+function iconOf(id) { if (id === 'notes') return notesIcon; const f = S.folders.find((x) => x.id === id); return f && f.icon; }
+function folderIconHTML(ic) {
+  if (ic && ic.img) return `<img class="fimg" src="${esc(ic.img)}" alt="">`;
+  if (ic && ic.emo) return `<span class="femo">${esc(ic.emo)}</span>`;
+  const path = FICONS[(ic && ic.sym) || 'folder'] || FICONS.folder;
+  return `<svg class="ic fi" viewBox="0 0 24 24" style="${ic && ic.color ? 'color:' + esc(ic.color) : ''}"><path d="${path}"/></svg>`;
+}
 function renderFolders() {
   const customs = [...S.folders];   // urutan bebas (bisa diseret di mode Edit)
   const rows = [];
   const row = (id, name, icon, cls = '') => `<button class="row ${cls} ${S.folder === id && wide() ? 'sel' : ''}" data-f="${esc(id)}"><span class="minus">−</span>${icon}<span class="nm">${esc(name)}</span><span class="ct">${notesIn(id).length}</span><span class="ren">Ubah</span>${I.chev}<span class="drag" aria-label="Seret">≡</span></button>`;
   if (customs.length) rows.push(row('all', FIXED.all, I.folder));
-  rows.push(row('notes', FIXED.notes, I.folder));
-  for (const f of customs) rows.push(row(f.id, f.name, I.folder, 'custom'));
+  rows.push(row('notes', FIXED.notes, folderIconHTML(notesIcon)));
+  for (const f of customs) rows.push(row(f.id, f.name, folderIconHTML(f.icon), 'custom'));
   if (trashed().length) rows.push(row('trash', FIXED.trash, I.trash));
   $('#folders').innerHTML = `<div class="sh">Di Ponsel Ini</div><div class="group">${rows.join('')}</div>`;
   $('#pFolders').classList.toggle('editing', S.editFolders);
@@ -670,15 +741,15 @@ $('#folders').addEventListener('click', async (e) => {
   const id = r.dataset.f;
   const f = S.folders.find((x) => x.id === id);
   if (S.editFolders && e.target.closest('.drag')) return;
-  if (S.editFolders && id === 'notes') {
-    const { btn, value } = await alertBox({ title: 'Ganti Nama Folder', msg: 'Folder utama (tidak bisa dihapus).', input: FIXED.notes, buttons: [{ t: 'Batal' }, { t: 'Simpan', b: 1 }] });
-    if (btn === 1 && value.trim()) { FIXED.notes = value.trim(); await saveMeta(); renderAll(); }
-    return;
-  }
-  if (S.editFolders && f) {
-    if (e.target.closest('.minus')) return deleteFolder(f);
-    const { btn, value } = await alertBox({ title: 'Ganti Nama Folder', input: f.name, buttons: [{ t: 'Batal' }, { t: 'Simpan', b: 1 }] });
-    if (btn === 1 && value.trim()) { f.name = value.trim(); await saveMeta(); renderAll(); }
+  if (S.editFolders && (id === 'notes' || f)) {
+    if (f && e.target.closest('.minus')) return deleteFolder(f);
+    const name = id === 'notes' ? FIXED.notes : f.name;
+    const i = await sheet({ title: name, items: [{ t: 'Ganti Nama' }, { t: 'Ganti Ikon' }] });
+    if (i === 0) {
+      const { btn, value } = await alertBox({ title: 'Ganti Nama Folder', msg: id === 'notes' ? 'Folder utama (tidak bisa dihapus).' : '', input: name, buttons: [{ t: 'Batal' }, { t: 'Simpan', b: 1 }] });
+      if (btn === 1 && value.trim()) { if (id === 'notes') FIXED.notes = value.trim(); else f.name = value.trim(); await saveMeta(); renderAll(); }
+    }
+    if (i === 1) iconPicker(id, name);
     return;
   }
   openFolder(id);
@@ -1557,8 +1628,8 @@ for (const [lab, key, fn] of [['#qF', 'qF', renderSearchAll], ['#qL', 'qL', rend
 /* ================= cadangan: ekspor / impor ================= */
 $('#bMenu').onclick = async () => {
   const c = live().length;
-  const i = await sheet({ title: `Yudsky Notes ${APP_VERSION} — ${c} catatan di ponsel ini`, items: [{ t: 'Unduh Cadangan (.json)' }, { t: 'Salin Cadangan' }, { t: 'Pulihkan dari File' }, { t: 'Tempel Cadangan' }, { t: 'Impor dari iCloud (Mac)' }, { t: 'Kunci & Sidik Jari' }, { t: 'Periksa Pembaruan' }, { t: 'Cek Penyimpanan' }] });
-  if (i === 0) exportFile(); if (i === 1) exportCopy(); if (i === 2) $('#fImport').click(); if (i === 3) importPaste(); if (i === 4) icloudHelp(); if (i === 5) lockSettings(); if (i === 6) checkUpdate(true); if (i === 7) diagnose();
+  const i = await sheet({ title: `Yudsky Notes ${APP_VERSION} — ${c} catatan di ponsel ini`, items: [{ t: 'Unduh Cadangan (.json)' }, { t: 'Salin Cadangan' }, { t: 'Pulihkan dari File' }, { t: 'Tempel Cadangan' }, { t: 'Impor dari iCloud (Mac)' }, { t: 'Kunci & Sidik Jari' }, { t: 'Tema & Latar' }, { t: 'Periksa Pembaruan' }, { t: 'Cek Penyimpanan' }] });
+  if (i === 0) exportFile(); if (i === 1) exportCopy(); if (i === 2) $('#fImport').click(); if (i === 3) importPaste(); if (i === 4) icloudHelp(); if (i === 5) lockSettings(); if (i === 6) themePicker(); if (i === 7) checkUpdate(true); if (i === 8) diagnose();
 };
 async function diagnose() {
   const out = ['Versi: ' + APP_VERSION + (navigator.serviceWorker?.controller ? ' (offline aktif)' : ''), 'Mode: ' + (matchMedia('(display-mode: standalone)').matches ? 'aplikasi terpasang' : 'tab Chrome')];
@@ -1765,6 +1836,105 @@ function icloudHelp() {
     .then(({ btn }) => { if (btn === 1) $('#fImport').click(); });
 }
 
+/* ================= ikon folder ================= */
+function openPicker(html) {
+  const ov = document.createElement('div'); ov.className = 'ov'; document.body.appendChild(ov);
+  const pk = document.createElement('div'); pk.className = 'picker'; pk.innerHTML = html; document.body.appendChild(pk);
+  requestAnimationFrame(() => { ov.classList.add('show'); pk.classList.add('show'); });
+  const close = () => { ov.classList.remove('show'); pk.classList.remove('show'); setTimeout(() => { ov.remove(); pk.remove(); }, 280); };
+  ov.onclick = close; return { pk, close };
+}
+const squareImage = (file, size) => new Promise(async (res) => {
+  try { const bm = await createImageBitmap(file, { imageOrientation: 'from-image' }); const s = Math.min(bm.width, bm.height); const c = document.createElement('canvas'); c.width = c.height = size;
+    c.getContext('2d').drawImage(bm, (bm.width - s) / 2, (bm.height - s) / 2, s, s, 0, 0, size, size); bm.close?.(); res(c.toDataURL('image/jpeg', .85)); } catch { res(null); }
+});
+function iconPicker(id, name) {
+  const cur = { ...(iconOf(id) || {}) };
+  const { pk, close } = openPicker(`<div class="pk-h"><b>Ikon Folder</b><button class="pk-ok">Selesai</button></div>
+    <div class="pk-prev"><span class="pv"></span><span class="nm">${esc(name)}</span></div>
+    <div class="pk-t">Warna</div><div class="pk-c">${FCOLORS.map((c) => `<button data-c="${c}" style="background:${c || 'var(--tint)'}" aria-label="warna"></button>`).join('')}</div>
+    <div class="pk-t">Ikon</div><div class="pk-g">${Object.keys(FICONS).map((k) => `<button data-s="${k}"><svg class="ic" viewBox="0 0 24 24"><path d="${FICONS[k]}"/></svg></button>`).join('')}</div>
+    <div class="pk-row"><button class="pk-img">Pakai Gambar</button><button class="pk-emo">Pakai Emoji</button></div>`);
+  const sync = () => {
+    $('.pv', pk).innerHTML = folderIconHTML(cur);
+    $$('[data-c]', pk).forEach((b) => b.classList.toggle('on', (cur.color || '') === b.dataset.c && !cur.img && !cur.emo));
+    $$('[data-s]', pk).forEach((b) => { b.classList.toggle('on', (cur.sym || 'folder') === b.dataset.s && !cur.img && !cur.emo); b.style.color = cur.color || 'var(--tint)'; });
+  };
+  const save = async () => { const v = Object.keys(cur).length ? cur : null; if (id === 'notes') notesIcon = v; else { const f = S.folders.find((x) => x.id === id); if (f) f.icon = v; } await saveMeta(); renderFolders(); };
+  pk.onclick = async (e) => {
+    const c = e.target.closest('[data-c]'), sy = e.target.closest('[data-s]');
+    if (c) { delete cur.img; delete cur.emo; cur.color = c.dataset.c || undefined; if (!cur.color) delete cur.color; }
+    if (sy) { delete cur.img; delete cur.emo; cur.sym = sy.dataset.s; }
+    if (e.target.closest('.pk-img')) {
+      const inp = document.createElement('input'); inp.type = 'file'; inp.accept = 'image/*';
+      inp.onchange = async () => { const f = inp.files[0]; if (!f) return; const u = await squareImage(f, 128); if (u) { cur.img = u; delete cur.emo; sync(); await save(); } else toast('Gambar tidak bisa dipakai'); };
+      inp.click(); return;
+    }
+    if (e.target.closest('.pk-emo')) {
+      const { btn, value } = await alertBox({ title: 'Emoji Folder', msg: 'Ketik atau pilih 1 emoji dari keyboard.', input: cur.emo || '', buttons: [{ t: 'Batal' }, { t: 'Pakai', b: 1 }] });
+      if (btn === 1 && value.trim()) { cur.emo = [...value.trim()].slice(0, 2).join(''); delete cur.img; }
+    }
+    if (e.target.closest('.pk-ok')) { close(); }
+    sync(); await save();
+  };
+  sync();
+}
+
+/* ================= tema & latar ================= */
+let THEME = { bg: 'none', accent: '', wall: '', dim: .35 };
+const THEMES = {
+  none: { n: 'Bawaan' },
+  kuning: { n: 'Kuning', g: ['light-dark(#FFF6D6,#2B230A)', 'light-dark(#F2F2F7,#000)'] },
+  biru: { n: 'Biru Laut', g: ['light-dark(#DCEBFF,#0A1B36)', 'light-dark(#F2F7FF,#02060E)'] },
+  hijau: { n: 'Hijau Mint', g: ['light-dark(#DDF7EA,#06261A)', 'light-dark(#F3FBF7,#010A06)'] },
+  ungu: { n: 'Ungu Senja', g: ['light-dark(#ECE2FF,#1D0F38)', 'light-dark(#FBE8F2,#0A0414)'] },
+  merah: { n: 'Kardio', g: ['light-dark(#FFE3E3,#36090F)', 'light-dark(#FFF5F5,#0D0204)'] },
+  jingga: { n: 'Senja', g: ['light-dark(#FFE7D1,#3A1A05)', 'light-dark(#FFF0F5,#120508)'] },
+  abu: { n: 'Grafit', g: ['light-dark(#E9E9EE,#1C1C1E)', 'light-dark(#F7F7FA,#000)'] },
+};
+const ACCENTS = { '': 'Kuning', '#007AFF': 'Biru', '#34C759': 'Hijau', '#FF3B30': 'Merah', '#FF9500': 'Oranye', '#AF52DE': 'Ungu', '#FF2D55': 'Pink', '#00C7BE': 'Toska' };
+function applyTheme() {
+  const r = document.documentElement, t = THEMES[THEME.bg];
+  if (t && t.g) { r.dataset.bgt = THEME.bg; r.style.setProperty('--g1', t.g[0]); r.style.setProperty('--g2', t.g[1]); } else { delete r.dataset.bgt; r.style.removeProperty('--g1'); r.style.removeProperty('--g2'); }
+  if (THEME.accent) r.style.setProperty('--tint', THEME.accent); else r.style.removeProperty('--tint');
+  r.classList.toggle('wall', !!THEME.wall);
+  if (THEME.wall) { r.style.setProperty('--wall', `url("${THEME.wall}")`); r.style.setProperty('--dim', THEME.dim); } else r.style.removeProperty('--wall');
+}
+function themePicker() {
+  const { pk, close } = openPicker(`<div class="pk-h"><b>Tema & Latar</b><button class="pk-ok">Selesai</button></div>
+    <div class="pk-t">Tema latar</div><div class="th-g">${Object.entries(THEMES).map(([k, t]) => `<button data-t="${k}" style="background:${t.g ? `linear-gradient(170deg,${t.g[0]},${t.g[1]})` : 'var(--bg)'}"><span>${esc(t.n)}</span></button>`).join('')}</div>
+    <div class="pk-t">Gambar latar sendiri</div>
+    <div class="pk-row"><button class="pk-wall">Pilih dari Galeri</button><button class="pk-nowall">Hapus Gambar</button></div>
+    <div class="pk-t">Redupkan gambar</div><input class="pk-range" type="range" min="0" max="0.8" step="0.05">
+    <div class="pk-t">Warna aksen</div><div class="pk-c">${Object.entries(ACCENTS).map(([c, n]) => `<button data-a="${c}" style="background:${c || '#E5A50A'}" aria-label="${esc(n)}"></button>`).join('')}</div>`);
+  const rng = $('.pk-range', pk); rng.value = THEME.dim;
+  const sync = () => {
+    $$('[data-t]', pk).forEach((b) => b.classList.toggle('on', !THEME.wall && THEME.bg === b.dataset.t));
+    $$('[data-a]', pk).forEach((b) => b.classList.toggle('on', (THEME.accent || '') === b.dataset.a));
+    $('.pk-nowall', pk).style.display = THEME.wall ? '' : 'none'; rng.disabled = !THEME.wall; rng.style.opacity = THEME.wall ? 1 : .4;
+  };
+  const save = async () => { applyTheme(); sync(); await saveMeta(); };
+  rng.oninput = () => { THEME.dim = +rng.value; applyTheme(); };
+  rng.onchange = save;
+  pk.onclick = async (e) => {
+    const t = e.target.closest('[data-t]'), a = e.target.closest('[data-a]');
+    if (t) { THEME.bg = t.dataset.t; THEME.wall = ''; await save(); }
+    if (a) { THEME.accent = a.dataset.a; await save(); }
+    if (e.target.closest('.pk-nowall')) { THEME.wall = ''; await save(); }
+    if (e.target.closest('.pk-wall')) {
+      const inp = document.createElement('input'); inp.type = 'file'; inp.accept = 'image/*';
+      inp.onchange = async () => {
+        const f = inp.files[0]; if (!f) return; toast('Memproses gambar…');
+        try { const bm = await createImageBitmap(f, { imageOrientation: 'from-image', resizeWidth: 1080, resizeQuality: 'high' }); const c = document.createElement('canvas'); c.width = bm.width; c.height = bm.height; c.getContext('2d').drawImage(bm, 0, 0); bm.close?.();
+          THEME.wall = c.toDataURL('image/jpeg', .82); await save(); toast('Latar diganti'); } catch { toast('Gambar tidak bisa dipakai'); }
+      };
+      inp.click();
+    }
+    if (e.target.closest('.pk-ok')) close();
+  };
+  sync();
+}
+
 /* ================= kunci: PIN & sidik jari ================= */
 const FP_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M12 11v3.5a6 6 0 0 1-1.2 3.6M8.5 9.5A3.5 3.5 0 0 1 15.5 11v2.5a9 9 0 0 1-1.4 4.8M5.5 12.5V11a6.5 6.5 0 0 1 11.7-3.9M18.4 11v1.5a12 12 0 0 1-.8 4.3M8.6 14.2a12 12 0 0 1-1.4 4.6M3.6 8a9.5 9.5 0 0 1 14.9-3.4"/></svg>';
 const b64u = (buf) => btoa(String.fromCharCode(...new Uint8Array(buf))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
@@ -1915,7 +2085,7 @@ setTimeout(() => { if (!booted) alertBox({ title: 'Memuat catatan terlalu lama',
     BOOT = 'membaca folder';
     S.folders = Array.isArray(await DB.getMeta('folders')) ? await DB.getMeta('folders') : [];
     S.sort = (await DB.getMeta('sort')) || 'updated';
-    { const nn = await DB.getMeta('notesName'); if (typeof nn === 'string' && nn) FIXED.notes = nn; const lk = await DB.getMeta('lock'); if (lk && typeof lk === 'object') LOCK = { ...LOCK, ...lk }; }
+    { const nn = await DB.getMeta('notesName'); if (typeof nn === 'string' && nn) FIXED.notes = nn; const lk = await DB.getMeta('lock'); if (lk && typeof lk === 'object') LOCK = { ...LOCK, ...lk }; const ni = await DB.getMeta('notesIcon'); if (ni && typeof ni === 'object') notesIcon = ni; const th = await DB.getMeta('theme'); if (th && typeof th === 'object') THEME = { ...THEME, ...th }; applyTheme(); }
     BOOT = 'membaca catatan';
     for (const n of (await DB.allNotes()) || []) if (n && n.id) S.notes[n.id] = n;
     BOOT = 'merapikan';
