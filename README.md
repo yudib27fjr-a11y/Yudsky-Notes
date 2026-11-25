@@ -18,8 +18,8 @@ curl -sL https://yudib27fjr-a11y.github.io/Yudsky-Notes/ekspor-icloud.js -o /tmp
 ```
 
 3. Bila muncul izin *"Terminal ingin mengontrol Notes"*, pilih **OK / Izinkan**.
-4. Tunggu sampai muncul pesan **Selesai**. File `yudsky-icloud.json` ada di **Desktop**.
-5. Kirim file itu ke HP Android (WhatsApp ke diri sendiri, Google Drive, atau kabel).
-6. Di Yudsky Notes: ⋯ (halaman Folder) → **Impor dari iCloud (Mac)** → **Pilih File**.
+4. Tunggu sampai muncul pesan **Selesai**. Folder **Yudsky iCloud** (berisi `yudsky-icloud-1.json`, `-2.json`, …) terbuka di Desktop.
+5. Kirim semua file di folder itu ke HP Android (WhatsApp ke diri sendiri, Google Drive, atau kabel).
+6. Di Yudsky Notes: ⋯ (halaman Folder) → **Impor dari iCloud (Mac)** → **Pilih File** → pilih semua file sekaligus.
 
 Folder, judul, tanggal, teks tebal/miring, daftar, tabel, foto, dan file (PDF dll.) ikut pindah. Catatan yang dikunci di iPhone dilewati. Impor bisa diulang kapan saja: catatan yang sudah ada tidak digandakan.

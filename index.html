@@ -333,12 +333,12 @@ svg{display:block}
 </div>
 <div class="toast" id="toast"></div>
 <div class="pickers" aria-hidden="true"><input type="file" id="fFoto" accept="image/*" multiple><input type="file" id="fVideo" accept="video/*" multiple><input type="file" id="fCam" accept="image/*" capture="environment"><input type="file" id="fVidCam" accept="video/*" capture="environment"><input type="file" id="fAny" multiple></div>
-<input type="file" id="fImport" accept="application/json,.json" hidden>
+<input type="file" id="fImport" accept="application/json,.json" multiple hidden>
 
 <script>
 {
 /* ================= penyimpanan di perangkat (IndexedDB) ================= */
-const APP_VERSION = 'v18';
+const APP_VERSION = 'v19';
 const ERRLOG = [];
 addEventListener('error', (e) => ERRLOG.push(new Date().toTimeString().slice(0, 8) + ' ' + (e.message || e.type)));
 addEventListener('unhandledrejection', (e) => ERRLOG.push(new Date().toTimeString().slice(0, 8) + ' ' + ((e.reason && (e.reason.name + ': ' + e.reason.message)) || e.reason)));
@@ -1433,7 +1433,20 @@ async function exportFile() {
   } catch { exportCopy(); }
 }
 async function exportCopy() { try { await navigator.clipboard.writeText(backup()); toast(Object.values(S.notes).some((n) => n.att) ? 'Teks disalin (video & file hanya ikut di Unduh Cadangan)' : 'Cadangan disalin'); } catch { toast('Tidak bisa menyalin di sini'); } }
-$('#fImport').addEventListener('change', async (e) => { const f = e.target.files[0]; e.target.value = ''; if (f) importData(await f.text()); });
+$('#fImport').addEventListener('change', async (e) => {
+  const fs = [...e.target.files].sort((a, b) => a.name.localeCompare(b.name, 'id', { numeric: true })); e.target.value = '';
+  if (!fs.length) return;
+  if (fs.length === 1) return importData(await fs[0].text());
+  // beberapa file sekaligus (hasil ekspor iCloud yang dipecah)
+  let done = 0, skipped = 0, bad = 0;
+  for (let k = 0; k < fs.length; k++) {
+    toast('File ' + (k + 1) + '/' + fs.length + '…');
+    let d; try { d = JSON.parse(await fs[k].text()); } catch { bad++; continue; }
+    if (d && d.app === 'icloud-export') { const r = await importICloud(d, true); done += r.done; skipped += r.skipped; }
+    else { await importData(JSON.stringify(d)); }
+  }
+  alertBox({ title: 'Impor iCloud selesai', msg: done + ' catatan diimpor dari ' + fs.length + ' file' + (skipped ? ', ' + skipped + ' sudah ada (dilewati)' : '') + (bad ? ', ' + bad + ' file tidak terbaca' : '') + '.', buttons: [{ t: 'OK', b: 1 }] });
+});
 async function importPaste() {
   const { btn, value } = await alertBox({ title: 'Tempel Cadangan', msg: 'Tempel isi cadangan (.json) di bawah.', area: true, buttons: [{ t: 'Batal' }, { t: 'Pulihkan', b: 1 }] });
   if (btn === 1) importData(value);
@@ -1552,10 +1565,10 @@ function textInfo(html) {
   holder.remove();
   return { title: (lines[0] || '').slice(0, 120), preview: (lines[1] || (atts.length ? atts.length + ' lampiran' : '')).slice(0, 160), text: lines.join('\n').slice(0, 5000), att: atts.length, files: atts.map((f) => f.dataset.fid) };
 }
-async function importICloud(d) {
-  if (!DB.ok) return toast('Penyimpanan belum siap');
+async function importICloud(d, quiet) {
+  if (!DB.ok) { toast('Penyimpanan belum siap'); return { done: 0, skipped: 0 }; }
   const list = Array.isArray(d.notes) ? d.notes : [];
-  toast('Mengimpor ' + list.length + ' catatan dari iCloud…');
+  toast('Mengimpor ' + list.length + ' catatan' + (d.of > 1 ? ' (bagian ' + d.part + '/' + d.of + ')' : '') + '…');
   const fmap = {};
   for (const name of d.folders || []) {
     if (/^(notes|catatan)$/i.test(name)) { fmap[name] = 'notes'; continue; }
@@ -1581,10 +1594,11 @@ async function importICloud(d) {
     } catch (e) { ERRLOG.push('impor: ' + e.message); }
   }
   renderAll();
+  if (quiet) return { done, skipped };
   alertBox({ title: 'Impor iCloud selesai', msg: done + ' catatan diimpor' + (skipped ? ', ' + skipped + ' sudah ada (dilewati)' : '') + '.\nFolder dari iPhone ikut dibuat.', buttons: [{ t: 'OK', b: 1 }] });
 }
 function icloudHelp() {
-  alertBox({ title: 'Impor dari iCloud', msg: '1. Di MacBook, buka Terminal lalu tempel perintah dari README repo Yudsky-Notes.\n2. File yudsky-icloud.json muncul di Desktop.\n3. Kirim file itu ke HP ini (WhatsApp/Drive/kabel).\n4. Ketuk Pilih File di bawah.', buttons: [{ t: 'Batal' }, { t: 'Pilih File', b: 1 }] })
+  alertBox({ title: 'Impor dari iCloud', msg: '1. Di MacBook, buka Terminal lalu tempel perintah dari README repo Yudsky-Notes.\n2. Folder "Yudsky iCloud" muncul di Desktop.\n3. Kirim semua file di folder itu ke HP ini (Google Drive/kabel/WhatsApp).\n4. Ketuk Pilih File, lalu pilih SEMUA file yudsky-icloud sekaligus (tekan lama untuk memilih banyak).', buttons: [{ t: 'Batal' }, { t: 'Pilih File', b: 1 }] })
     .then(({ btn }) => { if (btn === 1) $('#fImport').click(); });
 }
 
