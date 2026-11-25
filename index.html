@@ -404,7 +404,7 @@ svg{display:block}
   <button class="nb back" data-back><svg class="ic" viewBox="0 0 13 22"><path d="M11 2L2 11l9 9"/></svg><span id="nBack">Catatan</span></button>
   <div class="navtitle" id="nTitleS"></div>
   <div class="navgrp">
-   <button class="nb" id="bCopy" aria-label="Salin"><svg class="ic" viewBox="0 0 24 24"><path d="M12 15V3.5M8 7l4-4 4 4"/><path d="M8 10.5H6.5A1.5 1.5 0 0 0 5 12v7.5A1.5 1.5 0 0 0 6.5 21h11a1.5 1.5 0 0 0 1.5-1.5V12a1.5 1.5 0 0 0-1.5-1.5H16"/></svg></button>
+   <button class="nb" id="bCopy" aria-label="Bagikan"><svg class="ic" viewBox="0 0 24 24"><path d="M12 15V3.5M8 7l4-4 4 4"/><path d="M8 10.5H6.5A1.5 1.5 0 0 0 5 12v7.5A1.5 1.5 0 0 0 6.5 21h11a1.5 1.5 0 0 0 1.5-1.5V12a1.5 1.5 0 0 0-1.5-1.5H16"/></svg></button>
    <button class="nb hist" id="bUndo" aria-label="Urungkan" style="display:none"><svg class="ic" viewBox="0 0 24 24"><path d="M9 14L4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/></svg></button>
    <button class="nb hist" id="bRedo" aria-label="Ulangi" style="display:none"><svg class="ic" viewBox="0 0 24 24"><path d="M15 14l5-5-5-5"/><path d="M20 9H9.5a5.5 5.5 0 0 0 0 11H13"/></svg></button>
    <button class="nb" id="bNoteMore" aria-label="Lainnya"><svg class="ic" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><circle cx="8" cy="12" r=".6" fill="currentColor"/><circle cx="12" cy="12" r=".6" fill="currentColor"/><circle cx="16" cy="12" r=".6" fill="currentColor"/></svg></button>
@@ -451,7 +451,7 @@ svg{display:block}
 <script>
 {
 /* ================= penyimpanan di perangkat (IndexedDB) ================= */
-const APP_VERSION = 'v32';
+const APP_VERSION = 'v33';
 const ERRLOG = [];
 addEventListener('error', (e) => ERRLOG.push(new Date().toTimeString().slice(0, 8) + ' ' + (e.message || e.type)));
 addEventListener('unhandledrejection', (e) => ERRLOG.push(new Date().toTimeString().slice(0, 8) + ' ' + ((e.reason && (e.reason.name + ': ' + e.reason.message)) || e.reason)));
@@ -969,7 +969,7 @@ function histGo(d) {
   onEdit(); H.restoring = false; updHist();
   if (navigator.vibrate) navigator.vibrate(6);
 }
-function updHist() { const u = $('#bUndo'), r = $('#bRedo'); if (!u) return; u.disabled = H.idx <= 0; r.disabled = H.idx >= H.stack.length - 1; if (H.idx > 0) { u.style.display = r.style.display = ''; $('#bCopy').style.display = 'none'; } }
+function updHist() { const u = $('#bUndo'), r = $('#bRedo'); if (!u) return; u.disabled = H.idx <= 0; r.disabled = H.idx >= H.stack.length - 1;  }
 for (const [id, d] of [['#bUndo', -1], ['#bRedo', 1]]) { $(id).addEventListener('pointerdown', (e) => e.preventDefault()); $(id).addEventListener('click', () => histGo(d)); }
 // Ctrl+Z / Ctrl+Shift+Z (keyboard fisik) & gerakan urungkan bawaan -> pakai riwayat sendiri
 ed.addEventListener('beforeinput', (e) => { if (e.inputType === 'historyUndo') { e.preventDefault(); histGo(-1); } if (e.inputType === 'historyRedo') { e.preventDefault(); histGo(1); } });
@@ -1216,7 +1216,7 @@ ed.addEventListener('paste', (e) => {
 // keyboard: tombol Selesai & toolbar di atas keyboard
 ed.addEventListener('focus', () => { $('#bDone').style.display = ''; $('#bCopy').style.display = 'none'; $('#bUndo').style.display = $('#bRedo').style.display = ''; updHist(); });
 ed.addEventListener('blur', () => { if (linkify()) onEdit(); });
-ed.addEventListener('blur', () => setTimeout(() => { if (document.activeElement !== ed) { $('#bDone').style.display = 'none'; $('#bCopy').style.display = $('#bNoteMore').style.display = ''; if (!H.stack.length || H.idx <= 0) { $('#bUndo').style.display = $('#bRedo').style.display = 'none'; } else $('#bCopy').style.display = 'none'; } }, 50));
+ed.addEventListener('blur', () => setTimeout(() => { if (document.activeElement !== ed) { $('#bDone').style.display = 'none'; $('#bCopy').style.display = $('#bNoteMore').style.display = ''; $('#bUndo').style.display = $('#bRedo').style.display = 'none'; } }, 50));
 $('#bDone').onclick = () => { ed.blur(); hideFmt(); flushSave(); };
 if (window.visualViewport) {
   const vv = visualViewport;
@@ -1740,6 +1740,7 @@ function noteMoreMenu(id) {
       { icon: n.locked ? IC.unlock : IC.lock, label: n.locked ? 'Hapus Kunci' : 'Kunci', fn: () => toggleNoteLock(n) },
     ],
     items: [
+      { icon: IC.copy, label: 'Bagikan…', fn: () => shareNote(id) },
       { icon: IC.copy, label: 'Salin Teks', fn: () => copyText(id) },
       { icon: IC.find, label: 'Temukan di Catatan', fn: openFind },
       { icon: IC.move, label: 'Pindahkan Catatan', fn: () => act(id, 'move') },
@@ -1786,7 +1787,51 @@ async function noteMenu(id) {
 }
 $('#bNoteMore').addEventListener('pointerdown', (e) => e.preventDefault());
 $('#bNoteMore').onclick = () => S.note && noteMoreMenu(S.note);
-$('#bCopy').onclick = () => S.note && copyText(S.note);
+$('#bCopy').onclick = () => S.note && shareNote(S.note);
+// bagikan catatan ke aplikasi lain (WhatsApp, Gmail, Drive, …) lewat menu Bagikan Android
+async function shareNote(id) {
+  const n = S.notes[id]; if (!n) return;
+  if (n.locked && !unlocked && !(await unlock('Bagikan catatan terkunci'))) return;
+  const text = (S.note === id ? [...ed.children].filter((el) => !el.matches('figure.att, img')).map((el) => el.innerText).join('\n') : n.text).trim();
+  const files = [];
+  let total = 0;
+  for (const fid of n.files || []) {
+    const f = await DB.getFile(fid); if (!f || !f.blob) continue;
+    if (total + f.size > 60 * 1048576) break;   // batas wajar ukuran berbagi
+    files.push(new File([f.blob], f.name || 'lampiran', { type: f.type || f.blob.type })); total += f.size;
+  }
+  // foto lama yang tersimpan di dalam teks catatan
+  if (S.note === id) for (const im of $$('#ed > img', ed)) { try { const b = await (await fetch(im.src)).blob(); files.push(new File([b], 'foto.jpg', { type: b.type })); } catch {} }
+  const data = { title: n.title || 'Catatan', text };
+  if (files.length && navigator.canShare && navigator.canShare({ files })) data.files = files;
+  if (navigator.share) {
+    try { await navigator.share(data); return; } catch (e) { if (e.name === 'AbortError') return; }
+  }
+  try { await navigator.clipboard.writeText(text); toast('Menu berbagi tidak tersedia — teks disalin'); } catch { toast('Tidak bisa membagikan di sini'); }
+}
+// terima isi yang dibagikan dari aplikasi lain -> catatan baru
+async function receiveShared() {
+  if (!/[?&]shared=1/.test(location.search)) return;
+  try { history.replaceState(null, '', location.pathname); } catch {}
+  let c, meta;
+  try { c = await caches.open('yudsky-share'); const base = (await navigator.serviceWorker.ready).scope + '__share/'; const r = await c.match(base + 'meta'); if (!r) return; meta = await r.json(); meta.base = base; } catch { return; }
+  const files = [];
+  for (const f of meta.files || []) { try { const r = await c.match(meta.base + 'f' + f.i); if (r) files.push(new File([await r.blob()], f.name, { type: f.type })); } catch {} }
+  for (const k of await c.keys()) await c.delete(k);
+  // kunci aplikasi tetap berlaku
+  if (LOCK.app && !unlocked) { await new Promise((res) => { const t = setInterval(() => { if (unlocked || !$('.lockscr')) { clearInterval(t); res(); } }, 300); }); }
+  const clean = (v) => String(v || '').replace(/\r\n?/g, '\n').trim();
+  let title = clean(meta.title), text = clean(meta.text), url = clean(meta.url);
+  if (url && text.includes(url)) url = '';
+  if (!title) { const first = text.split('\n')[0]; title = first && first.length <= 80 && text.includes('\n') ? first : (files.length ? 'Dibagikan ' + fShort.format(Date.now()) : (text.slice(0, 60) || url || 'Catatan')); if (title === text.split('\n')[0]) text = text.split('\n').slice(1).join('\n').trim(); }
+  if (S.stack.length > 1 && !wide()) { S.stack = ['folders']; applyStack(false); }
+  newNote();
+  const lines = [text, url].filter(Boolean).join('\n').split('\n');
+  ed.innerHTML = '<h1>' + esc(title) + '</h1>' + lines.map((l) => '<div>' + (esc(l) || '<br>') + '</div>').join('') + (lines.length ? '' : '<div><br></div>');
+  ed.blur(); linkify(); histReset(); onEdit();
+  if (files.length) { savedRange = null; await addFiles(files); }
+  flushSave(); toast('Dibagikan ke Yudsky Notes');
+}
 $('#bRestore').onclick = () => S.note && act(S.note, 'restore');
 async function copyText(id) {
   const n = S.notes[id];
@@ -2394,6 +2439,7 @@ setTimeout(() => { if (!booted) alertBox({ title: 'Memuat catatan terlalu lama',
     if (id && S.notes[id] && !S.notes[id].deletedAt) { S.folder = S.notes[id].folderId || 'notes'; renderList(); if (!wide()) push('list'); openNote(id); setTimeout(() => toast('Pilih lagi foto/videonya — aplikasi sempat dimuat ulang oleh Android'), 600); } } catch {}
   if (wide()) openFolder('notes');
   setTimeout(() => checkUpdate(false), 1500);
+  setTimeout(() => receiveShared().catch((e) => ERRLOG.push('bagikan: ' + e.message)), 300);
   setTimeout(async () => { try { const e = await navigator.storage.estimate(); if (e.quota && e.usage / e.quota > 0.92) storageFullWarn(); } catch {} }, 2500);
   matchMedia('(min-width:900px)').addEventListener('change', () => { applyStack(false); renderAll(); });
   } catch (err) { ERRLOG.push('akhir: ' + (err && err.message)); }
