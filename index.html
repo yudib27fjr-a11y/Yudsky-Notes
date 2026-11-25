@@ -338,7 +338,7 @@ svg{display:block}
 <script>
 {
 /* ================= penyimpanan di perangkat (IndexedDB) ================= */
-const APP_VERSION = 'v17';
+const APP_VERSION = 'v18';
 const ERRLOG = [];
 addEventListener('error', (e) => ERRLOG.push(new Date().toTimeString().slice(0, 8) + ' ' + (e.message || e.type)));
 addEventListener('unhandledrejection', (e) => ERRLOG.push(new Date().toTimeString().slice(0, 8) + ' ' + ((e.reason && (e.reason.name + ': ' + e.reason.message)) || e.reason)));
@@ -1394,8 +1394,8 @@ for (const [lab, key, fn] of [['#qF', 'qF', renderSearchAll], ['#qL', 'qL', rend
 /* ================= cadangan: ekspor / impor ================= */
 $('#bMenu').onclick = async () => {
   const c = live().length;
-  const i = await sheet({ title: `Yudsky Notes ${APP_VERSION} — ${c} catatan di ponsel ini`, items: [{ t: 'Unduh Cadangan (.json)' }, { t: 'Salin Cadangan' }, { t: 'Pulihkan dari File' }, { t: 'Tempel Cadangan' }, { t: 'Periksa Pembaruan' }, { t: 'Cek Penyimpanan' }] });
-  if (i === 0) exportFile(); if (i === 1) exportCopy(); if (i === 2) $('#fImport').click(); if (i === 3) importPaste(); if (i === 4) checkUpdate(true); if (i === 5) diagnose();
+  const i = await sheet({ title: `Yudsky Notes ${APP_VERSION} — ${c} catatan di ponsel ini`, items: [{ t: 'Unduh Cadangan (.json)' }, { t: 'Salin Cadangan' }, { t: 'Pulihkan dari File' }, { t: 'Tempel Cadangan' }, { t: 'Impor dari iCloud (Mac)' }, { t: 'Periksa Pembaruan' }, { t: 'Cek Penyimpanan' }] });
+  if (i === 0) exportFile(); if (i === 1) exportCopy(); if (i === 2) $('#fImport').click(); if (i === 3) importPaste(); if (i === 4) icloudHelp(); if (i === 5) checkUpdate(true); if (i === 6) diagnose();
 };
 async function diagnose() {
   const out = ['Versi: ' + APP_VERSION + (navigator.serviceWorker?.controller ? ' (offline aktif)' : ''), 'Mode: ' + (matchMedia('(display-mode: standalone)').matches ? 'aplikasi terpasang' : 'tab Chrome')];
@@ -1440,6 +1440,7 @@ async function importPaste() {
 }
 async function importData(txt) {
   let d; try { d = JSON.parse(txt); } catch { return toast('File cadangan tidak valid'); }
+  if (d && d.app === 'icloud-export') return importICloud(d);
   if (!d || !Array.isArray(d.notes)) return toast('File cadangan tidak valid');
   let added = 0;
   for (const f of d.files || []) {
@@ -1453,6 +1454,136 @@ async function importData(txt) {
     if (!old || (n.updatedAt || 0) > (old.updatedAt || 0)) { S.notes[n.id] = { ...n, html: String(n.html || '').replace(/<(script|iframe|object|embed)[\s\S]*?>/gi, '').replace(/\son\w+=/gi, ' data-x=') }; await saveNote(S.notes[n.id]); added++; }
   }
   await saveMeta(); renderAll(); toast(added + ' catatan dipulihkan');
+}
+
+/* ================= impor dari Apple Notes (iCloud) ================= */
+const dataToBlob = async (u) => (await fetch(u)).blob();
+async function thumbFromBlob(blob) {
+  try { const bm = await createImageBitmap(blob, { resizeWidth: 160, resizeQuality: 'medium' }); const c = document.createElement('canvas'), s = Math.min(bm.width, bm.height);
+    c.width = c.height = 96; c.getContext('2d').drawImage(bm, (bm.width - s) / 2, (bm.height - s) / 2, s, s, 0, 0, 96, 96); bm.close?.(); return c.toDataURL('image/jpeg', .7); } catch { return ''; }
+}
+const KEEP = { H1: 'h1', H2: 'h2', H3: 'h3', DIV: 'div', P: 'div', BR: 'br', B: 'b', STRONG: 'b', I: 'i', EM: 'i', U: 'u', S: 's', STRIKE: 's', DEL: 's', UL: 'ul', OL: 'ol', LI: 'li',
+  TABLE: 'table', TBODY: 'tbody', THEAD: 'tbody', TR: 'tr', TD: 'td', TH: 'td', A: 'a', PRE: 'pre', TT: 'pre', CODE: 'pre', BLOCKQUOTE: 'div', IMG: 'img' };
+async function cleanAppleNode(node, out, pics) {
+  for (const ch of [...node.childNodes]) {
+    if (ch.nodeType === 3) { out.appendChild(document.createTextNode(ch.data)); continue; }
+    if (ch.nodeType !== 1) continue;
+    const tag = ch.tagName.toUpperCase();
+    if (['SCRIPT', 'STYLE', 'META', 'HEAD', 'TITLE', 'OBJECT', 'IFRAME'].includes(tag)) continue;
+    const st = (ch.getAttribute('style') || '').toLowerCase();
+    const fs = parseFloat((st.match(/font-size:\s*([\d.]+)px/) || [])[1] || 0);
+    let to = KEEP[tag];
+    if (tag === 'IMG') {
+      const src = ch.getAttribute('src') || '';
+      if (!src.startsWith('data:image')) continue;
+      pics.push(src); const ph = document.createElement('i'); ph.dataset.pic = pics.length - 1; out.appendChild(ph); continue;
+    }
+    let el;
+    if (!to) { // span/font/dll: buka bungkusnya, tapi pertahankan tebal/miring/coret dari gaya
+      el = document.createDocumentFragment();
+      let wrap = null;
+      if (/font-weight:\s*(bold|[6-9]00)/.test(st)) wrap = document.createElement('b');
+      else if (/font-style:\s*italic/.test(st)) wrap = document.createElement('i');
+      else if (/line-through/.test(st)) wrap = document.createElement('s');
+      else if (/underline/.test(st)) wrap = document.createElement('u');
+      const target = wrap || el; if (wrap) el.appendChild(wrap);
+      if (fs >= 22) target.__h = 'h1'; else if (fs >= 18) target.__h = 'h2';
+      await cleanAppleNode(ch, target, pics);
+      if (target.__h) { const h = document.createElement('span'); h.dataset.h = target.__h; h.append(...el.childNodes); out.appendChild(h); }
+      else out.appendChild(el);
+      continue;
+    }
+    el = document.createElement(to);
+    if (to === 'a') { const h = ch.getAttribute('href') || ''; if (/^https?:|^mailto:|^tel:/.test(h)) el.setAttribute('href', h); }
+    if (to === 'td' && ch.getAttribute('colspan')) el.setAttribute('colspan', ch.getAttribute('colspan'));
+    await cleanAppleNode(ch, el, pics);
+    out.appendChild(el);
+  }
+}
+async function convertAppleNote(src, recMap) {
+  const doc = new DOMParser().parseFromString(String(src.html || ''), 'text/html');
+  const box = document.createElement('div'), pics = [];
+  await cleanAppleNode(doc.body, box, pics);
+  // bungkus luar tunggal -> buka
+  while (box.children.length === 1 && box.firstElementChild.tagName === 'DIV' && box.firstElementChild.querySelector('div,h1,h2,ul,ol,table')) box.firstElementChild.replaceWith(...box.firstElementChild.childNodes);
+  // baris dengan huruf besar -> Judul/Heading
+  for (const sp of [...box.querySelectorAll('span[data-h]')]) {
+    const blk = sp.closest('div'); const tag = sp.dataset.h;
+    if (blk && blk.parentNode === box && blk.textContent.trim() === sp.textContent.trim()) { const h = document.createElement(tag); h.append(...sp.childNodes); blk.replaceWith(h); }
+    else sp.replaceWith(...sp.childNodes);
+  }
+  // tabel -> pembungkus yang bisa digeser
+  for (const t of [...box.querySelectorAll('table')]) { const w = document.createElement('div'); w.className = 'tblw'; const host = t.parentElement; if (host && host !== box && host.tagName === 'DIV' && host.children.length === 1 && !host.textContent.replace(t.textContent, '').trim()) host.replaceWith(w); else t.replaceWith(w); w.appendChild(t); }
+  // foto di dalam catatan -> lampiran foto
+  let first = '';
+  for (const ph of [...box.querySelectorAll('i[data-pic]')]) {
+    try {
+      const blob = await dataToBlob(pics[+ph.dataset.pic]);
+      const rec = { id: 'a' + uid(), name: 'Foto.jpg', type: blob.type || 'image/jpeg', size: blob.size, blob, at: Date.now(), pic: true };
+      if (await DB.putFile(rec)) {
+        if (!first) first = await thumbFromBlob(blob);
+        const t = document.createElement('div'); t.innerHTML = figureHTML(rec);
+        const fig = t.firstElementChild; const blk = ph.closest('div,h1,h2,h3,li');
+        if (blk && blk.parentNode === box && !blk.textContent.trim()) blk.replaceWith(fig); else ph.replaceWith(fig);
+      } else ph.remove();
+    } catch { ph.remove(); }
+  }
+  // lampiran lain (PDF, dokumen, foto yang tidak ikut di isi)
+  for (const x of src.extra || []) {
+    const rec = recMap[x.fid]; if (!rec) continue;
+    if (rec.type.startsWith('image/') && !/heic|heif/.test(rec.type)) { rec.pic = true; if (!first) first = await thumbFromBlob(rec.blob); }
+    const t = document.createElement('div'); t.innerHTML = figureHTML(rec); box.appendChild(t.firstElementChild);
+  }
+  // baris pertama selalu Judul, seperti di iPhone
+  const f0 = box.firstElementChild;
+  if (f0 && f0.tagName === 'DIV' && f0.textContent.trim()) { const h = document.createElement('h1'); h.append(...f0.childNodes); f0.replaceWith(h); }
+  for (const b of [...box.querySelectorAll('b')]) if (b.parentElement && /^H[123]$/.test(b.parentElement.tagName) && b.parentElement.childNodes.length === 1) b.replaceWith(...b.childNodes);
+  return { html: box.innerHTML, img: first };
+}
+function textInfo(html) {
+  const t = document.createElement('div'); t.id = 'ed'; t.style.cssText = 'position:absolute;left:-9999px;top:0;width:360px';
+  const holder = document.createElement('div'); holder.appendChild(t); document.body.appendChild(holder);
+  t.innerHTML = html;
+  const raw = [...t.children].filter((el) => !el.matches('figure.att, img')).map((el) => el.innerText).join('\n');
+  const lines = raw.split('\n').map((x) => x.trim()).filter(Boolean);
+  const atts = [...t.querySelectorAll('figure.att')];
+  holder.remove();
+  return { title: (lines[0] || '').slice(0, 120), preview: (lines[1] || (atts.length ? atts.length + ' lampiran' : '')).slice(0, 160), text: lines.join('\n').slice(0, 5000), att: atts.length, files: atts.map((f) => f.dataset.fid) };
+}
+async function importICloud(d) {
+  if (!DB.ok) return toast('Penyimpanan belum siap');
+  const list = Array.isArray(d.notes) ? d.notes : [];
+  toast('Mengimpor ' + list.length + ' catatan dari iCloud…');
+  const fmap = {};
+  for (const name of d.folders || []) {
+    if (/^(notes|catatan)$/i.test(name)) { fmap[name] = 'notes'; continue; }
+    let f = S.folders.find((x) => x.name === name); if (!f) { f = { id: 'f' + uid(), name: String(name) }; S.folders.push(f); }
+    fmap[name] = f.id;
+  }
+  await saveMeta();
+  const recMap = {};
+  for (const f of d.files || []) {
+    try { const blob = await dataToBlob(f.data); const rec = { id: 'a' + uid(), name: String(f.name || 'File'), type: String(f.type || blob.type || 'application/octet-stream'), size: blob.size, blob, at: Date.now() };
+      if (await DB.putFile(rec)) recMap[f.id] = rec; } catch {}
+  }
+  let done = 0, skipped = 0;
+  for (const src of list) {
+    try {
+      const old = S.notes[src.id];
+      if (old && (old.updatedAt || 0) >= (src.updatedAt || 0)) { skipped++; continue; }   // sudah ada & tidak lebih baru
+      const { html, img } = await convertAppleNote(src, recMap);
+      const n = { id: String(src.id), folderId: fmap[src.folder] || 'notes', html, v2: true, pinned: false, img,
+        createdAt: +src.createdAt || Date.now(), updatedAt: +src.updatedAt || Date.now(), ...textInfo(html) };
+      S.notes[n.id] = n; await DB.putNote(n); done++;
+      if (done % 10 === 0) toast('Mengimpor… ' + done + '/' + list.length);
+    } catch (e) { ERRLOG.push('impor: ' + e.message); }
+  }
+  renderAll();
+  alertBox({ title: 'Impor iCloud selesai', msg: done + ' catatan diimpor' + (skipped ? ', ' + skipped + ' sudah ada (dilewati)' : '') + '.\nFolder dari iPhone ikut dibuat.', buttons: [{ t: 'OK', b: 1 }] });
+}
+function icloudHelp() {
+  alertBox({ title: 'Impor dari iCloud', msg: '1. Di MacBook, buka Terminal lalu tempel perintah dari README repo Yudsky-Notes.\n2. File yudsky-icloud.json muncul di Desktop.\n3. Kirim file itu ke HP ini (WhatsApp/Drive/kabel).\n4. Ketuk Pilih File di bawah.', buttons: [{ t: 'Batal' }, { t: 'Pilih File', b: 1 }] })
+    .then(({ btn }) => { if (btn === 1) $('#fImport').click(); });
 }
 
 /* ================= dialog ala iOS ================= */
