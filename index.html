@@ -187,7 +187,7 @@ svg{display:block}
 .al{margin:auto;width:270px;background:var(--sheet);backdrop-filter:blur(30px);-webkit-backdrop-filter:blur(30px);border-radius:14px;overflow:hidden;transform:scale(1.15);transition:transform .25s;text-align:center}
 .ov.show .al{transform:none}
 .al h3{margin:19px 16px 2px;font-size:17px;font-weight:600}
-.al p{margin:0 16px 14px;font-size:13px;line-height:1.35}
+.al p{margin:0 16px 14px;font-size:13px;line-height:1.35;white-space:pre-line;text-align:left}
 .al input,.al textarea{display:block;width:calc(100% - 32px);margin:-4px 16px 16px;padding:7px 8px;border:.5px solid var(--sep);border-radius:7px;background:var(--cell);font-size:16px;outline:none}
 .al textarea{height:110px;font:12px ui-monospace,monospace;resize:none}
 .alb{display:flex;border-top:.5px solid var(--sep)}
@@ -298,6 +298,10 @@ svg{display:block}
 <script>
 {
 /* ================= penyimpanan di perangkat (IndexedDB) ================= */
+const APP_VERSION = 'v11';
+const ERRLOG = [];
+addEventListener('error', (e) => ERRLOG.push(new Date().toTimeString().slice(0, 8) + ' ' + (e.message || e.type)));
+addEventListener('unhandledrejection', (e) => ERRLOG.push(new Date().toTimeString().slice(0, 8) + ' ' + ((e.reason && (e.reason.name + ': ' + e.reason.message)) || e.reason)));
 let DB_ERR = '';
 const DB = (() => {
   let db = null;
@@ -866,6 +870,7 @@ async function insertImage(file) {
   toast('Memproses foto…');
   let blob = await shrinkPhoto(file).catch(() => null);
   if (!blob) {
+    ERRLOG.push('foto tidak bisa dikecilkan: ' + (file.type || '?') + ' ' + fmtSize(file.size));
     // tidak bisa dikecilkan: pakai foto asli bila browser bisa menampilkannya, kalau tidak simpan sebagai file
     if (await canShow(file)) blob = file;
     else { toast('Format foto ini tidak bisa ditampilkan — disimpan sebagai file'); return addFileRecord(file); }
@@ -1142,9 +1147,27 @@ for (const [lab, key, fn] of [['#qF', 'qF', renderSearchAll], ['#qL', 'qL', rend
 /* ================= cadangan: ekspor / impor ================= */
 $('#bMenu').onclick = async () => {
   const c = live().length;
-  const i = await sheet({ title: `Yudsky Notes — ${c} catatan tersimpan di ponsel ini`, items: [{ t: 'Unduh Cadangan (.json)' }, { t: 'Salin Cadangan' }, { t: 'Pulihkan dari File' }, { t: 'Tempel Cadangan' }] });
-  if (i === 0) exportFile(); if (i === 1) exportCopy(); if (i === 2) $('#fImport').click(); if (i === 3) importPaste();
+  const i = await sheet({ title: `Yudsky Notes ${APP_VERSION} — ${c} catatan di ponsel ini`, items: [{ t: 'Unduh Cadangan (.json)' }, { t: 'Salin Cadangan' }, { t: 'Pulihkan dari File' }, { t: 'Tempel Cadangan' }, { t: 'Cek Penyimpanan' }] });
+  if (i === 0) exportFile(); if (i === 1) exportCopy(); if (i === 2) $('#fImport').click(); if (i === 3) importPaste(); if (i === 4) diagnose();
 };
+async function diagnose() {
+  const out = ['Versi: ' + APP_VERSION + (navigator.serviceWorker?.controller ? ' (offline aktif)' : ''), 'Mode: ' + (matchMedia('(display-mode: standalone)').matches ? 'aplikasi terpasang' : 'tab Chrome')];
+  out.push('Penyimpanan utama: ' + (DB.ok ? 'OK' : 'GAGAL ' + DB_ERR));
+  if (DB.ok) {
+    const all = (await DB.allNotes()) || [];
+    out.push('Catatan tersimpan: ' + all.filter((n) => !n.deletedAt).length + ' (di layar: ' + live().length + ')');
+    const t = { id: '__tes', title: 'tes', html: '', text: 'tes', createdAt: 0, updatedAt: 0, deletedAt: 1 };
+    const w = await DB.putNote(t); const r = await DB.getMeta('__none'); await DB.delNote('__tes');
+    out.push('Tes tulis: ' + (w !== null ? 'OK' : 'GAGAL'));
+    const fk = (await DB.fileKeys()) || []; out.push('Lampiran tersimpan: ' + fk.length);
+  }
+  try { const e = await navigator.storage.estimate(); out.push('Terpakai: ' + fmtSize(e.usage || 0) + ' dari ' + fmtSize(e.quota || 0)); } catch {}
+  try { out.push('Penyimpanan permanen: ' + ((await navigator.storage.persisted()) ? 'ya' : 'belum')); } catch {}
+  try { const c = document.createElement('canvas'); c.width = c.height = 8; const b = await new Promise((r) => c.toBlob(r, 'image/jpeg')); const bm = await withTimeout(createImageBitmap(b, { resizeWidth: 4 }), 5000); out.push('Proses foto: OK (' + bm.width + 'px)'); } catch (e) { out.push('Proses foto: GAGAL ' + (e && e.message)); }
+  out.push('Browser: ' + (navigator.userAgent.match(/(Chrome|SamsungBrowser|Firefox)\/[\d.]+/) || ['?'])[0] + ' · ' + (navigator.userAgent.match(/Android [\d.]+/) || [''])[0]);
+  if (ERRLOG.length) out.push('Error: ' + ERRLOG.slice(-4).join(' | '));
+  alertBox({ title: 'Cek Penyimpanan', msg: out.join('\n'), buttons: [{ t: 'Salin' }, { t: 'OK', b: 1 }] }).then(({ btn }) => { if (btn === 0) navigator.clipboard?.writeText(out.join('\n')).then(() => toast('Disalin'), () => {}); });
+}
 const backup = (files) => JSON.stringify({ app: 'catatan-ios', v: 2, at: Date.now(), folders: S.folders, notes: Object.values(S.notes), files: files || [] });
 const toDataURL = (blob) => new Promise((r) => { const fr = new FileReader(); fr.onload = () => r(fr.result); fr.onerror = () => r(null); fr.readAsDataURL(blob); });
 async function exportFile() {
