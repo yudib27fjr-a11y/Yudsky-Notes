@@ -204,7 +204,7 @@ svg{display:block}
 .player{margin:auto;max-width:100%;max-height:100%;background:#000}
 #ed figure.pic{position:relative}
 #ed figure.pic.sz-s .msz{top:4px;right:4px;width:24px;height:24px;font-size:13px}
-.drag{display:none;color:var(--ter);font-size:20px;padding:0 4px 0 8px;touch-action:none;cursor:grab}
+.drag{display:none;color:var(--ter);font-size:22px;padding:10px 6px 10px 14px;margin:-10px -6px -10px 0;touch-action:none;cursor:grab}
 .editing .row.custom .drag{display:block}
 .row.dragging{opacity:.85;background:var(--fill);z-index:3;box-shadow:0 6px 18px rgba(0,0,0,.25)}
 .ren{display:none;color:var(--tint);font-size:14px}
@@ -456,7 +456,7 @@ svg{display:block}
 <script>
 {
 /* ================= penyimpanan di perangkat (IndexedDB) ================= */
-const APP_VERSION = 'v34';
+const APP_VERSION = 'v35';
 const ERRLOG = [];
 addEventListener('error', (e) => ERRLOG.push(new Date().toTimeString().slice(0, 8) + ' ' + (e.message || e.type)));
 addEventListener('unhandledrejection', (e) => ERRLOG.push(new Date().toTimeString().slice(0, 8) + ' ' + ((e.reason && (e.reason.name + ': ' + e.reason.message)) || e.reason)));
@@ -784,6 +784,7 @@ for (const id of ['sFolders', 'sList']) {
   sc.addEventListener('touchstart', (e) => { if (sc.scrollTop <= 0 && !e.target.closest('.rw.open')) { y0 = e.touches[0].clientY; dy = 0; armed = false; } else y0 = null; }, { passive: true });
   sc.addEventListener('touchmove', (e) => {
     if (y0 === null) return;
+    if (fdrag.row || (typeof drag !== 'undefined' && drag.ghost)) { y0 = null; armed = false; ind.style.opacity = 0; ind.style.transform = ''; return; }  // sedang menyeret folder/foto, bukan memperbarui
     dy = e.touches[0].clientY - y0;
     if (dy <= 0 || sc.scrollTop > 0) { ind.style.opacity = 0; ind.style.transform = ''; return; }
     const p = Math.min(1, dy / 70);
@@ -792,7 +793,7 @@ for (const id of ['sFolders', 'sList']) {
   }, { passive: true });
   sc.addEventListener('touchend', () => {
     if (y0 === null) return; y0 = null;
-    if (armed) { ind.classList.add('go'); ind.style.transform = 'translateY(10px)'; updateApp(); }
+    if (armed && !fdrag.row && !fdrag.just) { ind.classList.add('go'); ind.style.transform = 'translateY(10px)'; updateApp(); }
     else { ind.style.opacity = 0; ind.style.transform = ''; }
   });
 }
@@ -867,22 +868,23 @@ async function fdEnd() {
   S.folders.sort((a, b) => folderOrder.indexOf(a.id) - folderOrder.indexOf(b.id));
   await saveMeta(); renderFolders();
 }
-// mode Edit: tarik tanda ≡ (mouse/jari)
+// mouse (komputer): tarik ≡ di mode Edit
 $('#folders').addEventListener('pointerdown', (e) => {
+  if (e.pointerType !== 'mouse') return;
   const h = e.target.closest('.drag'); if (!h || !S.editFolders) return;
-  e.preventDefault(); try { h.setPointerCapture(e.pointerId); } catch {}
-  fdStart(h.closest('.row'), e.clientY);
+  e.preventDefault(); fdStart(h.closest('.row'), e.clientY);
+  const mv = (ev) => fdMove(ev.clientY), up = () => { removeEventListener('pointermove', mv); removeEventListener('pointerup', up); fdEnd(); };
+  addEventListener('pointermove', mv); addEventListener('pointerup', up);
 });
-$('#folders').addEventListener('pointermove', (e) => { if (fdrag.row && e.pointerType !== 'touch') fdMove(e.clientY); else if (fdrag.row && S.editFolders) fdMove(e.clientY); });
-$('#folders').addEventListener('pointerup', () => { if (fdrag.row && S.editFolders) fdEnd(); });
-// tanpa mode Edit: tekan lama folder lalu geser
+// jari (HP): sentuh ≡ di mode Edit -> langsung seret; tekan lama baris folder -> seret (mode apa pun)
 $('#folders').addEventListener('touchstart', (e) => {
-  const row = e.target.closest('.row.mv'); if (!row || S.editFolders || e.touches.length !== 1) return;
-  fdrag.y0 = e.touches[0].clientY; clearTimeout(fdrag.timer);
+  if (e.touches.length !== 1) return;
+  const row = e.target.closest('.row.mv'); if (!row || e.target.closest('.minus, .ren')) return;
+  const y = e.touches[0].clientY; fdrag.y0 = y; clearTimeout(fdrag.timer);
+  if (S.editFolders && e.target.closest('.drag')) { fdStart(row, y); return; }
   fdrag.timer = setTimeout(() => fdStart(row, fdrag.y0), 420);
 }, { passive: true });
 $('#folders').addEventListener('touchmove', (e) => {
-  if (S.editFolders) { if (fdrag.row) e.preventDefault(); return; }
   if (!fdrag.row) { if (Math.abs(e.touches[0].clientY - fdrag.y0) > 8) clearTimeout(fdrag.timer); return; }
   e.preventDefault(); fdMove(e.touches[0].clientY);
 }, { passive: false });
