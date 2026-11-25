@@ -206,6 +206,31 @@ svg{display:block}
 .alb button{flex:1;height:44px;color:var(--blue);font-size:17px}
 .alb button+button{border-left:.5px solid var(--sep)}
 .alb button.b{font-weight:600}.alb button.des{color:var(--red)}
+.pop{position:fixed;inset:0;z-index:55}
+.popc{position:absolute;right:10px;top:calc(48px + var(--sat));width:min(300px,calc(100vw - 20px));max-height:calc(100vh - 80px - var(--sat));overflow-y:auto;background:var(--sheet);backdrop-filter:blur(30px) saturate(180%);-webkit-backdrop-filter:blur(30px) saturate(180%);border-radius:22px;box-shadow:0 10px 40px rgba(0,0,0,.35);padding:6px 0;transform-origin:top right;transform:scale(.6);opacity:0;transition:transform .22s cubic-bezier(.2,.9,.3,1.2),opacity .15s}
+.pop.show .popc{transform:none;opacity:1}
+.ptop{display:flex;padding:8px 6px 10px;border-bottom:.5px solid var(--sep);margin-bottom:4px}
+.ptop button{flex:1;display:flex;flex-direction:column;align-items:center;gap:5px;font-size:12px;font-weight:600;padding:6px 2px;border-radius:12px;text-align:center;line-height:1.15}
+.ptop button:active,.pit:active{background:var(--fill)}
+.pit{display:flex;align-items:center;gap:14px;width:100%;padding:11px 18px;font-size:17px;text-align:left}
+.pit .ic{width:22px;height:22px;flex:none}
+.pit .lb{flex:1;display:flex;flex-direction:column}.pit small{font-size:13px;color:var(--sec)}
+.pit .chev2{color:var(--sec);font-size:20px}
+.pit.des{color:var(--red)}.pit.on .ck{color:var(--tint)}
+.pit .ck{width:18px;font-weight:700}
+/* kertas bergaris / grid & latar terang per catatan */
+#pNote.paper-lines #ed{background-image:linear-gradient(to bottom,transparent calc(100% - 1px),var(--sep) 0);background-size:100% 23.5px;background-attachment:local}
+#pNote.paper-grid #ed{background-image:linear-gradient(to bottom,transparent calc(100% - 1px),var(--sep) 0),linear-gradient(to right,transparent calc(100% - 1px),var(--sep) 0);background-size:23.5px 23.5px;background-attachment:local}
+#pNote.lightbg{color-scheme:light}
+#pNote{color:var(--ink)}
+/* temukan di catatan */
+.findbar{position:absolute;left:0;right:0;top:calc(44px + var(--sat));z-index:6;display:none;align-items:center;gap:8px;padding:8px 12px;background:var(--bar);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);box-shadow:0 .5px 0 var(--sep)}
+.findbar.show{display:flex}
+.findbar input{flex:1;height:34px;border:0;border-radius:9px;background:var(--fill);padding:0 10px;font-size:16px;outline:none;color:var(--ink)}
+.findbar span{font-size:13px;color:var(--sec);min-width:44px;text-align:center}
+.findbar button{color:var(--tint);font-size:17px;padding:4px 6px}
+::highlight(find){background:rgba(255,204,0,.45);color:inherit}
+::highlight(findcur){background:#FF9F0A;color:#000}
 .toast{position:fixed;left:50%;bottom:calc(90px + var(--sab));transform:translateX(-50%) translateY(20px);background:var(--sheet);backdrop-filter:blur(20px);padding:10px 18px;border-radius:20px;font-size:15px;box-shadow:0 4px 20px rgba(0,0,0,.15);opacity:0;transition:.25s;z-index:60;pointer-events:none;white-space:nowrap}
 .toast.show{opacity:1;transform:translateX(-50%)}
 
@@ -273,6 +298,7 @@ svg{display:block}
    <button class="nb bold" id="bDone" style="display:none">Selesai</button>
   </div>
  </div></header>
+ <div class="findbar" id="findbar"><input placeholder="Temukan di catatan" enterkeyhint="search"><span id="findN"></span><button id="fPrev" aria-label="Sebelumnya">⌃</button><button id="fNext" aria-label="Berikutnya">⌄</button><button id="fClose">Selesai</button></div>
  <div class="scroll" id="sNote">
   <div class="ndate" id="nDate"></div>
   <div class="banner"><span>Catatan yang baru dihapus tidak bisa diedit.</span><button id="bRestore">Pulihkan</button></div>
@@ -312,7 +338,7 @@ svg{display:block}
 <script>
 {
 /* ================= penyimpanan di perangkat (IndexedDB) ================= */
-const APP_VERSION = 'v15';
+const APP_VERSION = 'v16';
 const ERRLOG = [];
 addEventListener('error', (e) => ERRLOG.push(new Date().toTimeString().slice(0, 8) + ' ' + (e.message || e.type)));
 addEventListener('unhandledrejection', (e) => ERRLOG.push(new Date().toTimeString().slice(0, 8) + ' ' + ((e.reason && (e.reason.name + ': ' + e.reason.message)) || e.reason)));
@@ -659,6 +685,7 @@ function openNote(id, quiet) {
   S.note = id;
   const ro = !!n.deletedAt;
   $('#pNote').classList.toggle('ro', ro); $('#pNote').classList.remove('none');
+  applyNoteLook(n); closeFind();
   ed.contentEditable = ro ? 'false' : 'true';
   ed.innerHTML = n.html; normalizeBlocks(!n.v2); hydrate(); savedRange = null;
   $('#nDate').textContent = longDate(n.updatedAt);
@@ -840,7 +867,7 @@ ed.addEventListener('paste', (e) => {
 });
 
 // keyboard: tombol Selesai & toolbar di atas keyboard
-ed.addEventListener('focus', () => { $('#bDone').style.display = ''; $('#bCopy').style.display = $('#bNoteMore').style.display = 'none'; });
+ed.addEventListener('focus', () => { $('#bDone').style.display = ''; $('#bCopy').style.display = 'none'; });
 ed.addEventListener('blur', () => setTimeout(() => { if (document.activeElement !== ed) { $('#bDone').style.display = 'none'; $('#bCopy').style.display = $('#bNoteMore').style.display = ''; } }, 50));
 $('#bDone').onclick = () => { ed.blur(); hideFmt(); flushSave(); };
 if (window.visualViewport) {
@@ -1187,6 +1214,104 @@ function bindRows(container) {
 }
 bindRows($('#notes')); bindRows($('#fResults'));
 
+/* ================= menu ⋯ catatan (seperti iPhone) ================= */
+const IC = {
+  scan: '<svg class="ic" viewBox="0 0 24 24"><path d="M4 8V6a2 2 0 0 1 2-2h2M16 4h2a2 2 0 0 1 2 2v2M20 16v2a2 2 0 0 1-2 2h-2M8 20H6a2 2 0 0 1-2-2v-2M8 10h8M8 14h5"/></svg>',
+  pin: '<svg class="ic" viewBox="0 0 24 24"><path d="M9 3.5h6l-1 6 3.5 3.5h-11L10 9.5zM12 13v7.5"/></svg>',
+  unpin: '<svg class="ic" viewBox="0 0 24 24"><path d="M9 3.5h6l-1 6 3.5 3.5h-11L10 9.5zM12 13v7.5M3.5 3.5l17 17"/></svg>',
+  copy: '<svg class="ic" viewBox="0 0 24 24"><rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"/></svg>',
+  find: '<svg class="ic" viewBox="0 0 24 24"><circle cx="10.5" cy="10.5" r="6.5"/><path d="M20 20l-4.8-4.8"/></svg>',
+  move: '<svg class="ic" viewBox="0 0 24 24"><path d="M3 7.5A1.5 1.5 0 0 1 4.5 6h4.3l2 2h8.7A1.5 1.5 0 0 1 21 9.5v8a1.5 1.5 0 0 1-1.5 1.5h-15A1.5 1.5 0 0 1 3 17.5z"/></svg>',
+  recent: '<svg class="ic" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/></svg>',
+  grid: '<svg class="ic" viewBox="0 0 24 24"><rect x="3.5" y="4.5" width="17" height="15" rx="2.5"/><path d="M3.5 9.5h17M3.5 14.5h17M9.2 4.5v15M14.8 4.5v15"/></svg>',
+  att: '<svg class="ic" viewBox="0 0 24 24"><rect x="3.5" y="5" width="7" height="6" rx="1.5"/><rect x="13.5" y="5" width="7" height="6" rx="1.5"/><path d="M3.5 15h17M3.5 19h11"/></svg>',
+  light: '<svg class="ic" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M12 3.5v17A8.5 8.5 0 0 0 12 3.5z" fill="currentColor"/></svg>',
+  trash: '<svg class="ic" viewBox="0 0 24 24"><path d="M4 6.5h16M9.5 6.5V4.5h5v2M6 6.5l1 13a1.5 1.5 0 0 0 1.5 1.4h7a1.5 1.5 0 0 0 1.5-1.4l1-13M10 10.5v7M14 10.5v7"/></svg>',
+  back: '<svg class="ic" viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg>',
+};
+function popMenu(build) {
+  const pop = document.createElement('div'); pop.className = 'pop';
+  pop.innerHTML = '<div class="popc"></div>';
+  document.body.appendChild(pop);
+  const box = $('.popc', pop);
+  const close = () => { pop.classList.remove('show'); setTimeout(() => pop.remove(), 200); };
+  const render = (m) => {
+    box.innerHTML = (m.top ? `<div class="ptop">${m.top.map((t, i) => `<button data-t="${i}">${t.icon}${esc(t.label)}</button>`).join('')}</div>` : '')
+      + m.items.map((it, i) => `<button class="pit ${it.des ? 'des' : ''} ${it.on ? 'on' : ''}" data-i="${i}">${it.check !== undefined ? `<span class="ck">${it.check ? '✓' : ''}</span>` : it.icon || ''}<span class="lb">${esc(it.label)}${it.sub ? `<small>${esc(it.sub)}</small>` : ''}</span>${it.menu && it.label !== 'Kembali' ? '<span class="chev2">›</span>' : ''}</button>`).join('');
+    box.onclick = (e) => {
+      const t = e.target.closest('[data-t]'), b = e.target.closest('[data-i]');
+      const it = t ? m.top[+t.dataset.t] : b ? m.items[+b.dataset.i] : null; if (!it) return;
+      if (it.menu) return render(it.menu());
+      close(); it.fn && it.fn();
+    };
+  };
+  render(build());
+  pop.addEventListener('click', (e) => { if (e.target === pop) close(); });
+  requestAnimationFrame(() => pop.classList.add('show'));
+}
+function applyNoteLook(n) {
+  const pn = $('#pNote');
+  pn.classList.toggle('paper-lines', n.paper === 'lines'); pn.classList.toggle('paper-grid', n.paper === 'grid');
+  pn.classList.toggle('lightbg', !!n.lightbg);
+}
+async function setNoteProp(n, k, v) { n[k] = v; applyNoteLook(n); await saveNote(n); }
+function setAllAttachments(size) {
+  const els = $$('figure.att.pic, figure.att.vid, #ed > img', ed);
+  if (!els.length) return toast('Tidak ada foto atau video di catatan ini');
+  for (const el of els) { el.classList.remove('sz-s', 'sz-m'); if (size) el.classList.add(size); if (el.classList.contains('vid')) syncVideo(el); }
+  // supaya berjajar: hapus baris kosong yang memisahkan foto/video
+  if (size) for (const d of $$('#ed > div', ed)) {
+    const a = d.previousElementSibling, b = d.nextElementSibling;
+    if (!d.textContent.trim() && !d.querySelector('img,figure,table') && a && b && a.matches('figure.att.pic,figure.att.vid,img') && b.matches('figure.att.pic,figure.att.vid,img')) d.remove();
+  }
+  onEdit(); toast(size === 'sz-s' ? 'Semua lampiran: kecil' : size === 'sz-m' ? 'Semua lampiran: sedang' : 'Semua lampiran: besar');
+}
+function noteMoreMenu(id) {
+  const n = S.notes[id]; if (!n) return;
+  if (n.deletedAt) return noteMenu(id);
+  const sizes = () => { const el = $('figure.att.pic, figure.att.vid, #ed > img', ed); return !el ? '' : el.classList.contains('sz-s') ? 'sz-s' : el.classList.contains('sz-m') ? 'sz-m' : ''; };
+  const back = { icon: IC.back, label: 'Kembali', menu: () => main() };
+  const main = () => ({
+    top: [
+      { icon: IC.scan, label: 'Pindai', fn: () => { saveSel(); try { sessionStorage.setItem('yn-open', S.note); } catch {} $('#fCam').click(); } },
+      { icon: n.pinned ? IC.unpin : IC.pin, label: n.pinned ? 'Lepas Pin Catatan' : 'Sematkan Catatan', fn: () => act(id, 'pin') },
+      { icon: IC.copy, label: 'Salin Teks', fn: () => copyText(id) },
+    ],
+    items: [
+      { icon: IC.find, label: 'Temukan di Catatan', fn: openFind },
+      { icon: IC.move, label: 'Pindahkan Catatan', fn: () => act(id, 'move') },
+      { icon: IC.recent, label: 'Catatan Terbaru', menu: () => ({ items: [back, ...sorted(live().filter((x) => x.id !== id)).slice(0, 6).map((x) => ({ icon: IC.move, label: x.title || 'Catatan Baru', sub: rowDate(x.updatedAt), fn: () => { flushSave(); openNote(x.id); } }))] }) },
+      { icon: IC.grid, label: 'Garis & Grid', menu: () => ({ items: [back, ...[['', 'Tanpa Garis'], ['lines', 'Bergaris'], ['grid', 'Grid']].map(([k, l]) => ({ check: (n.paper || '') === k, label: l, fn: () => setNoteProp(n, 'paper', k) }))] }) },
+      { icon: IC.att, label: 'Tampilan Lampiran', menu: () => { const cur = sizes(); return { items: [back,
+        { check: cur === 'sz-s', label: 'Semua Kecil', sub: 'Foto & video berjajar ke samping', fn: () => setAllAttachments('sz-s') },
+        { check: cur === 'sz-m', label: 'Semua Sedang', fn: () => setAllAttachments('sz-m') },
+        { check: cur === '', label: 'Semua Besar', fn: () => setAllAttachments('') }] }; } },
+      { icon: IC.light, label: n.lightbg ? 'Gunakan Latar Gelap' : 'Gunakan Latar Terang', fn: () => setNoteProp(n, 'lightbg', !n.lightbg) },
+      { icon: IC.trash, label: 'Hapus', des: true, fn: () => act(id, 'del') },
+    ],
+  });
+  popMenu(main);
+}
+/* ---- temukan di catatan ---- */
+let findHits = [], findIdx = 0;
+function openFind() { $('#findbar').classList.add('show'); const i = $('#findbar input'); i.value = ''; $('#findN').textContent = ''; setTimeout(() => i.focus(), 50); }
+function closeFind() { $('#findbar').classList.remove('show'); findHits = []; try { CSS.highlights.delete('find'); CSS.highlights.delete('findcur'); } catch {} }
+function runFind() {
+  const q = $('#findbar input').value.trim().toLowerCase(); findHits = []; findIdx = 0;
+  if (q) { const w = document.createTreeWalker(ed, NodeFilter.SHOW_TEXT); let t;
+    while ((t = w.nextNode())) { const s = t.data.toLowerCase(); let k = s.indexOf(q); while (k >= 0) { const r = new Range(); r.setStart(t, k); r.setEnd(t, k + q.length); findHits.push(r); k = s.indexOf(q, k + q.length); } } }
+  showFind();
+}
+function showFind() {
+  $('#findN').textContent = findHits.length ? (findIdx + 1) + '/' + findHits.length : ($('#findbar input').value.trim() ? '0' : '');
+  try { CSS.highlights.set('find', new Highlight(...findHits)); CSS.highlights.set('findcur', new Highlight(...(findHits[findIdx] ? [findHits[findIdx]] : []))); } catch {}
+  const r = findHits[findIdx]; if (r) { const b = r.getBoundingClientRect(), sc = $('#sNote'); sc.scrollTop += b.top - sc.getBoundingClientRect().top - 140; }
+}
+$('#findbar input').addEventListener('input', runFind);
+$('#findbar input').addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); $('#fNext').click(); } });
+$('#fNext').onclick = () => { if (findHits.length) { findIdx = (findIdx + 1) % findHits.length; showFind(); } };
+$('#fPrev').onclick = () => { if (findHits.length) { findIdx = (findIdx - 1 + findHits.length) % findHits.length; showFind(); } };
+$('#fClose').onclick = closeFind;
 async function noteMenu(id) {
   const n = S.notes[id]; if (!n) return;
   if (n.deletedAt) {
@@ -1196,7 +1321,8 @@ async function noteMenu(id) {
   const i = await sheet({ title: n.title || 'Catatan Baru', items: [{ t: n.pinned ? 'Lepas Sematan' : 'Sematkan Catatan' }, { t: 'Pindahkan Catatan' }, { t: 'Salin Teks' }, { t: 'Hapus', des: 1 }] });
   if (i === 0) act(id, 'pin'); if (i === 1) act(id, 'move'); if (i === 2) copyText(id); if (i === 3) act(id, 'del');
 }
-$('#bNoteMore').onclick = () => S.note && noteMenu(S.note);
+$('#bNoteMore').addEventListener('pointerdown', (e) => e.preventDefault());
+$('#bNoteMore').onclick = () => S.note && noteMoreMenu(S.note);
 $('#bCopy').onclick = () => S.note && copyText(S.note);
 $('#bRestore').onclick = () => S.note && act(S.note, 'restore');
 async function copyText(id) {
