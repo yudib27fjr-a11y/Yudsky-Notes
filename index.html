@@ -218,7 +218,14 @@ svg{display:block}
 .lockscr .fp{width:72px;height:72px;border-radius:50%;background:var(--fill);color:var(--tint);display:flex;align-items:center;justify-content:center}
 .lockscr .fp svg{width:40px;height:40px}
 .lockscr .pinb{color:var(--tint);font-size:17px;padding:10px}
-.nb.hist{min-width:38px;padding:0 4px}.nb.hist:disabled{opacity:.3}
+.navsub{display:none;height:30px;padding:0 20px 6px;font-weight:700;font-size:16px;line-height:24px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--ink)}
+#pNote .nav.solid .navsub{display:block}
+#pNote .nav.solid ~ .findbar{top:calc(74px + var(--sat))}
+#pNote .nav.solid{background:var(--paper);backdrop-filter:none;-webkit-backdrop-filter:none}
+.nb.hist{min-width:30px;padding:0 3px}.nb.hist .ic{width:19px!important;height:19px!important;stroke-width:2}.nb.hist:disabled{opacity:.3}
+#pNote .navgrp{gap:0}
+#pNote #nTitleS{display:none}                      /* judul sudah tampil besar di catatan */
+#pNote .nb.back span{display:inline-block;max-width:34vw;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;vertical-align:middle}
 .dropline{position:fixed;z-index:58;background:var(--tint);border-radius:3px;pointer-events:none;box-shadow:0 0 0 3px color-mix(in srgb,var(--tint) 30%,transparent);transition:top .08s,left .08s}
 .dragghost{position:fixed;z-index:59;pointer-events:none;opacity:.85;transform:scale(1.04) rotate(-1.5deg);box-shadow:0 12px 30px rgba(0,0,0,.45);border-radius:12px;overflow:hidden}
 .dragghost img,.dragghost video{display:block;width:100%;height:100%;object-fit:cover}
@@ -403,7 +410,7 @@ svg{display:block}
    <button class="nb" id="bNoteMore" aria-label="Lainnya"><svg class="ic" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><circle cx="8" cy="12" r=".6" fill="currentColor"/><circle cx="12" cy="12" r=".6" fill="currentColor"/><circle cx="16" cy="12" r=".6" fill="currentColor"/></svg></button>
    <button class="nb bold" id="bDone" style="display:none">Selesai</button>
   </div>
- </div></header>
+ </div><div class="navsub" id="nSub"></div></header>
  <div class="findbar" id="findbar"><input placeholder="Temukan di catatan" enterkeyhint="search"><span id="findN"></span><button id="fPrev" aria-label="Sebelumnya">⌃</button><button id="fNext" aria-label="Berikutnya">⌄</button><button id="fClose">Selesai</button></div>
  <div class="scroll" id="sNote">
   <div class="ndate" id="nDate"></div>
@@ -444,7 +451,7 @@ svg{display:block}
 <script>
 {
 /* ================= penyimpanan di perangkat (IndexedDB) ================= */
-const APP_VERSION = 'v31';
+const APP_VERSION = 'v32';
 const ERRLOG = [];
 addEventListener('error', (e) => ERRLOG.push(new Date().toTimeString().slice(0, 8) + ' ' + (e.message || e.type)));
 addEventListener('unhandledrejection', (e) => ERRLOG.push(new Date().toTimeString().slice(0, 8) + ' ' + ((e.reason && (e.reason.name + ': ' + e.reason.message)) || e.reason)));
@@ -726,7 +733,7 @@ $$('[data-back]').forEach((b) => b.addEventListener('click', () => back()));
 // judul besar → judul kecil saat digulir
 for (const id of ['sFolders', 'sList', 'sNote', 'sSet']) {
   const sc = $('#' + id);
-  sc.addEventListener('scroll', () => sc.parentElement.querySelector('.nav').classList.toggle('solid', sc.scrollTop > (id === 'sNote' ? 4 : 38)), { passive: true });
+  sc.addEventListener('scroll', () => sc.parentElement.querySelector('.nav').classList.toggle('solid', sc.scrollTop > (id === 'sNote' ? 70 : 38)), { passive: true });
 }
 
 /* ================= pembaruan otomatis ================= */
@@ -878,7 +885,7 @@ async function openNote(id, quiet) {
   ed.contentEditable = ro ? 'false' : 'true';
   ed.innerHTML = n.html; normalizeBlocks(!n.v2); linkify(); hydrate(); savedRange = null; histReset();
   $('#nDate').textContent = longDate(n.updatedAt);
-  $('#nTitleS').textContent = n.title || '';
+  $('#nTitleS').textContent = $('#nSub').textContent = n.title || 'Catatan Baru';
   $('#sNote').scrollTop = 0; $('#pNote .nav').classList.remove('solid');
   $('#bCheck').disabled = $('#bFmt').disabled = ro;
   if (S.stack[S.stack.length - 1] !== 'note') push('note');
@@ -927,7 +934,7 @@ function onEdit() {
   const n = S.notes[S.note]; if (!n || n.deletedAt) return;
   if (!H.restoring) { clearTimeout(H.t); H.t = setTimeout(histRecord, 450); }
   n.html = serialize(); n.v2 = true; n.updatedAt = Date.now(); derive(n);
-  $('#nDate').textContent = longDate(n.updatedAt); $('#nTitleS').textContent = n.title;
+  $('#nDate').textContent = longDate(n.updatedAt); $('#nTitleS').textContent = $('#nSub').textContent = n.title || 'Catatan Baru';
   persistNow(n);                                   // simpan langsung, setiap ketikan
   clearTimeout(saveT); saveT = setTimeout(flushSave, 400);   // daftar diperbarui setelah jeda
 }
@@ -943,7 +950,7 @@ function setCaretOffset(off) {
   while ((t = w.nextNode())) { if (n + t.length >= off) { const r = document.createRange(); r.setStart(t, off - n); r.collapse(true); const s = getSelection(); s.removeAllRanges(); s.addRange(r); saveSel(); return; } n += t.length; }
   placeCaretEnd();
 }
-function histReset() { clearTimeout(H.t); H.stack = [{ html: serialize(), c: -1 }]; H.idx = 0; updHist(); }
+function histReset() { clearTimeout(H.t); H.stack = [{ html: serialize(), c: -1 }]; H.idx = 0; updHist(); if (document.activeElement !== ed) { $('#bUndo').style.display = $('#bRedo').style.display = 'none'; $('#bCopy').style.display = ''; } }
 function histRecord() {
   clearTimeout(H.t); if (!S.note) return;
   const html = serialize();
@@ -962,7 +969,7 @@ function histGo(d) {
   onEdit(); H.restoring = false; updHist();
   if (navigator.vibrate) navigator.vibrate(6);
 }
-function updHist() { const u = $('#bUndo'), r = $('#bRedo'); if (!u) return; u.disabled = H.idx <= 0; r.disabled = H.idx >= H.stack.length - 1; if (H.idx > 0) u.style.display = r.style.display = ''; }
+function updHist() { const u = $('#bUndo'), r = $('#bRedo'); if (!u) return; u.disabled = H.idx <= 0; r.disabled = H.idx >= H.stack.length - 1; if (H.idx > 0) { u.style.display = r.style.display = ''; $('#bCopy').style.display = 'none'; } }
 for (const [id, d] of [['#bUndo', -1], ['#bRedo', 1]]) { $(id).addEventListener('pointerdown', (e) => e.preventDefault()); $(id).addEventListener('click', () => histGo(d)); }
 // Ctrl+Z / Ctrl+Shift+Z (keyboard fisik) & gerakan urungkan bawaan -> pakai riwayat sendiri
 ed.addEventListener('beforeinput', (e) => { if (e.inputType === 'historyUndo') { e.preventDefault(); histGo(-1); } if (e.inputType === 'historyRedo') { e.preventDefault(); histGo(1); } });
@@ -1209,7 +1216,7 @@ ed.addEventListener('paste', (e) => {
 // keyboard: tombol Selesai & toolbar di atas keyboard
 ed.addEventListener('focus', () => { $('#bDone').style.display = ''; $('#bCopy').style.display = 'none'; $('#bUndo').style.display = $('#bRedo').style.display = ''; updHist(); });
 ed.addEventListener('blur', () => { if (linkify()) onEdit(); });
-ed.addEventListener('blur', () => setTimeout(() => { if (document.activeElement !== ed) { $('#bDone').style.display = 'none'; $('#bCopy').style.display = $('#bNoteMore').style.display = ''; if (!H.stack.length || H.idx <= 0) $('#bUndo').style.display = $('#bRedo').style.display = 'none'; } }, 50));
+ed.addEventListener('blur', () => setTimeout(() => { if (document.activeElement !== ed) { $('#bDone').style.display = 'none'; $('#bCopy').style.display = $('#bNoteMore').style.display = ''; if (!H.stack.length || H.idx <= 0) { $('#bUndo').style.display = $('#bRedo').style.display = 'none'; } else $('#bCopy').style.display = 'none'; } }, 50));
 $('#bDone').onclick = () => { ed.blur(); hideFmt(); flushSave(); };
 if (window.visualViewport) {
   const vv = visualViewport;
