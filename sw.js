@@ -1,13 +1,34 @@
 // Yudsky Notes — agar aplikasi tetap bisa dibuka tanpa internet
-const CACHE = 'yudsky-notes-v30';
+// Aturan: coba ambil versi terbaru dari internet maksimal 2,5 detik.
+// Kalau internet lambat/mati, langsung pakai salinan tersimpan (aplikasi tidak pernah macet di logo),
+// sambil memperbarui salinan di belakang layar.
+const CACHE = 'yudsky-notes-v31';
 const FILES = ['./', './index.html', './manifest.webmanifest', './icon-192.png', './icon-512.png'];
-self.addEventListener('install', (e) => { e.waitUntil(caches.open(CACHE).then((c) => c.addAll(FILES))); self.skipWaiting(); });
-self.addEventListener('activate', (e) => { e.waitUntil(caches.keys().then((ks) => Promise.all(ks.filter((k) => k !== CACHE).map((k) => caches.delete(k))))); self.clients.claim(); });
+const WAIT = 2500;
+
+self.addEventListener('install', (e) => {
+  e.waitUntil(caches.open(CACHE).then((c) => c.addAll(FILES)).catch(() => {}));  // memori penuh: tetap lanjut
+  self.skipWaiting();
+});
+self.addEventListener('activate', (e) => {
+  e.waitUntil(caches.keys().then((ks) => Promise.all(ks.filter((k) => k !== CACHE).map((k) => caches.delete(k)))).catch(() => {}));
+  self.clients.claim();
+});
+
+const save = (req, res) => { try { const copy = res.clone(); caches.open(CACHE).then((c) => c.put(req, copy)).catch(() => {}); } catch {} };
+
 self.addEventListener('fetch', (e) => {
-  const req = e.request;
-  if (req.method !== 'GET' || new URL(req.url).origin !== location.origin) return;
-  if (new URL(req.url).pathname.endsWith('version.json')) return; // selalu langsung dari internet
-  // ambil versi terbaru dari internet, kalau gagal pakai salinan tersimpan
-  e.respondWith(fetch(req, { cache: 'no-cache' }).then((res) => { const copy = res.clone(); caches.open(CACHE).then((c) => c.put(req, copy)); return res; })
-    .catch(() => caches.match(req).then((r) => r || caches.match('./index.html'))));
+  const req = e.request, url = new URL(req.url);
+  if (req.method !== 'GET' || url.origin !== location.origin) return;
+  if (url.pathname.endsWith('version.json') || url.pathname.endsWith('.js') && url.pathname.includes('ekspor')) return; // selalu langsung dari internet
+  e.respondWith((async () => {
+    const cached = await caches.match(req, { ignoreSearch: true }).catch(() => null)
+      || (req.mode === 'navigate' ? await caches.match('./index.html').catch(() => null) : null);
+    const net = fetch(req, { cache: 'no-cache' }).then((res) => { if (res && res.ok) save(req, res); return res; });
+    if (!cached) return net.catch(() => new Response('Tidak ada internet', { status: 503 }));
+    // ada salinan: tunggu internet maksimal 2,5 detik, lalu pakai salinan
+    const timer = new Promise((r) => setTimeout(() => r(cached), WAIT));
+    try { const res = await Promise.race([net, timer]); return res && res.ok ? res : cached; }
+    catch { return cached; }
+  })());
 });

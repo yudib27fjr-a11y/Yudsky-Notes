@@ -444,11 +444,11 @@ svg{display:block}
 <script>
 {
 /* ================= penyimpanan di perangkat (IndexedDB) ================= */
-const APP_VERSION = 'v30';
+const APP_VERSION = 'v31';
 const ERRLOG = [];
 addEventListener('error', (e) => ERRLOG.push(new Date().toTimeString().slice(0, 8) + ' ' + (e.message || e.type)));
 addEventListener('unhandledrejection', (e) => ERRLOG.push(new Date().toTimeString().slice(0, 8) + ' ' + ((e.reason && (e.reason.name + ': ' + e.reason.message)) || e.reason)));
-let DB_ERR = '';
+let DB_ERR = '', DB_LASTERR = '';
 const DB = (() => {
   let db = null;
   const open = () => new Promise((res) => {
@@ -471,9 +471,9 @@ const DB = (() => {
   });
   const tx = (store, mode, fn) => new Promise((res0) => {
     let done = false; const res = (v) => { if (!done) { done = true; res0(v); } };
-    setTimeout(() => { if (!done) { ERRLOG.push('penyimpanan lambat: ' + store + ' ' + mode); res(null); } }, 10000);
+    setTimeout(() => { if (!done) { DB_LASTERR = 'lambat'; ERRLOG.push('penyimpanan lambat: ' + store + ' ' + mode); res(null); } }, 10000);
     if (!db) return res(null);
-    try { const t = mode === 'readwrite' ? db.transaction(store, mode, { durability: 'strict' }) : db.transaction(store, mode); const out = fn(t.objectStore(store)); t.oncomplete = () => res(out ? out.result : true); t.onerror = () => res(null); t.onabort = () => res(null); try { t.commit && t.commit(); } catch {} }
+    try { const t = mode === 'readwrite' ? db.transaction(store, mode, { durability: 'strict' }) : db.transaction(store, mode); const out = fn(t.objectStore(store)); t.oncomplete = () => res(out ? out.result : true); t.onerror = () => { DB_LASTERR = (t.error && t.error.name) || 'error'; res(null); }; t.onabort = () => { DB_LASTERR = (t.error && t.error.name) || 'abort'; res(null); }; try { t.commit && t.commit(); } catch {} }
     catch { res(null); }
   });
   return {
@@ -970,13 +970,19 @@ ed.addEventListener('keydown', (e) => { if ((e.ctrlKey || e.metaKey) && e.key.to
 
 // antrean simpan: tiap ketikan langsung ditulis; bila masih menulis, versi terbaru ditulis segera setelahnya
 const writing = new Set(), pending = new Map();
+let fullWarned = 0;
+async function storageFullWarn() {
+  if (Date.now() - fullWarned < 60e3) return; fullWarned = Date.now();
+  let info = ''; try { const e = await navigator.storage.estimate(); info = '\nTerpakai ' + fmtSize(e.usage || 0) + ' dari ' + fmtSize(e.quota || 0) + ' yang diizinkan Chrome.'; } catch {}
+  alertBox({ title: 'Memori HP hampir penuh', msg: 'Catatan baru belum bisa disimpan.' + info + '\n\nKosongkan memori HP (hapus video/foto/aplikasi yang tidak dipakai), lalu buka lagi Yudsky Notes. Catatan lama tetap aman.', buttons: [{ t: 'OK', b: 1 }] });
+}
 async function persistNow(n) {
   if (!(n.text.trim() || n.img || n.att)) return;
   if (writing.has(n.id)) { pending.set(n.id, n); return; }
   writing.add(n.id);
   const ok = await saveNote(n);
   writing.delete(n.id);
-  if (ok === null && DB.ok) toast('Gagal menyimpan — memori HP penuh?');
+  if (ok === null && DB.ok) { if (DB_LASTERR === 'QuotaExceededError') storageFullWarn(); else if (DB_LASTERR === 'lambat') toast('Penyimpanan HP sedang lambat — dicoba lagi…'); else toast('Gagal menyimpan (' + DB_LASTERR + ') — dicoba lagi…'); setTimeout(() => persistNow(S.notes[n.id] || n), 3000); }
   if (pending.has(n.id)) { const m = pending.get(n.id); pending.delete(n.id); persistNow(m); }
 }
 function flushSave() {
@@ -1346,7 +1352,7 @@ async function addFileRecord(file, pic) {
   if (!pic) toast('Menyimpan ' + (file.name || 'lampiran') + '…');
   const rec = { pic: !!pic, id: 'a' + uid(), name: file.name || (file.type.startsWith('video/') ? 'Video.mp4' : 'File'), type: file.type || 'application/octet-stream', size: file.size, blob: file, at: Date.now() };
   const ok = await DB.putFile(rec);
-  if (!ok) { alertBox({ title: 'Gagal menyimpan lampiran', msg: (file.name || 'File') + ' (' + fmtSize(file.size) + ') tidak bisa disimpan di HP. Memori penuh atau file terlalu besar.', buttons: [{ t: 'OK', b: 1 }] }); return; }
+  if (!ok) { if (DB_LASTERR === 'QuotaExceededError') storageFullWarn(); else alertBox({ title: 'Gagal menyimpan lampiran', msg: (file.name || 'File') + ' (' + fmtSize(file.size) + ') belum bisa disimpan (' + DB_LASTERR + '). Coba lagi sebentar.', buttons: [{ t: 'OK', b: 1 }] }); return; }
   insertBlocks(figureHTML(rec));
   await hydrate(); onEdit();
 }
@@ -2369,7 +2375,7 @@ setTimeout(() => { if (!booted) alertBox({ title: 'Memuat catatan terlalu lama',
     setTimeout(() => toast('Penyimpanan utama gagal dibuka (' + DB_ERR + '). Muat ulang aplikasi.'), 800);
     try { const d = JSON.parse(localStorage.getItem('catatan-ios')); if (d) { S.folders = d.folders || []; S.notes = d.notes || {}; S.sort = d.sort || 'updated'; } } catch {}
   }
-  try { if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('sw.js').catch(() => {}); } catch {}
+  try { if ('serviceWorker' in navigator && window.isSecureContext) navigator.serviceWorker.register('sw.js').catch(() => {}); } catch {}
   } catch (err) { ERRLOG.push('muat: ' + BOOT + ' — ' + (err && (err.name + ': ' + err.message))); alertBox({ title: 'Ada masalah saat memuat', msg: 'Tahap: ' + BOOT + '\n' + (err && (err.name + ': ' + err.message)), buttons: [{ t: 'OK', b: 1 }] }); }
   booted = true; BOOT = 'menampilkan';
   try { showLockScreen(); } catch {}
@@ -2381,6 +2387,7 @@ setTimeout(() => { if (!booted) alertBox({ title: 'Memuat catatan terlalu lama',
     if (id && S.notes[id] && !S.notes[id].deletedAt) { S.folder = S.notes[id].folderId || 'notes'; renderList(); if (!wide()) push('list'); openNote(id); setTimeout(() => toast('Pilih lagi foto/videonya — aplikasi sempat dimuat ulang oleh Android'), 600); } } catch {}
   if (wide()) openFolder('notes');
   setTimeout(() => checkUpdate(false), 1500);
+  setTimeout(async () => { try { const e = await navigator.storage.estimate(); if (e.quota && e.usage / e.quota > 0.92) storageFullWarn(); } catch {} }, 2500);
   matchMedia('(min-width:900px)').addEventListener('change', () => { applyStack(false); renderAll(); });
   } catch (err) { ERRLOG.push('akhir: ' + (err && err.message)); }
 })();
