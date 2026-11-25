@@ -159,6 +159,25 @@ svg{display:block}
 .player{margin:auto;max-width:100%;max-height:100%;background:#000}
 #ed figure.pic{position:relative}
 #ed figure.pic.sz-s .msz{top:4px;right:4px;width:24px;height:24px;font-size:13px}
+.drag{display:none;color:var(--ter);font-size:20px;padding:0 4px 0 8px;touch-action:none;cursor:grab}
+.editing .row.custom .drag{display:block}
+.row.dragging{opacity:.85;background:var(--fill);z-index:3;box-shadow:0 6px 18px rgba(0,0,0,.25)}
+.ren{display:none;color:var(--tint);font-size:14px}
+.editing .row[data-f="notes"] .ren,.editing .row.custom .ren{display:inline}
+.editing .row[data-f="notes"] .chev,.editing .row.custom .chev{display:none}
+/* pilih catatan */
+.selm .rw .row{padding-left:52px}
+.selm .rw .row::after{content:"";position:absolute;left:16px;top:50%;width:22px;height:22px;margin-top:-11px;border-radius:50%;border:1.5px solid var(--ter);box-sizing:border-box}
+.selm .rw.picked .row::after{background:var(--tint) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M6 12.5l4 4 8-9' fill='none' stroke='white' stroke-width='2.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center/16px no-repeat;border-color:var(--tint)}
+.selbar{display:none}.selm .selbar{display:flex}.selm .normbar{display:none}
+.nt .lk{display:inline-block;width:14px;height:14px;margin-right:5px;vertical-align:-1px;color:var(--sec)}
+/* layar kunci */
+.lockscr{position:fixed;inset:0;z-index:70;background:var(--bg);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;padding:30px;text-align:center}
+.lockscr img{width:84px;height:84px;border-radius:20px;box-shadow:0 4px 18px rgba(0,0,0,.2)}
+.lockscr h2{margin:0;font-size:22px}.lockscr p{margin:0;color:var(--sec);font-size:15px}
+.lockscr .fp{width:72px;height:72px;border-radius:50%;background:var(--fill);color:var(--tint);display:flex;align-items:center;justify-content:center}
+.lockscr .fp svg{width:40px;height:40px}
+.lockscr .pinb{color:var(--tint);font-size:17px;padding:10px}
 .viewer{position:fixed;inset:0;z-index:60;background:#000;display:flex;flex-direction:column;opacity:0;transition:opacity .2s}
 .viewer.show{opacity:1}
 .vtrack{flex:1;display:flex;overflow-x:auto;scroll-snap-type:x mandatory;scrollbar-width:none}
@@ -286,6 +305,7 @@ svg{display:block}
  <header class="nav"><div class="navrow">
   <button class="nb back" data-back><svg class="ic" viewBox="0 0 13 22"><path d="M11 2L2 11l9 9"/></svg>Folder</button>
   <div class="navtitle" id="lTitleS">Catatan</div>
+  <button class="nb bold" id="bSelDone" style="display:none">Selesai</button>
   <button class="nb" id="bListMore" aria-label="Lainnya"><svg class="ic" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><circle cx="8" cy="12" r=".6" fill="currentColor"/><circle cx="12" cy="12" r=".6" fill="currentColor"/><circle cx="16" cy="12" r=".6" fill="currentColor"/></svg></button>
  </div></header>
  <div class="ptr"><svg class="ic" viewBox="0 0 24 24"><path d="M20 12a8 8 0 1 1-2.4-5.7M20 4v4.5h-4.5"/></svg></div>
@@ -295,8 +315,9 @@ svg{display:block}
   <div id="notes"></div>
  </div>
  <footer class="tb"><div class="tbrow">
-  <span style="width:44px"></span><div class="tbmid" id="lCount"></div>
-  <button class="nb compose" aria-label="Catatan baru"><svg class="ic" viewBox="0 0 24 24"><path d="M11 4H6.5A2.5 2.5 0 0 0 4 6.5v11A2.5 2.5 0 0 0 6.5 20h11a2.5 2.5 0 0 0 2.5-2.5V13"/><path d="M17.6 3.6a2 2 0 0 1 2.8 2.8L12 14.8l-3.7.9.9-3.7z"/></svg></button>
+  <div class="tbrow normbar" style="width:100%"><span style="width:44px"></span><div class="tbmid" id="lCount"></div>
+  <button class="nb compose" aria-label="Catatan baru"><svg class="ic" viewBox="0 0 24 24"><path d="M11 4H6.5A2.5 2.5 0 0 0 4 6.5v11A2.5 2.5 0 0 0 6.5 20h11a2.5 2.5 0 0 0 2.5-2.5V13"/><path d="M17.6 3.6a2 2 0 0 1 2.8 2.8L12 14.8l-3.7.9.9-3.7z"/></svg></button></div>
+  <div class="tbrow selbar" style="width:100%"><button class="nb" id="bSelMove">Pindahkan</button><div class="tbmid" id="selCount"></div><button class="nb" id="bSelDel" style="color:var(--red)">Hapus</button></div>
  </div></footer>
 </section>
 
@@ -350,7 +371,7 @@ svg{display:block}
 <script>
 {
 /* ================= penyimpanan di perangkat (IndexedDB) ================= */
-const APP_VERSION = 'v21';
+const APP_VERSION = 'v22';
 const ERRLOG = [];
 addEventListener('error', (e) => ERRLOG.push(new Date().toTimeString().slice(0, 8) + ' ' + (e.message || e.type)));
 addEventListener('unhandledrejection', (e) => ERRLOG.push(new Date().toTimeString().slice(0, 8) + ' ' + ((e.reason && (e.reason.name + ': ' + e.reason.message)) || e.reason)));
@@ -410,12 +431,13 @@ const S = {
   sort: 'updated', editFolders: false, qF: '', qL: '',
 };
 const FIXED = { all: 'Semua Catatan', notes: 'Catatan', trash: 'Baru Dihapus' };
+let LOCK = { pin: '', salt: '', cred: '', app: false }; let unlocked = false;
 const folderName = (id) => FIXED[id] || (S.folders.find((f) => f.id === id) || {}).name || 'Catatan';
 const live = () => Object.values(S.notes).filter((n) => !n.deletedAt);
 const trashed = () => Object.values(S.notes).filter((n) => n.deletedAt);
 const notesIn = (fid) => fid === 'all' ? live() : fid === 'trash' ? trashed() : live().filter((n) => n.folderId === fid);
 
-async function saveMeta() { await DB.setMeta('folders', S.folders); await DB.setMeta('sort', S.sort); if (!DB.ok) lsSave(); }
+async function saveMeta() { await DB.setMeta('folders', S.folders); await DB.setMeta('sort', S.sort); await DB.setMeta('notesName', FIXED.notes); await DB.setMeta('lock', LOCK); if (!DB.ok) lsSave(); }
 async function saveNote(n) { if (DB.ok) return DB.putNote(n); return lsSave(); }
 async function dropNote(id) { delete S.notes[id]; if (DB.ok) await DB.delNote(id); else lsSave(); }
 function lsSave() { try { localStorage.setItem('catatan-ios', JSON.stringify({ folders: S.folders, notes: S.notes, sort: S.sort })); return true; } catch { toast('Gagal menyimpan! Tutup semua tab Yudsky Notes lalu buka lagi'); return null; } }
@@ -458,9 +480,9 @@ const I = {
 
 /* ================= render: folder ================= */
 function renderFolders() {
-  const customs = [...S.folders].sort((a, b) => a.name.localeCompare(b.name, 'id'));
+  const customs = [...S.folders];   // urutan bebas (bisa diseret di mode Edit)
   const rows = [];
-  const row = (id, name, icon, cls = '') => `<button class="row ${cls} ${S.folder === id && wide() ? 'sel' : ''}" data-f="${esc(id)}"><span class="minus">−</span>${icon}<span class="nm">${esc(name)}</span><span class="ct">${notesIn(id).length}</span>${I.chev}</button>`;
+  const row = (id, name, icon, cls = '') => `<button class="row ${cls} ${S.folder === id && wide() ? 'sel' : ''}" data-f="${esc(id)}"><span class="minus">−</span>${icon}<span class="nm">${esc(name)}</span><span class="ct">${notesIn(id).length}</span><span class="ren">Ubah</span>${I.chev}<span class="drag" aria-label="Seret">≡</span></button>`;
   if (customs.length) rows.push(row('all', FIXED.all, I.folder));
   rows.push(row('notes', FIXED.notes, I.folder));
   for (const f of customs) rows.push(row(f.id, f.name, I.folder, 'custom'));
@@ -472,7 +494,7 @@ function renderFolders() {
 }
 
 /* ================= render: daftar catatan ================= */
-function matches(n, q) { return !q || (n.title + '\n' + n.text).toLowerCase().includes(q.toLowerCase()); }
+function matches(n, q) { return !q || ((n.locked && !unlocked) ? n.title : (n.title + '\n' + n.text)).toLowerCase().includes(q.toLowerCase()); }
 function sorted(list) {
   const k = S.sort;
   return list.sort((a, b) => k === 'title' ? (a.title || '').localeCompare(b.title || '', 'id') : (b[k === 'created' ? 'createdAt' : 'updatedAt'] - a[k === 'created' ? 'createdAt' : 'updatedAt']));
@@ -485,11 +507,11 @@ function noteRow0(n, showFolder) {
     : `<div class="acts l"><button class="a-pin" data-act="pin">${n.pinned ? I.unpin + 'Lepas' : I.pin + 'Sematkan'}</button></div>`;
   const right = isTrash ? `<div class="acts r"><button class="a-del" data-act="purge">${I.trash.replace(' fi', '')}Hapus</button></div>`
     : `<div class="acts r"><button class="a-mov" data-act="move">${I.mov}Pindah</button><button class="a-del" data-act="del">${I.trash.replace(' fi', '')}Hapus</button></div>`;
-  return `<div class="rw ${n.img ? 'hasimg' : ''} ${S.note === n.id && wide() ? 'sel' : ''}" data-n="${esc(n.id)}">${left}${right}
-   <button class="row"><span class="nt">${esc(n.title || 'Catatan Baru')}</span>
-   <span class="np"><b>${esc(rowDate(ts))}</b>${esc(n.preview || 'Tidak ada teks tambahan')}</span>
+  return `<div class="rw ${n.img && !(n.locked && !unlocked) ? 'hasimg' : ''} ${S.picked && S.picked.has(n.id) ? 'picked' : ''} ${S.note === n.id && wide() ? 'sel' : ''}" data-n="${esc(n.id)}">${left}${right}
+   <button class="row"><span class="nt">${n.locked ? `<svg class="lk" viewBox="0 0 24 24" fill="currentColor"><path d="M7 10V7a5 5 0 0 1 10 0v3h1a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1v-9a1 1 0 0 1 1-1zm2 0h6V7a3 3 0 0 0-6 0z"/></svg>` : ''}${esc(n.title || 'Catatan Baru')}</span>
+   <span class="np"><b>${esc(rowDate(ts))}</b>${esc(n.locked && !unlocked ? 'Terkunci' : (n.preview || 'Tidak ada teks tambahan'))}</span>
    ${showFolder ? `<span class="nf">${I.mov.replace('class="ic"', 'class="ic"')}${esc(folderName(n.deletedAt ? 'trash' : n.folderId))}</span>` : ''}
-   ${n.img ? `<img class="thumb" src="${esc(n.img)}" alt="">` : ''}</button></div>`;
+   ${n.img && !(n.locked && !unlocked) ? `<img class="thumb" src="${esc(n.img)}" alt="">` : ''}</button></div>`;
 }
 function renderNoteGroups(list, showFolder) {
   if (!list.length) return '';
@@ -647,6 +669,12 @@ $('#folders').addEventListener('click', async (e) => {
   const r = e.target.closest('[data-f]'); if (!r) return;
   const id = r.dataset.f;
   const f = S.folders.find((x) => x.id === id);
+  if (S.editFolders && e.target.closest('.drag')) return;
+  if (S.editFolders && id === 'notes') {
+    const { btn, value } = await alertBox({ title: 'Ganti Nama Folder', msg: 'Folder utama (tidak bisa dihapus).', input: FIXED.notes, buttons: [{ t: 'Batal' }, { t: 'Simpan', b: 1 }] });
+    if (btn === 1 && value.trim()) { FIXED.notes = value.trim(); await saveMeta(); renderAll(); }
+    return;
+  }
   if (S.editFolders && f) {
     if (e.target.closest('.minus')) return deleteFolder(f);
     const { btn, value } = await alertBox({ title: 'Ganti Nama Folder', input: f.name, buttons: [{ t: 'Batal' }, { t: 'Simpan', b: 1 }] });
@@ -672,6 +700,38 @@ $('#bNewFolder').onclick = async () => {
   S.folders.push(f); await saveMeta(); renderFolders();
 };
 
+// seret ≡ untuk mengatur urutan folder
+{
+  let drag = null;
+  $('#folders').addEventListener('pointerdown', (e) => {
+    const h = e.target.closest('.drag'); if (!h || !S.editFolders) return;
+    e.preventDefault();
+    const row = h.closest('.row'); try { h.setPointerCapture(e.pointerId); } catch {}
+    drag = { row, grab: e.clientY - row.getBoundingClientRect().top };
+    row.classList.add('dragging');
+  });
+  $('#folders').addEventListener('pointermove', (e) => {
+    if (!drag) return;
+    const row = drag.row, want = e.clientY - drag.grab;
+    const place = () => { row.style.transform = ''; const top = row.getBoundingClientRect().top; row.style.transform = `translateY(${want - top}px)`; };
+    place();
+    const mid = want + row.offsetHeight / 2;
+    for (const r of $$('.row.custom', $('#folders'))) {
+      if (r === row) continue;
+      const bx = r.getBoundingClientRect();
+      if (mid > bx.top && mid < bx.bottom) { r.parentNode.insertBefore(row, mid < bx.top + bx.height / 2 ? r : r.nextSibling); place(); break; }
+    }
+  });
+  const end = async () => {
+    if (!drag) return;
+    drag.row.classList.remove('dragging'); drag.row.style.transform = '';
+    const order = $$('.row.custom', $('#folders')).map((r) => r.dataset.f);
+    S.folders.sort((a, b) => order.indexOf(a.id) - order.indexOf(b.id));
+    drag = null; await saveMeta(); renderFolders();
+  };
+  $('#folders').addEventListener('pointerup', end); $('#folders').addEventListener('pointercancel', end);
+}
+
 /* ================= catatan: buat, buka, simpan ================= */
 const ed = $('#ed');
 try { document.execCommand('defaultParagraphSeparator', false, 'div'); } catch {}
@@ -691,7 +751,8 @@ function newNote() {
 $$('.compose').forEach((b) => b.addEventListener('pointerdown', (e) => e.preventDefault()));
 $$('.compose').forEach((b) => b.addEventListener('click', () => { if (S.note) { flushSave(); closeNote(); } newNote(); }));
 
-function openNote(id, quiet) {
+async function openNote(id, quiet) {
+  if (S.notes[id]?.locked && !unlocked && !(await unlock('Buka catatan terkunci'))) return;
   if (S.note && S.note !== id) { flushSave(); closeNote(); }
   const n = S.notes[id]; if (!n) return;
   S.note = id;
@@ -1290,7 +1351,7 @@ function bindRows(container) {
   let st = null;
   const closeAll = (except) => $$('.rw.open', document).forEach((r) => { if (r !== except) { r.classList.remove('open'); $('.row', r).style.transform = ''; } });
   container.addEventListener('touchstart', (e) => {
-    const rw = e.target.closest('.rw'); if (!rw || e.target.closest('.acts')) return;
+    const rw = e.target.closest('.rw'); if (!rw || e.target.closest('.acts') || S.picked) return;
     const t = e.touches[0];
     st = { rw, x: t.clientX, y: t.clientY, dx: 0, base: rw.classList.contains('open') ? (parseFloat(rw.dataset.off) || 0) : 0, mode: null };
   }, { passive: true });
@@ -1320,6 +1381,7 @@ function bindRows(container) {
     if (b) { closeAll(); return act(rw.dataset.n, b.dataset.act); }
     if (rw._swiped && Date.now() - rw._swiped < 300) return;
     if ($$('.rw.open').length) return closeAll();
+    if (S.picked) { S.picked.has(rw.dataset.n) ? S.picked.delete(rw.dataset.n) : S.picked.add(rw.dataset.n); rw.classList.toggle('picked'); return updSel(); }
     openNote(rw.dataset.n);
   });
   container.addEventListener('contextmenu', (e) => {
@@ -1343,6 +1405,8 @@ const IC = {
   light: '<svg class="ic" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M12 3.5v17A8.5 8.5 0 0 0 12 3.5z" fill="currentColor"/></svg>',
   trash: '<svg class="ic" viewBox="0 0 24 24"><path d="M4 6.5h16M9.5 6.5V4.5h5v2M6 6.5l1 13a1.5 1.5 0 0 0 1.5 1.4h7a1.5 1.5 0 0 0 1.5-1.4l1-13M10 10.5v7M14 10.5v7"/></svg>',
   back: '<svg class="ic" viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg>',
+  lock: '<svg class="ic" viewBox="0 0 24 24"><rect x="5" y="10.5" width="14" height="10" rx="2"/><path d="M8 10.5V7.5a4 4 0 0 1 8 0v3"/></svg>',
+  unlock: '<svg class="ic" viewBox="0 0 24 24"><rect x="5" y="10.5" width="14" height="10" rx="2"/><path d="M8 10.5V7.5a4 4 0 0 1 7.7-1.5"/></svg>',
 };
 function popMenu(build) {
   const pop = document.createElement('div'); pop.className = 'pop';
@@ -1390,9 +1454,10 @@ function noteMoreMenu(id) {
     top: [
       { icon: IC.scan, label: 'Pindai', fn: () => { saveSel(); try { sessionStorage.setItem('yn-open', S.note); } catch {} $('#fCam').click(); } },
       { icon: n.pinned ? IC.unpin : IC.pin, label: n.pinned ? 'Lepas Pin Catatan' : 'Sematkan Catatan', fn: () => act(id, 'pin') },
-      { icon: IC.copy, label: 'Salin Teks', fn: () => copyText(id) },
+      { icon: n.locked ? IC.unlock : IC.lock, label: n.locked ? 'Hapus Kunci' : 'Kunci', fn: () => toggleNoteLock(n) },
     ],
     items: [
+      { icon: IC.copy, label: 'Salin Teks', fn: () => copyText(id) },
       { icon: IC.find, label: 'Temukan di Catatan', fn: openFind },
       { icon: IC.move, label: 'Pindahkan Catatan', fn: () => act(id, 'move') },
       { icon: IC.recent, label: 'Catatan Terbaru', menu: () => ({ items: [back, ...sorted(live().filter((x) => x.id !== id)).slice(0, 6).map((x) => ({ icon: IC.move, label: x.title || 'Catatan Baru', sub: rowDate(x.updatedAt), fn: () => { flushSave(); openNote(x.id); } }))] }) },
@@ -1451,12 +1516,36 @@ $('#bListMore').onclick = async () => {
   const keys = Object.keys(labels);
   const items = keys.map((k) => ({ t: (S.sort === k ? '✓ ' : '') + 'Urutkan: ' + labels[k], chk: S.sort === k }));
   const extra = S.folder === 'trash' && trashed().length ? [{ t: 'Hapus Semua', des: 1 }] : [];
-  const i = await sheet({ title: 'Tampilan', items: [...items, ...extra] });
+  const i = await sheet({ title: 'Tampilan', items: [{ t: 'Pilih Catatan' }, ...items, ...extra] });
   if (i < 0) return;
+  if (i === 0) return startSelect();
+  return listMenuAct(i - 1, keys);
+};
+async function listMenuAct(i, keys) {
   if (i < keys.length) { S.sort = keys[i]; await saveMeta(); renderAll(); return; }
   const { btn } = await alertBox({ title: 'Hapus Semua?', msg: 'Semua catatan di Baru Dihapus akan dihapus permanen.', buttons: [{ t: 'Batal' }, { t: 'Hapus Semua', des: 1 }] });
   if (btn === 1) { for (const n of trashed()) { for (const f of n.files || []) await DB.delFile(f); await dropNote(n.id); } renderAll(); }
+}
+function startSelect() { S.picked = new Set(); $('#pList').classList.add('selm'); $('#bListMore').style.display = 'none'; $('#bSelDone').style.display = ''; renderList(); updSel(); }
+function endSelect() { S.picked = null; $('#pList').classList.remove('selm'); $('#bListMore').style.display = ''; $('#bSelDone').style.display = 'none'; renderList(); }
+function updSel() { const c = S.picked ? S.picked.size : 0; $('#selCount').textContent = c ? c + ' dipilih' : 'Pilih catatan'; $('#bSelMove').disabled = $('#bSelDel').disabled = !c; $('#bSelMove').style.opacity = $('#bSelDel').style.opacity = c ? 1 : .4; }
+$('#bSelMove').onclick = async () => {
+  const ids = [...(S.picked || [])]; if (!ids.length) return;
+  const opts = [{ id: 'notes', name: FIXED.notes }, ...S.folders];
+  const i = await sheet({ title: 'Pindahkan ' + ids.length + ' catatan ke', items: opts.map((f) => ({ t: f.name })) }); if (i < 0) return;
+  for (const id of ids) { const n = S.notes[id]; if (!n) continue; n.folderId = opts[i].id; delete n.deletedAt; await saveNote(n); }
+  toast(ids.length + ' catatan dipindah ke “' + opts[i].name + '”'); endSelect(); renderAll();
 };
+$('#bSelDel').onclick = async () => {
+  const ids = [...(S.picked || [])]; if (!ids.length) return;
+  const perm = S.folder === 'trash';
+  const { btn } = await alertBox({ title: 'Hapus ' + ids.length + ' catatan?', msg: perm ? 'Dihapus permanen.' : 'Dipindah ke Baru Dihapus (bisa dipulihkan 30 hari).', buttons: [{ t: 'Batal' }, { t: 'Hapus', des: 1 }] });
+  if (btn !== 1) return;
+  for (const id of ids) { const n = S.notes[id]; if (!n) continue; if (perm) { for (const f of n.files || []) await DB.delFile(f); await dropNote(id); } else { n.deletedAt = Date.now(); n.pinned = false; await saveNote(n); } }
+  endSelect(); renderAll();
+};
+
+$('#bSelDone').onclick = endSelect;
 
 /* ================= pencarian ================= */
 for (const [lab, key, fn] of [['#qF', 'qF', renderSearchAll], ['#qL', 'qL', renderList]]) {
@@ -1468,8 +1557,8 @@ for (const [lab, key, fn] of [['#qF', 'qF', renderSearchAll], ['#qL', 'qL', rend
 /* ================= cadangan: ekspor / impor ================= */
 $('#bMenu').onclick = async () => {
   const c = live().length;
-  const i = await sheet({ title: `Yudsky Notes ${APP_VERSION} — ${c} catatan di ponsel ini`, items: [{ t: 'Unduh Cadangan (.json)' }, { t: 'Salin Cadangan' }, { t: 'Pulihkan dari File' }, { t: 'Tempel Cadangan' }, { t: 'Impor dari iCloud (Mac)' }, { t: 'Periksa Pembaruan' }, { t: 'Cek Penyimpanan' }] });
-  if (i === 0) exportFile(); if (i === 1) exportCopy(); if (i === 2) $('#fImport').click(); if (i === 3) importPaste(); if (i === 4) icloudHelp(); if (i === 5) checkUpdate(true); if (i === 6) diagnose();
+  const i = await sheet({ title: `Yudsky Notes ${APP_VERSION} — ${c} catatan di ponsel ini`, items: [{ t: 'Unduh Cadangan (.json)' }, { t: 'Salin Cadangan' }, { t: 'Pulihkan dari File' }, { t: 'Tempel Cadangan' }, { t: 'Impor dari iCloud (Mac)' }, { t: 'Kunci & Sidik Jari' }, { t: 'Periksa Pembaruan' }, { t: 'Cek Penyimpanan' }] });
+  if (i === 0) exportFile(); if (i === 1) exportCopy(); if (i === 2) $('#fImport').click(); if (i === 3) importPaste(); if (i === 4) icloudHelp(); if (i === 5) lockSettings(); if (i === 6) checkUpdate(true); if (i === 7) diagnose();
 };
 async function diagnose() {
   const out = ['Versi: ' + APP_VERSION + (navigator.serviceWorker?.controller ? ' (offline aktif)' : ''), 'Mode: ' + (matchMedia('(display-mode: standalone)').matches ? 'aplikasi terpasang' : 'tab Chrome')];
@@ -1676,6 +1765,104 @@ function icloudHelp() {
     .then(({ btn }) => { if (btn === 1) $('#fImport').click(); });
 }
 
+/* ================= kunci: PIN & sidik jari ================= */
+const FP_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M12 11v3.5a6 6 0 0 1-1.2 3.6M8.5 9.5A3.5 3.5 0 0 1 15.5 11v2.5a9 9 0 0 1-1.4 4.8M5.5 12.5V11a6.5 6.5 0 0 1 11.7-3.9M18.4 11v1.5a12 12 0 0 1-.8 4.3M8.6 14.2a12 12 0 0 1-1.4 4.6M3.6 8a9.5 9.5 0 0 1 14.9-3.4"/></svg>';
+const b64u = (buf) => btoa(String.fromCharCode(...new Uint8Array(buf))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+const unb64u = (s) => Uint8Array.from(atob(s.replace(/-/g, '+').replace(/_/g, '/')), (c) => c.charCodeAt(0));
+async function hashPin(pin, salt) { const d = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(salt + ':' + pin)); return b64u(d); }
+const fpAvailable = async () => { try { return !!(window.PublicKeyCredential && await PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable()); } catch { return false; } };
+async function askNewPin() {
+  const a = await alertBox({ title: 'Buat PIN', msg: 'PIN 4–8 angka, dipakai bila sidik jari tidak bisa.', pin: true, buttons: [{ t: 'Batal' }, { t: 'Lanjut', b: 1 }] });
+  if (a.btn !== 1) return false;
+  if (!/^\d{4,8}$/.test(a.value)) { toast('PIN harus 4–8 angka'); return false; }
+  const b = await alertBox({ title: 'Ulangi PIN', pin: true, buttons: [{ t: 'Batal' }, { t: 'Simpan', b: 1 }] });
+  if (b.btn !== 1) return false;
+  if (a.value !== b.value) { toast('PIN tidak sama'); return false; }
+  LOCK.salt = b64u(crypto.getRandomValues(new Uint8Array(12))); LOCK.pin = await hashPin(a.value, LOCK.salt);
+  await saveMeta(); return true;
+}
+async function registerFinger() {
+  if (!(await fpAvailable())) { toast('Sidik jari tidak tersedia di perangkat/browser ini'); return false; }
+  try {
+    const cred = await navigator.credentials.create({ publicKey: {
+      challenge: crypto.getRandomValues(new Uint8Array(32)), rp: { name: 'Yudsky Notes', id: location.hostname },
+      user: { id: crypto.getRandomValues(new Uint8Array(16)), name: 'yudsky-notes', displayName: 'Yudsky Notes' },
+      pubKeyCredParams: [{ type: 'public-key', alg: -7 }, { type: 'public-key', alg: -257 }],
+      authenticatorSelection: { authenticatorAttachment: 'platform', userVerification: 'required', residentKey: 'discouraged' },
+      timeout: 60000, attestation: 'none' } });
+    LOCK.cred = b64u(cred.rawId); await saveMeta(); toast('Sidik jari aktif'); return true;
+  } catch (e) { toast('Sidik jari batal: ' + (e.name || 'gagal')); return false; }
+}
+async function verifyFinger() {
+  if (!LOCK.cred) return false;
+  try {
+    await navigator.credentials.get({ publicKey: { challenge: crypto.getRandomValues(new Uint8Array(32)), rpId: location.hostname,
+      allowCredentials: [{ type: 'public-key', id: unb64u(LOCK.cred) }], userVerification: 'required', timeout: 60000 } });
+    return true;
+  } catch { return false; }
+}
+async function verifyPin(title) {
+  const a = await alertBox({ title: title || 'Masukkan PIN', pin: true, buttons: [{ t: 'Batal' }, { t: 'Buka', b: 1 }] });
+  if (a.btn !== 1) return false;
+  if ((await hashPin(a.value, LOCK.salt)) === LOCK.pin) return true;
+  toast('PIN salah'); return false;
+}
+async function unlock(why) {
+  if (unlocked || !LOCK.pin) { unlocked = true; return true; }
+  let ok = LOCK.cred ? await verifyFinger() : false;
+  if (!ok) ok = await verifyPin(why);
+  if (ok) { unlocked = true; renderAll(); }
+  return ok;
+}
+function relock() { unlocked = false; if (S.note && S.notes[S.note]?.locked) { flushSave(); if (!wide()) back(); else closeNoteWide(); } renderAll(); }
+async function toggleNoteLock(n) {
+  if (!LOCK.pin) {
+    const { btn } = await alertBox({ title: 'Atur Kunci', msg: 'Buat PIN dulu. Setelah itu Anda bisa mengaktifkan sidik jari.', buttons: [{ t: 'Batal' }, { t: 'Atur', b: 1 }] });
+    if (btn !== 1 || !(await askNewPin())) return;
+    if (await fpAvailable()) { const r = await alertBox({ title: 'Pakai Sidik Jari?', msg: 'Buka catatan terkunci dengan sidik jari.', buttons: [{ t: 'Nanti' }, { t: 'Aktifkan', b: 1 }] }); if (r.btn === 1) await registerFinger(); }
+    unlocked = true;
+  } else if (!(await unlock(n.locked ? 'Hapus kunci' : 'Kunci catatan'))) return;
+  n.locked = !n.locked; await saveNote(n); renderAll();
+  toast(n.locked ? 'Catatan dikunci 🔒' : 'Kunci dihapus');
+}
+async function lockSettings() {
+  const fp = await fpAvailable();
+  const items = LOCK.pin ? [
+    { t: 'Kunci Sekarang' }, { t: 'Ubah PIN' },
+    { t: LOCK.cred ? 'Matikan Sidik Jari' : 'Aktifkan Sidik Jari' + (fp ? '' : ' (tidak tersedia)') },
+    { t: (LOCK.app ? '✓ ' : '') + 'Kunci Aplikasi Saat Dibuka', chk: LOCK.app },
+    { t: 'Hapus PIN & Semua Kunci', des: 1 }] : [{ t: 'Buat PIN' }];
+  const i = await sheet({ title: 'Kunci & Sidik Jari', items });
+  if (i < 0) return;
+  if (!LOCK.pin) { if (await askNewPin()) { unlocked = true; if (fp) { const r = await alertBox({ title: 'Pakai Sidik Jari?', buttons: [{ t: 'Nanti' }, { t: 'Aktifkan', b: 1 }] }); if (r.btn === 1) await registerFinger(); } } return; }
+  if (i === 0) { relock(); if (LOCK.app) showLockScreen(); toast('Terkunci'); return; }
+  if (!(await unlock('Masukkan PIN'))) return;
+  if (i === 1) { if (await askNewPin()) toast('PIN diubah'); }
+  if (i === 2) { if (LOCK.cred) { LOCK.cred = ''; await saveMeta(); toast('Sidik jari dimatikan'); } else await registerFinger(); }
+  if (i === 3) { LOCK.app = !LOCK.app; await saveMeta(); toast(LOCK.app ? 'Aplikasi akan terkunci saat dibuka' : 'Kunci aplikasi dimatikan'); }
+  if (i === 4) {
+    const { btn } = await alertBox({ title: 'Hapus PIN?', msg: 'Semua catatan terkunci akan terbuka kuncinya.', buttons: [{ t: 'Batal' }, { t: 'Hapus', des: 1 }] });
+    if (btn !== 1) return;
+    for (const n of Object.values(S.notes)) if (n.locked) { n.locked = false; await saveNote(n); }
+    LOCK = { pin: '', salt: '', cred: '', app: false }; await saveMeta(); renderAll(); toast('Kunci dihapus');
+  }
+}
+function showLockScreen() {
+  if (!LOCK.app || !LOCK.pin || $('.lockscr')) return;
+  const el = document.createElement('div'); el.className = 'lockscr';
+  el.innerHTML = `<img src="${$('link[rel=icon]').href}" alt=""><h2>Yudsky Notes terkunci</h2><p>${LOCK.cred ? 'Sentuh sidik jari untuk membuka' : 'Masukkan PIN untuk membuka'}</p>${LOCK.cred ? `<button class="fp" aria-label="Sidik jari">${FP_SVG}</button>` : ''}<button class="pinb">Pakai PIN</button>`;
+  document.body.appendChild(el);
+  const go = async (pinOnly) => { const ok = pinOnly ? await verifyPin() : (await verifyFinger()) || await verifyPin(); if (ok) { unlocked = true; el.remove(); renderAll(); } };
+  $('.pinb', el).onclick = () => go(true);
+  if (LOCK.cred) { $('.fp', el).onclick = () => go(false); setTimeout(() => go(false), 400); }
+}
+// kunci lagi setelah aplikasi ditinggal 1 menit
+{ let hiddenAt = 0;
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) { hiddenAt = Date.now(); return; }
+    if (hiddenAt && Date.now() - hiddenAt > 60e3 && LOCK.pin && !sessionStorage.getItem('yn-open')) { relock(); showLockScreen(); }
+  }); }
+
 /* ================= dialog ala iOS ================= */
 function overlay(html) {
   const ov = document.createElement('div'); ov.className = 'ov'; ov.innerHTML = html;
@@ -1689,9 +1876,9 @@ function sheet({ title, items }) {
     ov.addEventListener('click', (e) => { const b = e.target.closest('[data-i]'); if (!b && e.target.closest('.as')) return; ov.close(); res(b ? +b.dataset.i : -1); });
   });
 }
-function alertBox({ title, msg, input, placeholder, area, buttons }) {
+function alertBox({ title, msg, input, placeholder, area, buttons, pin }) {
   return new Promise((res) => {
-    const field = area ? '<textarea></textarea>' : input !== undefined ? `<input value="${esc(input)}" placeholder="${esc(placeholder || '')}">` : '';
+    const field = area ? '<textarea></textarea>' : pin ? '<input type="password" inputmode="numeric" autocomplete="off" maxlength="8" placeholder="PIN" style="text-align:center;letter-spacing:.4em;font-size:22px">' : input !== undefined ? `<input value="${esc(input)}" placeholder="${esc(placeholder || '')}">` : '';
     const ov = overlay(`<div class="al"><h3>${esc(title)}</h3>${msg ? `<p>${esc(msg)}</p>` : '<p></p>'}${field}<div class="alb">${buttons.map((b, i) => `<button data-i="${i}" class="${b.b ? 'b' : ''} ${b.des ? 'des' : ''}">${esc(b.t)}</button>`).join('')}</div></div>`);
     const f = $('input,textarea', ov); if (f) setTimeout(() => { f.focus(); f.select?.(); }, 60);
     const done = (i) => { ov.close(); res({ btn: i, value: f ? f.value : '' }); };
@@ -1728,6 +1915,7 @@ setTimeout(() => { if (!booted) alertBox({ title: 'Memuat catatan terlalu lama',
     BOOT = 'membaca folder';
     S.folders = Array.isArray(await DB.getMeta('folders')) ? await DB.getMeta('folders') : [];
     S.sort = (await DB.getMeta('sort')) || 'updated';
+    { const nn = await DB.getMeta('notesName'); if (typeof nn === 'string' && nn) FIXED.notes = nn; const lk = await DB.getMeta('lock'); if (lk && typeof lk === 'object') LOCK = { ...LOCK, ...lk }; }
     BOOT = 'membaca catatan';
     for (const n of (await DB.allNotes()) || []) if (n && n.id) S.notes[n.id] = n;
     BOOT = 'merapikan';
@@ -1747,6 +1935,7 @@ setTimeout(() => { if (!booted) alertBox({ title: 'Memuat catatan terlalu lama',
   try { if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('sw.js').catch(() => {}); } catch {}
   } catch (err) { ERRLOG.push('muat: ' + BOOT + ' — ' + (err && (err.name + ': ' + err.message))); alertBox({ title: 'Ada masalah saat memuat', msg: 'Tahap: ' + BOOT + '\n' + (err && (err.name + ': ' + err.message)), buttons: [{ t: 'OK', b: 1 }] }); }
   booted = true; BOOT = 'menampilkan';
+  try { showLockScreen(); } catch {}
   try { applyStack(false); renderAll(); } catch (err) { ERRLOG.push('tampil: ' + (err && err.message)); alertBox({ title: 'Ada masalah saat menampilkan', msg: String(err && (err.name + ': ' + err.message)), buttons: [{ t: 'OK', b: 1 }] }); }
   try {
   try { const pv = localStorage.getItem('yn-ver'); if (pv) { localStorage.removeItem('yn-ver'); setTimeout(() => toast(pv === APP_VERSION ? 'Sudah versi terbaru (' + APP_VERSION + ')' : 'Diperbarui ke ' + APP_VERSION), 500); } } catch {}
