@@ -302,6 +302,23 @@ svg{display:block}
 .toast.show{opacity:1;transform:translateX(-50%)}
 
 /* layar lebar: tiga kolom ala iPad */
+#pSet .group{margin-bottom:6px}
+.st{font-size:13px;color:var(--sec);margin:22px 32px 7px;text-transform:uppercase;letter-spacing:.02em}
+.sf{font-size:13px;color:var(--sec);margin:7px 32px 0;line-height:1.35}
+.srow{position:relative;display:flex;align-items:center;gap:12px;min-height:46px;padding:8px 16px;width:100%;text-align:left;background:var(--cell)}
+.srow+.srow::before{content:"";position:absolute;top:0;right:0;left:58px;border-top:.5px solid var(--sep)}
+.srow:active{background:var(--fill)}
+.sic{width:30px;height:30px;border-radius:7px;display:flex;align-items:center;justify-content:center;color:#fff;flex:none}
+.sic .ic{width:19px;height:19px;stroke-width:2}
+.srow .lb{flex:1}.srow .vl{color:var(--sec);font-size:16px}
+.srow .chev{width:8px;height:14px;stroke:var(--ter);stroke-width:2.4;flex:none}
+.srow.des .lb{color:var(--red)}
+.sw{width:51px;height:31px;border-radius:16px;background:var(--fill);position:relative;transition:background .2s;flex:none}
+.sw::after{content:"";position:absolute;left:2px;top:2px;width:27px;height:27px;border-radius:50%;background:#fff;box-shadow:0 2px 4px rgba(0,0,0,.25);transition:transform .2s}
+.sw.on{background:#34C759}.sw.on::after{transform:translateX(20px)}
+.sabout{text-align:center;color:var(--sec);font-size:13px;margin:26px 0 10px;display:flex;flex-direction:column;align-items:center;gap:8px}
+.sabout img{width:56px;height:56px;border-radius:13px}
+@media (min-width:900px){#pSet{z-index:20}#pSet.off{display:none}}
 @media (min-width:900px){
  .page,.page.off,.page.under,.page.cur{transform:none;filter:none;box-shadow:none;transition:none}
  #pFolders{right:auto;width:300px;border-right:.5px solid var(--sep)}
@@ -319,7 +336,7 @@ svg{display:block}
 
 <section class="page cur" id="pFolders">
  <header class="nav"><div class="navrow">
-  <button class="nb" id="bMenu" aria-label="Menu"><svg class="ic" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><circle cx="8" cy="12" r=".6" fill="currentColor"/><circle cx="12" cy="12" r=".6" fill="currentColor"/><circle cx="16" cy="12" r=".6" fill="currentColor"/></svg></button>
+  <button class="nb" id="bMenu" aria-label="Pengaturan"><svg class="ic" viewBox="0 0 24 24"><path d="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg></button>
   <div class="navtitle">Folder</div>
   <button class="nb" id="bEdit">Edit</button>
  </div></header>
@@ -335,6 +352,14 @@ svg{display:block}
   <button class="nb" id="bNewFolder" aria-label="Folder baru"><svg class="ic" viewBox="0 0 24 24"><path d="M3 7.5A1.5 1.5 0 0 1 4.5 6h4.3l2 2h8.7A1.5 1.5 0 0 1 21 9.5v8a1.5 1.5 0 0 1-1.5 1.5h-15A1.5 1.5 0 0 1 3 17.5z"/><path d="M12 10.5v5M9.5 13h5"/></svg></button>
   <button class="nb compose" aria-label="Catatan baru"><svg class="ic" viewBox="0 0 24 24"><path d="M11 4H6.5A2.5 2.5 0 0 0 4 6.5v11A2.5 2.5 0 0 0 6.5 20h11a2.5 2.5 0 0 0 2.5-2.5V13"/><path d="M17.6 3.6a2 2 0 0 1 2.8 2.8L12 14.8l-3.7.9.9-3.7z"/></svg></button>
  </div></footer>
+</section>
+
+<section class="page off" id="pSet">
+ <header class="nav"><div class="navrow">
+  <button class="nb back" data-back><svg class="ic" viewBox="0 0 13 22"><path d="M11 2L2 11l9 9"/></svg>Folder</button>
+  <div class="navtitle">Pengaturan</div><span style="width:44px"></span>
+ </div></header>
+ <div class="scroll" id="sSet"><h1 class="ltitle">Pengaturan</h1><div id="setBody"></div></div>
 </section>
 
 <section class="page off" id="pList">
@@ -407,7 +432,7 @@ svg{display:block}
 <script>
 {
 /* ================= penyimpanan di perangkat (IndexedDB) ================= */
-const APP_VERSION = 'v23';
+const APP_VERSION = 'v24';
 const ERRLOG = [];
 addEventListener('error', (e) => ERRLOG.push(new Date().toTimeString().slice(0, 8) + ' ' + (e.message || e.type)));
 addEventListener('unhandledrejection', (e) => ERRLOG.push(new Date().toTimeString().slice(0, 8) + ' ' + ((e.reason && (e.reason.name + ': ' + e.reason.message)) || e.reason)));
@@ -628,7 +653,7 @@ function renderSearchAll() {
 function renderAll() { renderFolders(); renderSearchAll(); renderList(); }
 
 /* ================= navigasi ================= */
-const PAGES = { folders: '#pFolders', list: '#pList', note: '#pNote' };
+const PAGES = { folders: '#pFolders', list: '#pList', note: '#pNote', settings: '#pSet' };
 function applyStack(anim = true) {
   const st = S.stack;
   for (const [k, sel] of Object.entries(PAGES)) {
@@ -679,7 +704,7 @@ $$('[data-back]').forEach((b) => b.addEventListener('click', () => back()));
 }
 
 // judul besar → judul kecil saat digulir
-for (const id of ['sFolders', 'sList', 'sNote']) {
+for (const id of ['sFolders', 'sList', 'sNote', 'sSet']) {
   const sc = $('#' + id);
   sc.addEventListener('scroll', () => sc.parentElement.querySelector('.nav').classList.toggle('solid', sc.scrollTop > (id === 'sNote' ? 4 : 38)), { passive: true });
 }
@@ -1626,11 +1651,69 @@ for (const [lab, key, fn] of [['#qF', 'qF', renderSearchAll], ['#qL', 'qL', rend
 }
 
 /* ================= cadangan: ekspor / impor ================= */
-$('#bMenu').onclick = async () => {
-  const c = live().length;
-  const i = await sheet({ title: `Yudsky Notes ${APP_VERSION} — ${c} catatan di ponsel ini`, items: [{ t: 'Unduh Cadangan (.json)' }, { t: 'Salin Cadangan' }, { t: 'Pulihkan dari File' }, { t: 'Tempel Cadangan' }, { t: 'Impor dari iCloud (Mac)' }, { t: 'Kunci & Sidik Jari' }, { t: 'Tema & Latar' }, { t: 'Periksa Pembaruan' }, { t: 'Cek Penyimpanan' }] });
-  if (i === 0) exportFile(); if (i === 1) exportCopy(); if (i === 2) $('#fImport').click(); if (i === 3) importPaste(); if (i === 4) icloudHelp(); if (i === 5) lockSettings(); if (i === 6) themePicker(); if (i === 7) checkUpdate(true); if (i === 8) diagnose();
-};
+$('#bMenu').onclick = () => { renderSettings(); $('#sSet').scrollTop = 0; push('settings'); };
+const SIC = (color, path) => `<span class="sic" style="background:${color}"><svg class="ic" viewBox="0 0 24 24"><path d="${path}"/></svg></span>`;
+async function renderSettings() {
+  const fp = await fpAvailable();
+  const sortL = { updated: 'Tanggal Diedit', created: 'Tanggal Dibuat', title: 'Judul' }[S.sort];
+  const row = (k, icon, label, right = '', cls = '') => `<button class="srow ${cls}" data-k="${k}">${icon}<span class="lb">${esc(label)}</span>${right}</button>`;
+  const chev = I.chev, sw = (on) => `<span class="sw ${on ? 'on' : ''}"></span>`, vl = (t) => `<span class="vl">${esc(t)}</span>`;
+  const used = await (async () => { try { const e = await navigator.storage.estimate(); return fmtSize(e.usage || 0); } catch { return ''; } })();
+  $('#setBody').innerHTML = `
+  <div class="st">Tampilan</div><div class="group">
+    ${row('theme', SIC('#5856D6', FICONS.star), 'Tema & Latar', vl(THEMES[THEME.bg]?.n || 'Bawaan') + chev)}
+    ${row('folders', SIC('#FF9500', FICONS.folder), 'Ikon, Nama & Urutan Folder', chev)}
+    ${row('sort', SIC('#8E8E93', 'M4 6h16M7 12h10M10 18h4'), 'Urutkan Catatan', vl(sortL) + chev)}
+  </div>
+  <div class="st">Kunci</div><div class="group">
+    ${row('pin', SIC('#FF3B30', FICONS.lock), LOCK.pin ? 'Ubah PIN' : 'Buat PIN', chev)}
+    ${LOCK.pin ? row('finger', SIC('#FF2D55', 'M12 11v3.5a6 6 0 0 1-1.2 3.6M8.5 9.5A3.5 3.5 0 0 1 15.5 11v2.5a9 9 0 0 1-1.4 4.8M5.5 12.5V11a6.5 6.5 0 0 1 11.7-3.9M18.4 11v1.5'), 'Sidik Jari' + (fp ? '' : ' (tidak tersedia)'), sw(!!LOCK.cred)) : ''}
+    ${LOCK.pin ? row('applock', SIC('#34C759', 'M5 10.5h14v10H5zM8 10.5V7.5a4 4 0 0 1 8 0v3M12 14.5v2'), 'Kunci Aplikasi Saat Dibuka', sw(!!LOCK.app)) : ''}
+    ${LOCK.pin ? row('locknow', SIC('#007AFF', FICONS.lock), 'Kunci Sekarang', '') : ''}
+    ${LOCK.pin ? row('unpin', SIC('#8E8E93', 'M6 6l12 12M18 6L6 18'), 'Hapus PIN & Semua Kunci', '', 'des') : ''}
+  </div>
+  <div class="sf">${LOCK.pin ? 'Catatan dikunci lewat ⋯ → Kunci di dalam catatan. Terkunci lagi otomatis setelah aplikasi ditinggal 1 menit.' : 'Buat PIN untuk bisa mengunci catatan dan memakai sidik jari.'}</div>
+  <div class="st">Data & Cadangan</div><div class="group">
+    ${row('export', SIC('#34C759', 'M12 3v12M7 10l5 5 5-5M4 19h16'), 'Unduh Cadangan (.json)', chev)}
+    ${row('copy', SIC('#00C7BE', FICONS.clip), 'Salin Cadangan', chev)}
+    ${row('restore', SIC('#007AFF', 'M12 21V9M7 14l5-5 5 5M4 5h16'), 'Pulihkan dari File', chev)}
+    ${row('paste', SIC('#5AC8FA', 'M9 4h6v3H9zM7 5.5H5.5v15h13v-15H17'), 'Tempel Cadangan', chev)}
+    ${row('icloud', SIC('#0A84FF', 'M7 18h10a4 4 0 0 0 .5-8 6 6 0 0 0-11.5 1.5A3.5 3.5 0 0 0 7 18z'), 'Impor dari iCloud (Mac)', chev)}
+  </div>
+  <div class="sf">${live().length} catatan · ${used} terpakai di HP ini</div>
+  <div class="st">Aplikasi</div><div class="group">
+    ${row('update', SIC('#FF9500', 'M4 12a8 8 0 1 0 2.4-5.7M4 4v4.5h4.5'), 'Periksa Pembaruan', vl(APP_VERSION) + chev)}
+    ${row('diag', SIC('#8E8E93', 'M4 7h16M4 12h16M4 17h10'), 'Cek Penyimpanan', chev)}
+  </div>
+  <div class="sabout"><img src="${$('link[rel=icon]').href}" alt=""><b>Yudsky Notes ${APP_VERSION}</b><span>Catatan tersimpan di HP ini</span></div>`;
+}
+$('#setBody').addEventListener('click', async (e) => {
+  const k = e.target.closest('[data-k]')?.dataset.k; if (!k) return;
+  const fp = await fpAvailable();
+  switch (k) {
+    case 'theme': themePicker(); break;
+    case 'folders': back(); S.editFolders = true; renderFolders(); toast('Ketuk Ubah untuk nama/ikon, seret ≡ untuk urutan'); break;
+    case 'sort': { const keys = ['updated', 'created', 'title']; const i = await sheet({ title: 'Urutkan Catatan', items: keys.map((x) => ({ t: (S.sort === x ? '✓ ' : '') + ({ updated: 'Tanggal Diedit', created: 'Tanggal Dibuat', title: 'Judul' })[x], chk: S.sort === x })) }); if (i >= 0) { S.sort = keys[i]; await saveMeta(); renderAll(); } break; }
+    case 'pin': if (!LOCK.pin) { if (await askNewPin()) { unlocked = true; if (fp) { const r = await alertBox({ title: 'Pakai Sidik Jari?', buttons: [{ t: 'Nanti' }, { t: 'Aktifkan', b: 1 }] }); if (r.btn === 1) await registerFinger(); } } } else if (await unlock('Masukkan PIN lama')) { if (await askNewPin()) toast('PIN diubah'); } break;
+    case 'finger': if (!(await unlock('Masukkan PIN'))) break; if (LOCK.cred) { LOCK.cred = ''; await saveMeta(); toast('Sidik jari dimatikan'); } else await registerFinger(); break;
+    case 'applock': if (!(await unlock('Masukkan PIN'))) break; LOCK.app = !LOCK.app; await saveMeta(); toast(LOCK.app ? 'Aplikasi terkunci saat dibuka' : 'Kunci aplikasi dimatikan'); break;
+    case 'locknow': back(); relock(); if (LOCK.app) showLockScreen(); toast('Terkunci'); break;
+    case 'unpin': {
+      if (!(await unlock('Masukkan PIN'))) break;
+      const { btn } = await alertBox({ title: 'Hapus PIN?', msg: 'Semua catatan terkunci akan terbuka kuncinya.', buttons: [{ t: 'Batal' }, { t: 'Hapus', des: 1 }] });
+      if (btn !== 1) break;
+      for (const n of Object.values(S.notes)) if (n.locked) { n.locked = false; await saveNote(n); }
+      LOCK = { pin: '', salt: '', cred: '', app: false }; await saveMeta(); renderAll(); toast('Kunci dihapus'); break; }
+    case 'export': exportFile(); break;
+    case 'copy': exportCopy(); break;
+    case 'restore': $('#fImport').click(); break;
+    case 'paste': importPaste(); break;
+    case 'icloud': icloudHelp(); break;
+    case 'update': checkUpdate(true); break;
+    case 'diag': diagnose(); break;
+  }
+  if (S.stack[S.stack.length - 1] === 'settings') renderSettings();
+});
 async function diagnose() {
   const out = ['Versi: ' + APP_VERSION + (navigator.serviceWorker?.controller ? ' (offline aktif)' : ''), 'Mode: ' + (matchMedia('(display-mode: standalone)').matches ? 'aplikasi terpasang' : 'tab Chrome')];
   out.push('Penyimpanan utama: ' + (DB.ok ? 'OK' : 'GAGAL ' + DB_ERR));
@@ -1930,7 +2013,7 @@ function themePicker() {
       };
       inp.click();
     }
-    if (e.target.closest('.pk-ok')) close();
+    if (e.target.closest('.pk-ok')) { close(); if (S.stack.includes('settings')) renderSettings(); }
   };
   sync();
 }
