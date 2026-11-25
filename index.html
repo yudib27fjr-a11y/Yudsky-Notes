@@ -435,7 +435,7 @@ svg{display:block}
 <script>
 {
 /* ================= penyimpanan di perangkat (IndexedDB) ================= */
-const APP_VERSION = 'v26';
+const APP_VERSION = 'v27';
 const ERRLOG = [];
 addEventListener('error', (e) => ERRLOG.push(new Date().toTimeString().slice(0, 8) + ' ' + (e.message || e.type)));
 addEventListener('unhandledrejection', (e) => ERRLOG.push(new Date().toTimeString().slice(0, 8) + ' ' + ((e.reason && (e.reason.name + ': ' + e.reason.message)) || e.reason)));
@@ -1090,6 +1090,36 @@ function linkify() {
   return changed;
 }
 let linkT = null;
+// ketuk di samping/bawah foto, video, file atau tabel -> kursor muncul tepat setelahnya
+const isBlockMedia = (el) => el && (el.matches('figure.att, img, .tblw'));
+function caretAfterBlock(el) {
+  let nx = el.nextElementSibling;
+  // lewati deretan foto kecil di baris yang sama
+  while (nx && isBlockMedia(nx) && el.matches('.sz-s, .sz-m') && nx.matches('.sz-s, .sz-m') && Math.abs(nx.getBoundingClientRect().top - el.getBoundingClientRect().top) < 8) { el = nx; nx = el.nextElementSibling; }
+  if (!nx || isBlockMedia(nx) || nx.tagName === 'UL' || nx.tagName === 'OL') { nx = document.createElement('div'); nx.innerHTML = '<br>'; el.after(nx); }
+  const r = document.createRange(); r.setStart(nx, 0); r.collapse(true);
+  const sel = getSelection(); sel.removeAllRanges(); sel.addRange(r); savedRange = r.cloneRange();
+  if (document.activeElement !== ed) ed.focus({ preventScroll: true });
+  sel.removeAllRanges(); sel.addRange(r);
+}
+ed.addEventListener('click', (e) => {
+  if (ed.contentEditable !== 'true') return;
+  if (e.target !== ed && !e.target.matches('figure.att.pic, figure.att.vid')) return;   // ketukan di teks/tombol: biarkan
+  if (e.target.matches('figure.att.pic, figure.att.vid') && (e.target.querySelector('img,video')?.getBoundingClientRect().right || 0) > e.clientX) return;
+  const y = e.clientY, kids = [...ed.children];
+  // elemen pada ketinggian ketukan (paling kanan bila beberapa di baris yang sama)
+  let hit = null;
+  for (const k of kids) { const b = k.getBoundingClientRect(); if (y >= b.top - 2 && y <= b.bottom + 2 && (!hit || b.left >= hit.getBoundingClientRect().left || !isBlockMedia(hit))) hit = k; }
+  if (hit && isBlockMedia(hit)) { e.preventDefault(); caretAfterBlock(hit); onEdit(); return; }
+  // di bawah semua isi: kursor di akhir; bila elemen terakhir foto/video/tabel, sediakan baris baru
+  const last = ed.lastElementChild;
+  if (!hit && last && y > last.getBoundingClientRect().bottom) {
+    e.preventDefault();
+    if (isBlockMedia(last)) caretAfterBlock(last); else caretTo(last, true);
+    onEdit();
+  }
+});
+
 // ketuk tautan -> langsung terbuka
 ed.addEventListener('click', (e) => {
   const a = e.target.closest('a[href]'); if (!a || !ed.contains(a)) return;
