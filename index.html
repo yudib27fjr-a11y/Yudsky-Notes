@@ -217,6 +217,7 @@ svg{display:block}
 .lockscr .fp{width:72px;height:72px;border-radius:50%;background:var(--fill);color:var(--tint);display:flex;align-items:center;justify-content:center}
 .lockscr .fp svg{width:40px;height:40px}
 .lockscr .pinb{color:var(--tint);font-size:17px;padding:10px}
+.nb.hist{min-width:38px;padding:0 4px}.nb.hist:disabled{opacity:.3}
 .viewer{position:fixed;inset:0;z-index:60;background:#000;display:flex;flex-direction:column;opacity:0;transition:opacity .2s}
 .viewer.show{opacity:1}
 .vtrack{flex:1;display:flex;overflow-x:auto;scroll-snap-type:x mandatory;scrollbar-width:none}
@@ -391,6 +392,8 @@ svg{display:block}
   <div class="navtitle" id="nTitleS"></div>
   <div class="navgrp">
    <button class="nb" id="bCopy" aria-label="Salin"><svg class="ic" viewBox="0 0 24 24"><path d="M12 15V3.5M8 7l4-4 4 4"/><path d="M8 10.5H6.5A1.5 1.5 0 0 0 5 12v7.5A1.5 1.5 0 0 0 6.5 21h11a1.5 1.5 0 0 0 1.5-1.5V12a1.5 1.5 0 0 0-1.5-1.5H16"/></svg></button>
+   <button class="nb hist" id="bUndo" aria-label="Urungkan" style="display:none"><svg class="ic" viewBox="0 0 24 24"><path d="M9 14L4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/></svg></button>
+   <button class="nb hist" id="bRedo" aria-label="Ulangi" style="display:none"><svg class="ic" viewBox="0 0 24 24"><path d="M15 14l5-5-5-5"/><path d="M20 9H9.5a5.5 5.5 0 0 0 0 11H13"/></svg></button>
    <button class="nb" id="bNoteMore" aria-label="Lainnya"><svg class="ic" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><circle cx="8" cy="12" r=".6" fill="currentColor"/><circle cx="12" cy="12" r=".6" fill="currentColor"/><circle cx="16" cy="12" r=".6" fill="currentColor"/></svg></button>
    <button class="nb bold" id="bDone" style="display:none">Selesai</button>
   </div>
@@ -435,7 +438,7 @@ svg{display:block}
 <script>
 {
 /* ================= penyimpanan di perangkat (IndexedDB) ================= */
-const APP_VERSION = 'v27';
+const APP_VERSION = 'v28';
 const ERRLOG = [];
 addEventListener('error', (e) => ERRLOG.push(new Date().toTimeString().slice(0, 8) + ' ' + (e.message || e.type)));
 addEventListener('unhandledrejection', (e) => ERRLOG.push(new Date().toTimeString().slice(0, 8) + ' ' + ((e.reason && (e.reason.name + ': ' + e.reason.message)) || e.reason)));
@@ -851,7 +854,7 @@ function newNote() {
   if (S.folder === 'trash') S.folder = 'notes';
   if (S.stack[S.stack.length - 1] === 'folders' && !wide()) push('list');
   openNote(n.id);
-  ed.innerHTML = '<h1><br></h1>';
+  ed.innerHTML = '<h1><br></h1>'; histReset();
   setTimeout(() => { ed.focus(); placeCaretEnd(); }, wide() ? 0 : 380);
   renderList(); renderFolders();
 }
@@ -867,7 +870,7 @@ async function openNote(id, quiet) {
   $('#pNote').classList.toggle('ro', ro); $('#pNote').classList.remove('none');
   applyNoteLook(n); closeFind();
   ed.contentEditable = ro ? 'false' : 'true';
-  ed.innerHTML = n.html; normalizeBlocks(!n.v2); linkify(); hydrate(); savedRange = null;
+  ed.innerHTML = n.html; normalizeBlocks(!n.v2); linkify(); hydrate(); savedRange = null; histReset();
   $('#nDate').textContent = longDate(n.updatedAt);
   $('#nTitleS').textContent = n.title || '';
   $('#sNote').scrollTop = 0; $('#pNote .nav').classList.remove('solid');
@@ -916,11 +919,49 @@ function thumbOf(img) {
 }
 function onEdit() {
   const n = S.notes[S.note]; if (!n || n.deletedAt) return;
+  if (!H.restoring) { clearTimeout(H.t); H.t = setTimeout(histRecord, 450); }
   n.html = serialize(); n.v2 = true; n.updatedAt = Date.now(); derive(n);
   $('#nDate').textContent = longDate(n.updatedAt); $('#nTitleS').textContent = n.title;
   persistNow(n);                                   // simpan langsung, setiap ketikan
   clearTimeout(saveT); saveT = setTimeout(flushSave, 400);   // daftar diperbarui setelah jeda
 }
+/* ---- urungkan / ulangi (riwayat edit per catatan) ---- */
+const H = { stack: [], idx: -1, t: null, restoring: false };
+function caretOffset() {
+  const sel = getSelection(); if (!sel.rangeCount || !ed.contains(sel.anchorNode)) return -1;
+  const r = document.createRange(); r.selectNodeContents(ed); r.setEnd(sel.anchorNode, sel.anchorOffset); return r.toString().length;
+}
+function setCaretOffset(off) {
+  if (off < 0) return;
+  const w = document.createTreeWalker(ed, NodeFilter.SHOW_TEXT); let t, n = 0;
+  while ((t = w.nextNode())) { if (n + t.length >= off) { const r = document.createRange(); r.setStart(t, off - n); r.collapse(true); const s = getSelection(); s.removeAllRanges(); s.addRange(r); saveSel(); return; } n += t.length; }
+  placeCaretEnd();
+}
+function histReset() { clearTimeout(H.t); H.stack = [{ html: serialize(), c: -1 }]; H.idx = 0; updHist(); }
+function histRecord() {
+  clearTimeout(H.t); if (!S.note) return;
+  const html = serialize();
+  if (H.stack[H.idx] && H.stack[H.idx].html === html) return;
+  H.stack.length = H.idx + 1; H.stack.push({ html, c: caretOffset() });
+  if (H.stack.length > 150) H.stack.shift(); H.idx = H.stack.length - 1; updHist();
+}
+function histGo(d) {
+  histRecord();   // simpan ketikan terakhir dulu
+  const j = H.idx + d; if (j < 0 || j >= H.stack.length) return;
+  const cur = H.stack[H.idx]; H.idx = j; const st = H.stack[j];
+  H.restoring = true;
+  ed.innerHTML = st.html; hydrate();
+  if (document.activeElement !== ed) ed.focus({ preventScroll: true });
+  setCaretOffset(d < 0 ? (cur.c >= 0 ? Math.min(cur.c, ed.textContent.length) : st.c) : st.c);
+  onEdit(); H.restoring = false; updHist();
+  if (navigator.vibrate) navigator.vibrate(6);
+}
+function updHist() { const u = $('#bUndo'), r = $('#bRedo'); if (!u) return; u.disabled = H.idx <= 0; r.disabled = H.idx >= H.stack.length - 1; if (H.idx > 0) u.style.display = r.style.display = ''; }
+for (const [id, d] of [['#bUndo', -1], ['#bRedo', 1]]) { $(id).addEventListener('pointerdown', (e) => e.preventDefault()); $(id).addEventListener('click', () => histGo(d)); }
+// Ctrl+Z / Ctrl+Shift+Z (keyboard fisik) & gerakan urungkan bawaan -> pakai riwayat sendiri
+ed.addEventListener('beforeinput', (e) => { if (e.inputType === 'historyUndo') { e.preventDefault(); histGo(-1); } if (e.inputType === 'historyRedo') { e.preventDefault(); histGo(1); } });
+ed.addEventListener('keydown', (e) => { if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z') { e.preventDefault(); histGo(e.shiftKey ? 1 : -1); } if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'y') { e.preventDefault(); histGo(1); } });
+
 // antrean simpan: tiap ketikan langsung ditulis; bila masih menulis, versi terbaru ditulis segera setelahnya
 const writing = new Set(), pending = new Map();
 async function persistNow(n) {
@@ -1154,9 +1195,9 @@ ed.addEventListener('paste', (e) => {
 });
 
 // keyboard: tombol Selesai & toolbar di atas keyboard
-ed.addEventListener('focus', () => { $('#bDone').style.display = ''; $('#bCopy').style.display = 'none'; });
+ed.addEventListener('focus', () => { $('#bDone').style.display = ''; $('#bCopy').style.display = 'none'; $('#bUndo').style.display = $('#bRedo').style.display = ''; updHist(); });
 ed.addEventListener('blur', () => { if (linkify()) onEdit(); });
-ed.addEventListener('blur', () => setTimeout(() => { if (document.activeElement !== ed) { $('#bDone').style.display = 'none'; $('#bCopy').style.display = $('#bNoteMore').style.display = ''; } }, 50));
+ed.addEventListener('blur', () => setTimeout(() => { if (document.activeElement !== ed) { $('#bDone').style.display = 'none'; $('#bCopy').style.display = $('#bNoteMore').style.display = ''; if (!H.stack.length || H.idx <= 0) $('#bUndo').style.display = $('#bRedo').style.display = 'none'; } }, 50));
 $('#bDone').onclick = () => { ed.blur(); hideFmt(); flushSave(); };
 if (window.visualViewport) {
   const vv = visualViewport;
