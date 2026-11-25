@@ -75,6 +75,9 @@ svg{display:block}
 .rw+.rw .row::before{left:16px}
 .row .fi{color:var(--tint);flex:none}
 .row .fimg{width:26px;height:26px;border-radius:7px;object-fit:cover;flex:none}
+.ftxt{min-width:26px;height:26px;padding:0 4px;border-radius:7px;background:var(--tint);color:#fff;display:inline-flex;align-items:center;justify-content:center;font-weight:800;letter-spacing:-.02em;line-height:1;flex:none;font-family:-apple-system,"SF Pro Rounded",Inter,Roboto,sans-serif}
+.pk-g .ftxt{min-width:30px;height:30px;font-size:13px}
+.pk-g.txt{grid-template-columns:repeat(5,1fr)}
 .row .femo{width:26px;text-align:center;font-size:20px;line-height:1;flex:none}
 /* pemilih ikon & tema */
 .picker{position:fixed;left:0;right:0;bottom:0;z-index:56;max-height:82vh;overflow-y:auto;background:var(--sheet);backdrop-filter:blur(30px);-webkit-backdrop-filter:blur(30px);border-radius:18px 18px 0 0;padding:14px 16px calc(18px + var(--sab));box-shadow:0 -6px 30px rgba(0,0,0,.3);transform:translateY(105%);transition:transform .28s cubic-bezier(.2,.85,.25,1)}
@@ -432,7 +435,7 @@ svg{display:block}
 <script>
 {
 /* ================= penyimpanan di perangkat (IndexedDB) ================= */
-const APP_VERSION = 'v25';
+const APP_VERSION = 'v26';
 const ERRLOG = [];
 addEventListener('error', (e) => ERRLOG.push(new Date().toTimeString().slice(0, 8) + ' ' + (e.message || e.type)));
 addEventListener('unhandledrejection', (e) => ERRLOG.push(new Date().toTimeString().slice(0, 8) + ' ' + ((e.reason && (e.reason.name + ': ' + e.reason.message)) || e.reason)));
@@ -570,9 +573,16 @@ const FICONS = {
 const FCOLORS = ['', '#FF3B30', '#FF9500', '#FFCC00', '#34C759', '#00C7BE', '#007AFF', '#5856D6', '#AF52DE', '#FF2D55', '#A2845E', '#8E8E93'];
 let notesIcon = null;
 function iconOf(id) { if (id === 'notes') return notesIcon; const f = S.folders.find((x) => x.id === id); return f && f.icon; }
+function txtBadge(t, color) {
+  const n = [...t].length, fs = n <= 1 ? 16 : n === 2 ? 13 : n === 3 ? 10.5 : n === 4 ? 8.5 : 7.5;
+  return `<span class="ftxt" style="font-size:${fs}px;${color ? 'background:' + esc(color) : ''}">${esc(t)}</span>`;
+}
+const FNUM = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12', 'I', 'II', 'III', 'IV'];
+const FTXT = ['IGD', 'ICU', 'ICCU', 'CVCU', 'NICU', 'PICU', 'HCU', 'OK', 'POLI', 'JAGA', 'EKG', 'ECHO', 'CATH', 'PCI', 'PPDS', 'RS', 'SMT', 'UJIAN', 'JURNL', 'TUGAS', 'TODO', 'IDE', 'PENT', 'RHS', 'A', 'B', 'C', 'Rp', '$', '?'];
 function folderIconHTML(ic) {
   if (ic && ic.img) return `<img class="fimg" src="${esc(ic.img)}" alt="">`;
   if (ic && ic.emo) return `<span class="femo">${esc(ic.emo)}</span>`;
+  if (ic && ic.txt) return txtBadge(ic.txt, ic.color);
   const path = FICONS[(ic && ic.sym) || 'folder'] || FICONS.folder;
   return `<svg class="ic fi" viewBox="0 0 24 24" style="${ic && ic.color ? 'color:' + esc(ic.color) : ''}"><path d="${path}"/></svg>`;
 }
@@ -1938,25 +1948,35 @@ function iconPicker(id, name) {
     <div class="pk-prev"><span class="pv"></span><span class="nm">${esc(name)}</span></div>
     <div class="pk-t">Warna</div><div class="pk-c">${FCOLORS.map((c) => `<button data-c="${c}" style="background:${c || 'var(--tint)'}" aria-label="warna"></button>`).join('')}</div>
     <div class="pk-t">Ikon</div><div class="pk-g">${Object.keys(FICONS).map((k) => `<button data-s="${k}"><svg class="ic" viewBox="0 0 24 24"><path d="${FICONS[k]}"/></svg></button>`).join('')}</div>
-    <div class="pk-row"><button class="pk-img">Pakai Gambar</button><button class="pk-emo">Pakai Emoji</button></div>`);
+    <div class="pk-t">Nomor</div><div class="pk-g">${FNUM.map((t) => `<button data-x="${t}">${txtBadge(t)}</button>`).join('')}</div>
+    <div class="pk-t">Tulisan</div><div class="pk-g txt">${FTXT.map((t) => `<button data-x="${t}">${txtBadge(t)}</button>`).join('')}</div>
+    <div class="pk-row"><button class="pk-own">Tulis Sendiri</button><button class="pk-img">Pakai Gambar</button><button class="pk-emo">Pakai Emoji</button></div>`);
   const sync = () => {
     $('.pv', pk).innerHTML = folderIconHTML(cur);
     $$('[data-c]', pk).forEach((b) => b.classList.toggle('on', (cur.color || '') === b.dataset.c && !cur.img && !cur.emo));
-    $$('[data-s]', pk).forEach((b) => { b.classList.toggle('on', (cur.sym || 'folder') === b.dataset.s && !cur.img && !cur.emo); b.style.color = cur.color || 'var(--tint)'; });
+    $$('[data-s]', pk).forEach((b) => { b.classList.toggle('on', (cur.sym || 'folder') === b.dataset.s && !cur.img && !cur.emo && !cur.txt); b.style.color = cur.color || 'var(--tint)'; });
+    $$('[data-x]', pk).forEach((b) => { b.classList.toggle('on', cur.txt === b.dataset.x); const sp = $('.ftxt', b); if (sp) sp.style.background = cur.color || ''; });
+    $$('[data-c]', pk).forEach((b) => b.classList.toggle('on', (cur.color || '') === b.dataset.c && !cur.img && !cur.emo));
   };
   const save = async () => { const v = Object.keys(cur).length ? cur : null; if (id === 'notes') notesIcon = v; else { const f = S.folders.find((x) => x.id === id); if (f) f.icon = v; } await saveMeta(); renderFolders(); };
   pk.onclick = async (e) => {
     const c = e.target.closest('[data-c]'), sy = e.target.closest('[data-s]');
+    const tx = e.target.closest('[data-x]');
     if (c) { delete cur.img; delete cur.emo; cur.color = c.dataset.c || undefined; if (!cur.color) delete cur.color; }
-    if (sy) { delete cur.img; delete cur.emo; cur.sym = sy.dataset.s; }
+    if (sy) { delete cur.img; delete cur.emo; delete cur.txt; cur.sym = sy.dataset.s; }
+    if (tx) { delete cur.img; delete cur.emo; cur.txt = tx.dataset.x; }
+    if (e.target.closest('.pk-own')) {
+      const { btn, value } = await alertBox({ title: 'Tulisan Ikon', msg: 'Maksimal 5 huruf/angka, misal S1, R3, KARDIO.', input: cur.txt || '', buttons: [{ t: 'Batal' }, { t: 'Pakai', b: 1 }] });
+      if (btn === 1 && value.trim()) { cur.txt = [...value.trim()].slice(0, 5).join(''); delete cur.img; delete cur.emo; }
+    }
     if (e.target.closest('.pk-img')) {
       const inp = document.createElement('input'); inp.type = 'file'; inp.accept = 'image/*';
-      inp.onchange = async () => { const f = inp.files[0]; if (!f) return; const u = await squareImage(f, 128); if (u) { cur.img = u; delete cur.emo; sync(); await save(); } else toast('Gambar tidak bisa dipakai'); };
+      inp.onchange = async () => { const f = inp.files[0]; if (!f) return; const u = await squareImage(f, 128); if (u) { cur.img = u; delete cur.emo; delete cur.txt; sync(); await save(); } else toast('Gambar tidak bisa dipakai'); };
       inp.click(); return;
     }
     if (e.target.closest('.pk-emo')) {
       const { btn, value } = await alertBox({ title: 'Emoji Folder', msg: 'Ketik atau pilih 1 emoji dari keyboard.', input: cur.emo || '', buttons: [{ t: 'Batal' }, { t: 'Pakai', b: 1 }] });
-      if (btn === 1 && value.trim()) { cur.emo = [...value.trim()].slice(0, 2).join(''); delete cur.img; }
+      if (btn === 1 && value.trim()) { cur.emo = [...value.trim()].slice(0, 2).join(''); delete cur.img; delete cur.txt; }
     }
     if (e.target.closest('.pk-ok')) { close(); }
     sync(); await save();
@@ -2119,7 +2139,7 @@ function showLockScreen() {
 
 /* ================= dialog ala iOS ================= */
 function overlay(html) {
-  const ov = document.createElement('div'); ov.className = 'ov'; ov.innerHTML = html;
+  const ov = document.createElement('div'); ov.className = 'ov'; ov.style.zIndex = 62; ov.innerHTML = html;
   document.body.appendChild(ov); requestAnimationFrame(() => ov.classList.add('show'));
   ov.close = () => { ov.classList.remove('show'); setTimeout(() => ov.remove(), 280); };
   return ov;
