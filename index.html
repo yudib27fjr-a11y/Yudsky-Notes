@@ -136,6 +136,16 @@ svg{display:block}
 #ed .fn{font-size:15px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 #ed .fs{font-size:13px;color:var(--sec)}
 #ed figure.missing{opacity:.5}
+#ed .tblw{overflow-x:auto;margin:8px 0;-webkit-overflow-scrolling:touch}
+#ed table{border-collapse:collapse;min-width:100%;font-size:16px}
+#ed td,#ed th{border:1px solid var(--sep);padding:7px 9px;min-width:84px;vertical-align:top;text-align:left}
+#ed .tblw.act td,#ed .tblw.act th{border-color:var(--ter)}
+#ed td.cur{background:color-mix(in srgb,var(--tint) 14%,transparent)}
+#ed img.sz-s,#ed figure.att.vid.sz-s{width:38%}
+#ed img.sz-m,#ed figure.att.vid.sz-m{width:64%}
+#ed img{cursor:pointer}
+#ed figure.vid{position:relative}
+#ed .msz{position:absolute;top:8px;right:8px;width:30px;height:30px;border-radius:50%;background:rgba(0,0,0,.55);color:#fff;display:flex;align-items:center;justify-content:center;font-size:16px;line-height:1;z-index:1}
 #ed a{color:var(--tint)}
 .ro #ed{user-select:text}
 .banner{display:none;margin:4px 16px 10px;padding:12px 14px;border-radius:12px;background:var(--fill);font-size:15px;color:var(--sec);align-items:center;gap:10px}
@@ -255,6 +265,7 @@ svg{display:block}
  <footer class="tb"><div class="tbrow">
   <button class="nb" id="bCheck" aria-label="Daftar periksa"><svg class="ic" viewBox="0 0 24 24"><circle cx="5.5" cy="7" r="2.5"/><circle cx="5.5" cy="17" r="2.5"/><path d="M4.4 7l.8.8 1.6-1.6"/><path d="M11 7h9M11 17h9"/></svg></button>
   <button class="nb" id="bFmt" aria-label="Format"><svg class="ic" viewBox="0 0 28 24" style="width:30px"><path d="M2 19L8 4l6 15M4.2 14h7.6"/><path d="M24.5 19v-6.2a3.3 3.3 0 0 0-6.2-1.5M24.5 15.5c-1-.6-2.3-.8-3.5-.6-1.8.3-3 1.2-3 2.5 0 1.3 1.1 2 2.5 2 1.9 0 4-1.3 4-3.9"/></svg></button>
+  <button class="nb" id="bTable" aria-label="Tabel"><svg class="ic" viewBox="0 0 24 24"><rect x="3.5" y="4.5" width="17" height="15" rx="2.5"/><path d="M3.5 9.5h17M3.5 14.5h17M9.2 4.5v15M14.8 4.5v15"/></svg></button>
   <button class="nb" id="bAttach" aria-label="Lampirkan"><svg class="ic" viewBox="0 0 24 24"><path d="M20 11.5l-7.6 7.6a5 5 0 0 1-7.1-7.1l8.3-8.3a3.4 3.4 0 0 1 4.8 4.8l-8.3 8.3a1.7 1.7 0 0 1-2.4-2.4l7.6-7.6"/></svg></button>
   <button class="nb compose" aria-label="Catatan baru"><svg class="ic" viewBox="0 0 24 24"><path d="M11 4H6.5A2.5 2.5 0 0 0 4 6.5v11A2.5 2.5 0 0 0 6.5 20h11a2.5 2.5 0 0 0 2.5-2.5V13"/><path d="M17.6 3.6a2 2 0 0 1 2.8 2.8L12 14.8l-3.7.9.9-3.7z"/></svg></button>
  </div></footer>
@@ -287,6 +298,7 @@ svg{display:block}
 <script>
 {
 /* ================= penyimpanan di perangkat (IndexedDB) ================= */
+let DB_ERR = '';
 const DB = (() => {
   let db = null;
   const open = () => new Promise((res) => {
@@ -296,8 +308,14 @@ const DB = (() => {
         if (!have.includes('notes')) d.createObjectStore('notes', { keyPath: 'id' });
         if (!have.includes('meta')) d.createObjectStore('meta');
         if (!have.includes('files')) d.createObjectStore('files', { keyPath: 'id' }); };
-      r.onsuccess = () => { db = r.result; res(true); };
-      r.onerror = () => res(false);
+      r.onsuccess = () => {
+        db = r.result;
+        // versi baru di tab lain -> lepaskan database supaya tidak saling mengunci
+        db.onversionchange = () => { try { db.close(); } catch {} db = null; location.reload(); };
+        res(true);
+      };
+      r.onblocked = () => { window.__dbBlocked && window.__dbBlocked(); };
+      r.onerror = () => { DB_ERR = (r.error && r.error.name) || 'error'; res(false); };
     } catch { res(false); }
   });
   const tx = (store, mode, fn) => new Promise((res) => {
@@ -643,7 +661,7 @@ function normalizeBlocks(legacy) {
   }
   // baris yang dipisah <br> di dalam satu blok -> blok terpisah
   for (const b of [...ed.children]) {
-    if (!BLOCKS.includes(b.tagName) || b.tagName === 'PRE') continue;
+    if (!BLOCKS.includes(b.tagName) || b.tagName === 'PRE' || b.querySelector('table,figure')) continue;
     const brs = [...b.childNodes].filter((x) => x.nodeName === 'BR');
     if (!brs.length || (brs.length === 1 && b.lastChild === brs[0])) continue;
     let cur = document.createElement(b.tagName), first = true; const out = [];
@@ -671,7 +689,7 @@ function setBlock(tag) {
   const off = r.startOffset, sc = r.startContainer;
   let last = null;
   for (const b of list) {
-    if (!BLOCKS.includes(b.tagName) || b.tagName === tag.toUpperCase()) { last = b; continue; }
+    if (!BLOCKS.includes(b.tagName) || b.tagName === tag.toUpperCase() || b.querySelector('table')) { last = b; continue; }
     const nb = document.createElement(tag); nb.append(...b.childNodes); if (!nb.childNodes.length) nb.appendChild(document.createElement('br'));
     b.replaceWith(nb); last = nb;
   }
@@ -683,7 +701,7 @@ function splitBlock() {
   const sel = getSelection(); if (!sel.rangeCount) return false;
   const r = sel.getRangeAt(0);
   const blk = topBlock(r.startContainer);
-  if (!blk || !BLOCKS.includes(blk.tagName) || blk.tagName === 'PRE') return false;
+  if (!blk || !BLOCKS.includes(blk.tagName) || blk.tagName === 'PRE' || blk.querySelector('table')) return false;
   if (!r.collapsed) r.deleteContents();
   const tail = document.createRange(); tail.setStart(r.startContainer, r.startOffset); tail.setEnd(blk, blk.childNodes.length);
   const frag = tail.extractContents();
@@ -703,7 +721,7 @@ ed.addEventListener('beforeinput', (e) => {
     const had = ed.textContent; normalizeBlocks();
     if (!had) caretTo(ed.firstElementChild, true);
   }
-  if ((e.inputType === 'insertParagraph' || e.inputType === 'insertLineBreak') && !selNode()?.closest?.('li,pre')) {
+  if ((e.inputType === 'insertParagraph' || e.inputType === 'insertLineBreak') && !selNode()?.closest?.('li,pre,td,th')) {
     if (splitBlock()) { e.preventDefault(); onEdit(); }
   }
 });
@@ -805,7 +823,7 @@ function insertImage(file) { return new Promise((done) => {
       const c = document.createElement('canvas'); c.width = Math.round(im.width * k); c.height = Math.round(im.height * k);
       c.getContext('2d').drawImage(im, 0, 0, c.width, c.height);
       const url = c.toDataURL('image/jpeg', .82);
-      restoreSel();
+      caretOutOfTable(); restoreSel();
       document.execCommand('insertHTML', false, `<img src="${url}"><div><br></div>`);
       setTimeout(() => { onEdit(); done(); }, 50);
     };
@@ -822,6 +840,7 @@ const extOf = (name) => ((name || '').split('.').pop() || '').slice(0, 4);
 function serialize() {
   const c = ed.cloneNode(true);
   for (const v of c.querySelectorAll('figure.vid video')) { v.removeAttribute('src'); v.removeAttribute('poster'); }
+  c.querySelectorAll('.msz').forEach((x) => x.remove()); c.querySelectorAll('td.cur').forEach((x) => x.classList.remove('cur')); c.querySelectorAll('.tblw.act').forEach((x) => x.classList.remove('act'));
   return c.innerHTML;
 }
 async function fileURL(fid) {
@@ -834,6 +853,7 @@ async function hydrate() {
     const u = await fileURL(fig.dataset.fid);
     fig.classList.toggle('missing', !u);
     const v = $('video', fig);
+    if (v && !$('.msz', fig)) { const b = document.createElement('span'); b.className = 'msz'; b.textContent = '⤢'; b.setAttribute('role', 'button'); fig.prepend(b); }
     if (v && u) { v.src = u + '#t=0.1'; v.addEventListener('loadeddata', () => { const n = S.notes[S.note]; if (n && !n.img && !n.deletedAt) { n.img = thumbOf(v); saveNote(n); } }, { once: true }); }
   }
 }
@@ -844,7 +864,8 @@ function figureHTML(rec) {
 }
 async function addFiles(files) {
   if (!S.note) return;
-  if (!DB.ok) return toast('Penyimpanan HP tidak tersedia');
+  if (!DB.ok) await DB.open();
+  if (!DB.ok) return alertBox({ title: 'Penyimpanan belum siap', msg: 'Tutup semua tab/jendela Yudsky Notes lain, lalu tutup dan buka lagi aplikasi ini.' + (DB_ERR ? ' (' + DB_ERR + ')' : ''), buttons: [{ t: 'OK', b: 1 }] });
   const n = S.notes[S.note]; if (!n || n.deletedAt) return;
   for (const file of files) {
     if (file.type.startsWith('image/') && !/gif|svg/.test(file.type)) { await insertImage(file); continue; }
@@ -853,7 +874,7 @@ async function addFiles(files) {
     const rec = { id: 'a' + uid(), name: file.name || (file.type.startsWith('video/') ? 'Video.mp4' : 'File'), type: file.type || 'application/octet-stream', size: file.size, blob: file, at: Date.now() };
     const ok = await DB.putFile(rec);
     if (!ok) { toast('Gagal menyimpan — memori HP penuh?'); continue; }
-    restoreSel();
+    caretOutOfTable(); restoreSel();
     document.execCommand('insertHTML', false, figureHTML(rec) + '<div><br></div>');
     saveSel();
   }
@@ -867,6 +888,79 @@ $('#bAttach').onclick = async () => {
   ['#fMedia', '#fCam', '#fVidCam', '#fAny'].forEach((id, k) => { if (i === k) $(id).click(); });
 };
 for (const id of ['#fMedia', '#fCam', '#fVidCam', '#fAny']) $(id).addEventListener('change', (e) => { const fs = [...e.target.files]; e.target.value = ''; if (fs.length) addFiles(fs); });
+/* ---- tabel ---- */
+function curCell() { const n = selNode(); const c = n && n.closest && n.closest('td,th'); return c && ed.contains(c) ? c : null; }
+function cellCaret(td) { caretTo(td, false); }
+const emptyRow = (cols) => '<tr>' + '<td><br></td>'.repeat(cols) + '</tr>';
+function insertTable() {
+  restoreSel();
+  const blk = topBlock(selNode()) || ed.lastElementChild;
+  const w = document.createElement('div'); w.className = 'tblw';
+  w.innerHTML = `<table><tbody>${emptyRow(3).repeat(3)}</tbody></table>`;
+  const after = document.createElement('div'); after.innerHTML = '<br>';
+  const isEmpty = blk && blk.tagName === 'DIV' && !blk.textContent.trim() && !blk.querySelector('img,figure,table');
+  if (!blk) ed.append(w, after);
+  else if (isEmpty && blk !== ed.firstElementChild) { blk.replaceWith(w, after); }
+  else { blk.after(w, after); }
+  cellCaret(w.querySelector('td'));
+  onEdit();
+}
+// lampiran tidak disisipkan di dalam sel tabel: pindahkan kursor ke bawah tabel
+function caretOutOfTable() {
+  restoreSel();
+  const td = curCell(); if (!td) return;
+  const w = td.closest('.tblw'); let nx = w.nextElementSibling;
+  if (!nx || nx.textContent.trim() || nx.querySelector('img,figure,table')) { nx = document.createElement('div'); nx.innerHTML = '<br>'; w.after(nx); }
+  caretTo(nx, false);
+}
+$('#bTable').addEventListener('pointerdown', (e) => e.preventDefault());
+$('#bTable').onclick = async () => {
+  if (!S.note || S.notes[S.note]?.deletedAt) return;
+  const td = curCell();
+  if (!td) return insertTable();
+  saveSel();
+  const tr = td.parentElement, table = td.closest('table'), ci = td.cellIndex;
+  const i = await sheet({ title: 'Tabel', items: [{ t: 'Tambah Baris di Bawah' }, { t: 'Tambah Kolom di Kanan' }, { t: 'Hapus Baris' }, { t: 'Hapus Kolom' }, { t: 'Hapus Tabel', des: 1 }] });
+  if (i === 0) { tr.insertAdjacentHTML('afterend', emptyRow(tr.cells.length)); cellCaret(tr.nextElementSibling.cells[Math.min(ci, tr.cells.length - 1)]); }
+  if (i === 1) { for (const r of table.rows) { const c = document.createElement(r.cells[0]?.tagName === 'TH' ? 'th' : 'td'); c.innerHTML = '<br>'; (r.cells[ci] || r.lastElementChild).after(c); } cellCaret(tr.cells[ci + 1]); }
+  if (i === 2) { const nx = tr.nextElementSibling || tr.previousElementSibling; tr.remove(); if (!table.rows.length) table.closest('.tblw').remove(); else cellCaret(nx.cells[Math.min(ci, nx.cells.length - 1)]); }
+  if (i === 3) { for (const r of [...table.rows]) r.cells[ci]?.remove(); if (!table.rows[0]?.cells.length) table.closest('.tblw').remove(); else cellCaret(table.rows[0].cells[Math.max(0, ci - 1)]); }
+  if (i === 4) { const w = table.closest('.tblw'); const nx = w.nextElementSibling; w.remove(); if (nx) caretTo(nx, true); }
+  if (i >= 0) onEdit();
+};
+// sorot sel yang aktif
+document.addEventListener('selectionchange', () => {
+  ed.querySelectorAll('td.cur').forEach((x) => x.classList.remove('cur'));
+  ed.querySelectorAll('.tblw.act').forEach((x) => x.classList.remove('act'));
+  const td = curCell(); if (td) { td.classList.add('cur'); td.closest('.tblw')?.classList.add('act'); }
+});
+
+/* ---- ukuran foto & video: Kecil / Sedang / Besar ---- */
+async function mediaMenu(el) {
+  const ro = ed.contentEditable !== 'true';
+  const cur = el.classList.contains('sz-s') ? 0 : el.classList.contains('sz-m') ? 1 : 2;
+  const items = [{ t: 'Tampilan Kecil', chk: cur === 0 }, { t: 'Tampilan Sedang', chk: cur === 1 }, { t: 'Tampilan Besar', chk: cur === 2 }];
+  if (el.tagName === 'IMG') items.push({ t: 'Lihat Penuh' });
+  if (!ro) items.push({ t: el.tagName === 'IMG' ? 'Hapus Foto' : 'Hapus Video', des: 1 });
+  const i = await sheet({ title: el.tagName === 'IMG' ? 'Foto' : 'Video', items: items.map((x, k) => ({ ...x, t: (x.chk ? '✓ ' : '') + x.t })) });
+  if (i < 0) return;
+  const label = items[i].t;
+  if (i <= 2) { if (ro) return toast('Pulihkan catatan dulu untuk mengubah'); el.classList.remove('sz-s', 'sz-m'); if (i === 0) el.classList.add('sz-s'); if (i === 1) el.classList.add('sz-m'); onEdit(); return; }
+  if (label === 'Lihat Penuh') {
+    const ov = overlay(`<img src="${el.getAttribute('src')}" style="margin:auto;max-width:100%;max-height:100%;object-fit:contain">`);
+    ov.style.background = '#000'; ov.addEventListener('click', () => ov.close()); return;
+  }
+  if (label.startsWith('Hapus')) { const nx = el.nextElementSibling; if (nx && nx.tagName === 'DIV' && !nx.textContent.trim() && !nx.querySelector('img,figure,table')) nx.remove(); el.remove(); onEdit(); }
+}
+ed.addEventListener('click', (e) => {
+  const img = e.target.closest('img');
+  if (img && ed.contains(img)) { e.preventDefault(); return mediaMenu(img); }
+  if (e.target.closest('.msz')) { e.preventDefault(); return mediaMenu(e.target.closest('figure')); }
+});
+ed.addEventListener('contextmenu', (e) => {
+  const v = e.target.closest('figure.vid'); if (v) { e.preventDefault(); mediaMenu(v); }
+});
+
 // ketuk kartu file untuk membuka
 ed.addEventListener('click', async (e) => {
   const fig = e.target.closest('figure.file'); if (!fig) return;
@@ -1076,6 +1170,7 @@ async function seed() {
   await DB.setMeta('seeded', true);
 }
 (async () => {
+  window.__dbBlocked = () => alertBox({ title: 'Yudsky Notes terbuka di tempat lain', msg: 'Tutup tab atau jendela Yudsky Notes yang lain (termasuk tab Chrome lama), lalu kembali ke sini. Catatan Anda aman.', buttons: [{ t: 'OK', b: 1 }] });
   await DB.open();
   if (DB.ok) {
     S.folders = Array.isArray(await DB.getMeta('folders')) ? await DB.getMeta('folders') : [];
@@ -1085,9 +1180,12 @@ async function seed() {
     for (const n of trashed()) if (n.deletedAt < Date.now() - 30 * DAY) await dropNote(n.id);
     // hapus lampiran yang tidak dipakai catatan mana pun
     { const used = new Set(Object.values(S.notes).flatMap((n) => n.files || [])); for (const k of (await DB.fileKeys()) || []) if (!used.has(k)) await DB.delFile(k); }
+    // catatan yang sempat tersimpan di penyimpanan cadangan -> pindahkan ke penyimpanan utama
+    try { const d = JSON.parse(localStorage.getItem('catatan-ios') || 'null'); if (d && d.notes) { for (const n of Object.values(d.notes)) if (!S.notes[n.id] || (n.updatedAt || 0) > (S.notes[n.id].updatedAt || 0)) { S.notes[n.id] = n; await DB.putNote(n); } for (const f of d.folders || []) if (!S.folders.some((x) => x.id === f.id)) S.folders.push(f); await saveMeta(); localStorage.removeItem('catatan-ios'); } } catch {}
     if (!Object.keys(S.notes).length && !(await DB.getMeta('seeded'))) await seed();
     try { navigator.storage?.persist?.(); } catch {}
   } else {
+    setTimeout(() => toast('Penyimpanan utama gagal dibuka (' + DB_ERR + '). Muat ulang aplikasi.'), 800);
     try { const d = JSON.parse(localStorage.getItem('catatan-ios')); if (d) { S.folders = d.folders || []; S.notes = d.notes || {}; S.sort = d.sort || 'updated'; } } catch {}
   }
   try { if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('sw.js').catch(() => {}); } catch {}
