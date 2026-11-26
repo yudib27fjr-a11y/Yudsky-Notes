@@ -316,6 +316,9 @@ svg{display:block}
 .pop{position:fixed;inset:0;z-index:55}
 .popc{position:absolute;right:10px;top:calc(48px + var(--sat));width:min(300px,calc(100vw - 20px));max-height:calc(100vh - 80px - var(--sat));overflow-y:auto;background:var(--sheet);backdrop-filter:blur(30px) saturate(180%);-webkit-backdrop-filter:blur(30px) saturate(180%);border-radius:22px;box-shadow:0 10px 40px rgba(0,0,0,.35);padding:6px 0;transform-origin:top right;transform:scale(.6);opacity:0;transition:transform .22s cubic-bezier(.2,.9,.3,1.2),opacity .15s}
 .pop.show .popc{transform:none;opacity:1}
+.popb .popc{top:auto;width:min(250px,calc(100vw - 20px));transform-origin:bottom right}
+.popb .pit{padding:9px 16px;font-size:17px}
+.popb .pit .sic{width:30px;height:30px}
 .ptop{display:flex;padding:8px 6px 10px;border-bottom:.5px solid var(--sep);margin-bottom:4px}
 .ptop button{flex:1;display:flex;flex-direction:column;align-items:center;gap:5px;font-size:12px;font-weight:600;padding:6px 2px;border-radius:12px;text-align:center;line-height:1.15}
 .ptop button:active,.pit:active{background:var(--fill)}
@@ -474,7 +477,7 @@ svg{display:block}
 <script>
 {
 /* ================= penyimpanan di perangkat (IndexedDB) ================= */
-const APP_VERSION = 'v36';
+const APP_VERSION = 'v37';
 const ERRLOG = [];
 addEventListener('error', (e) => ERRLOG.push(new Date().toTimeString().slice(0, 8) + ' ' + (e.message || e.type)));
 addEventListener('unhandledrejection', (e) => ERRLOG.push(new Date().toTimeString().slice(0, 8) + ' ' + ((e.reason && (e.reason.name + ': ' + e.reason.message)) || e.reason)));
@@ -1439,9 +1442,21 @@ $('#bAttach').addEventListener('pointerdown', (e) => e.preventDefault());
 $('#bAttach').onclick = async () => {
   if (!S.note || S.notes[S.note]?.deletedAt) return;
   saveSel();
-  const i = await sheet({ title: 'Lampirkan', items: [{ t: 'Galeri Foto' }, { t: 'Galeri Video' }, { t: 'Ambil Foto' }, { t: 'Rekam Video' }, { t: 'Pilih File' }] });
-  const ids = ['#fFoto', '#fVideo', '#fCam', '#fVidCam', '#fAny'];
-  if (i >= 0) { try { sessionStorage.setItem('yn-open', S.note); } catch {} $(ids[i]).click(); }
+  const go = (id) => { try { sessionStorage.setItem('yn-open', S.note); } catch {} $(id).click(); };
+  const P = {
+    foto: 'M4 5.5h16v13H4zM4 15l4.5-4.5 3.5 3.5 2.5-2.5L20 17M15.5 9.5a1.5 1.5 0 1 0 0-.01',
+    video: 'M3.5 6.5h12v11h-12zM15.5 10.5l5-3v9l-5-3',
+    cam: 'M4 8.5A1.5 1.5 0 0 1 5.5 7h2.2l1.5-2.2h5.6L16.3 7h2.2A1.5 1.5 0 0 1 20 8.5v9a1.5 1.5 0 0 1-1.5 1.5h-13A1.5 1.5 0 0 1 4 17.5zM12 16.1a3.3 3.3 0 1 0 0-6.6 3.3 3.3 0 0 0 0 6.6z',
+    rec: 'M3.5 6.5h12v11h-12zM15.5 10.5l5-3v9l-5-3M9.5 14.2a2.2 2.2 0 1 0 0-4.4 2.2 2.2 0 0 0 0 4.4z',
+    file: 'M6 3h8l4.5 4.5V21H6zM14 3v4.5h4.5M9 13h6M9 16.5h6',
+  };
+  popMenu(() => ({ items: [
+    { icon: SIC('#34C759', P.foto), label: 'Galeri Foto', fn: () => go('#fFoto') },
+    { icon: SIC('#AF52DE', P.video), label: 'Galeri Video', fn: () => go('#fVideo') },
+    { icon: SIC('#007AFF', P.cam), label: 'Ambil Foto', fn: () => go('#fCam') },
+    { icon: SIC('#FF3B30', P.rec), label: 'Rekam Video', fn: () => go('#fVidCam') },
+    { icon: SIC('#FF9500', P.file), label: 'Pilih File', sub: 'PDF, Word, Excel, dll', fn: () => go('#fAny') },
+  ] }), $('#bAttach'));
 };
 for (const id of ['#fFoto', '#fVideo', '#fCam', '#fVidCam', '#fAny']) $(id).addEventListener('change', async (e) => {
   try { sessionStorage.removeItem('yn-open'); } catch {}
@@ -1746,11 +1761,17 @@ const IC = {
   lock: '<svg class="ic" viewBox="0 0 24 24"><rect x="5" y="10.5" width="14" height="10" rx="2"/><path d="M8 10.5V7.5a4 4 0 0 1 8 0v3"/></svg>',
   unlock: '<svg class="ic" viewBox="0 0 24 24"><rect x="5" y="10.5" width="14" height="10" rx="2"/><path d="M8 10.5V7.5a4 4 0 0 1 7.7-1.5"/></svg>',
 };
-function popMenu(build) {
+function popMenu(build, anchor) {
   const pop = document.createElement('div'); pop.className = 'pop';
   pop.innerHTML = '<div class="popc"></div>';
   document.body.appendChild(pop);
   const box = $('.popc', pop);
+  if (anchor) {   // muncul tepat di atas tombol (mis. klip), tidak menutupi catatan
+    const r = anchor.getBoundingClientRect();
+    pop.classList.add('popb');
+    box.style.bottom = (innerHeight - r.top + 6) + 'px';
+    box.style.right = Math.max(8, innerWidth - r.right - 40) + 'px';
+  }
   const close = () => { pop.classList.remove('show'); setTimeout(() => pop.remove(), 200); };
   const render = (m) => {
     box.innerHTML = (m.top ? `<div class="ptop">${m.top.map((t, i) => `<button data-t="${i}">${t.icon}${esc(t.label)}</button>`).join('')}</div>` : '')
