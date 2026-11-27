@@ -507,7 +507,7 @@ svg{display:block}
 <script>
 {
 /* ================= penyimpanan di perangkat (IndexedDB) ================= */
-const APP_VERSION = 'v42';
+const APP_VERSION = 'v43';
 const ERRLOG = [];
 addEventListener('error', (e) => ERRLOG.push(new Date().toTimeString().slice(0, 8) + ' ' + (e.message || e.type)));
 addEventListener('unhandledrejection', (e) => ERRLOG.push(new Date().toTimeString().slice(0, 8) + ' ' + ((e.reason && (e.reason.name + ': ' + e.reason.message)) || e.reason)));
@@ -2574,22 +2574,28 @@ async function ensureGemKey(force) {
   if (btn === 1) { window.open('https://aistudio.google.com/apikey', '_blank', 'noopener'); return ''; }
   if (btn !== 2) return '';
   const k = value.trim(); if (!k) return '';
-  GEMKEY = k; GEMMODEL = ''; await DB.setMeta('gemKey', k); await DB.setMeta('gemModel', ''); toast('Kunci API disimpan');
+  GEMKEY = k; GEMMODEL = ''; GEMLIST = []; await DB.setMeta('gemKey', k); await DB.setMeta('gemModel', ''); toast('Kunci API disimpan');
   return k;
 }
-async function gemPickModel() {
-  if (GEMMODEL) return GEMMODEL;
-  let best = 'gemini-2.5-flash';
+let GEMLIST = [];
+async function gemModels() {
+  if (GEMLIST.length) return GEMLIST;
+  let list = [];
   try {
     const r = await fetch(`${GEMBASE}/v1beta/models?pageSize=200&key=${encodeURIComponent(GEMKEY)}`);
     if (r.ok) {
       const ms = ((await r.json()).models || []).filter((m) => (m.supportedGenerationMethods || []).includes('generateContent'))
-        .map((m) => m.name.replace('models/', '')).filter((n) => /^gemini-[\d.]+-flash$/.test(n));
-      const ver = (n) => parseFloat(n.split('-')[1]) || 0;
-      ms.sort((a, b) => ver(b) - ver(a)); if (ms[0]) best = ms[0];
+        .map((m) => m.name.replace('models/', '')).filter((n) => /^gemini-[\d.]+-(flash|flash-lite|pro)$/.test(n));
+      const ver = (n) => parseFloat(n.split('-')[1]) || 0, rank = (n) => /-flash$/.test(n) ? 0 : /lite/.test(n) ? 1 : 2;
+      ms.sort((a, b) => rank(a) - rank(b) || ver(b) - ver(a));
+      // utamakan 2 flash terbaru, lalu flash-lite, lalu sisanya
+      const fl = ms.filter((n) => rank(n) === 0), lt = ms.filter((n) => rank(n) === 1), pr = ms.filter((n) => rank(n) === 2);
+      list = [...fl.slice(0, 2), ...lt.slice(0, 1), ...pr.slice(0, 1), ...fl.slice(2, 3)];
     } else if (r.status === 400 || r.status === 401 || r.status === 403) throw new Error('KEY');
   } catch (e) { if (e.message === 'KEY') throw new Error('Kunci API Gemini tidak valid. Periksa lagi di Pengaturan.'); }
-  GEMMODEL = best; DB.setMeta('gemModel', best); return best;
+  if (!list.length) list = ['gemini-2.5-flash', 'gemini-2.5-flash-lite'];
+  if (GEMMODEL && list.includes(GEMMODEL)) list = [GEMMODEL, ...list.filter((x) => x !== GEMMODEL)];
+  GEMLIST = list; return list;
 }
 const blobB64 = (b) => new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(String(r.result).split(',')[1]); r.onerror = () => rej(r.error); r.readAsDataURL(b); });
 // unggah file besar ke Gemini (lebih dari ~14 MB)
@@ -2607,24 +2613,32 @@ async function gemPart(blob, name, mime) {
   if (blob.size > 14e6) return gemUpload(blob, name, mime);
   return { inlineData: { mimeType: mime, data: await blobB64(blob) } };
 }
-async function gemJSON(parts, schema, retry = true) {
+async function gemJSON(parts, schema, bz) {
   if (!navigator.onLine) throw new Error('Tidak ada internet. Sambungkan dulu lalu coba lagi.');
-  const model = await gemPickModel();
-  const r = await fetch(`${GEMBASE}/v1beta/models/${model}:generateContent?key=${encodeURIComponent(GEMKEY)}`, {
-    method: 'POST', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ contents: [{ role: 'user', parts }], generationConfig: { temperature: 0, responseMimeType: 'application/json', responseSchema: schema } }),
-  });
-  if (r.status === 404 && retry) { GEMMODEL = ''; await DB.setMeta('gemModel', ''); return gemJSON(parts, schema, false); }
-  const j = await r.json().catch(() => ({}));
-  if (!r.ok) {
-    const m = (j.error && j.error.message) || '';
-    if (r.status === 429) throw new Error('Batas pemakaian gratis Gemini sedang habis. Coba lagi beberapa menit lagi.');
-    if (r.status === 400 && /API key/i.test(m) || r.status === 401 || r.status === 403) throw new Error('Kunci API Gemini ditolak. Periksa lagi di Pengaturan → Kunci API Gemini.');
-    throw new Error('Gemini error ' + r.status + (m ? ': ' + m.slice(0, 160) : ''));
+  const models = await gemModels();
+  const body = JSON.stringify({ contents: [{ role: 'user', parts }], generationConfig: { temperature: 0, responseMimeType: 'application/json', responseSchema: schema } });
+  let lastMsg = '', busyCount = 0;
+  for (let round = 0; round < 3; round++) {
+    for (const model of models) {
+      const r = await fetch(`${GEMBASE}/v1beta/models/${model}:generateContent?key=${encodeURIComponent(GEMKEY)}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body }).catch(() => null);
+      if (!r) throw new Error('Tidak bisa menghubungi Google. Periksa internet.');
+      const j = await r.json().catch(() => ({}));
+      const m = (j.error && j.error.message) || '';
+      if (r.ok) {
+        const txt = ((j.candidates && j.candidates[0] && j.candidates[0].content && j.candidates[0].content.parts) || []).filter((p) => !p.thought).map((p) => p.text || '').join('');
+        if (!txt) { lastMsg = 'Gemini tidak memberi jawaban' + (j.promptFeedback?.blockReason ? ' (' + j.promptFeedback.blockReason + ')' : ''); continue; }
+        if (GEMMODEL !== model) { GEMMODEL = model; DB.setMeta('gemModel', model); }
+        return JSON.parse(txt);
+      }
+      if (r.status === 401 || r.status === 403 || (r.status === 400 && /API key/i.test(m))) throw new Error('Kunci API Gemini ditolak. Periksa lagi di Pengaturan → Kunci API Gemini.');
+      if (r.status === 404) { lastMsg = m; continue; }
+      if (r.status === 429 || r.status === 503 || r.status === 500 || r.status === 504) { busyCount++; lastMsg = m; bz && bz.set('Server Google sibuk, mencoba lagi… (' + busyCount + ')'); await new Promise((s) => setTimeout(s, 1500)); continue; }
+      throw new Error('Gemini error ' + r.status + (m ? ': ' + m.slice(0, 160) : ''));
+    }
+    bz && bz.set('Server Google sibuk, menunggu sebentar…');
+    await new Promise((s) => setTimeout(s, 8000 * (round + 1)));
   }
-  const txt = ((j.candidates && j.candidates[0] && j.candidates[0].content && j.candidates[0].content.parts) || []).map((p) => p.text || '').join('');
-  if (!txt) throw new Error('Gemini tidak memberi jawaban' + (j.promptFeedback?.blockReason ? ' (' + j.promptFeedback.blockReason + ')' : '') + '.');
-  return JSON.parse(txt);
+  throw new Error('Server Google sedang penuh (semua model Gemini sibuk). Coba lagi beberapa menit lagi.' + (lastMsg ? '\n\n' + lastMsg.slice(0, 140) : ''));
 }
 function busy(msg) {
   const ov = overlay(`<div class="al busy"><div class="spin"></div><h3>${esc(msg)}</h3><p class="bsub">Jangan tutup aplikasi</p></div>`);
@@ -2690,7 +2704,7 @@ async function aiReadFiles(files, prompt, schema, bz) {
     if (!(await ensureGemKey())) return null;
     const parts = []; for (const x of prep) parts.push(await gemPart(x.blob, x.name, x.mime));
     parts.push({ text: prompt }); bz && bz.set('Membaca dengan Gemini…');
-    return gemJSON(parts, schema);
+    return gemJSON(parts, schema, bz);
   }
   if (!(await ensureClaudeKey())) return null;
   const content = [];
