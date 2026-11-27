@@ -108,6 +108,9 @@ svg{display:block}
 .pk-range{width:100%;accent-color:var(--tint)}
 
 /* jadwal jaga */
+.otr{display:flex;flex-direction:column;padding:9px 16px;position:relative}.otr+.otr::before{content:"";position:absolute;top:0;left:16px;right:0;border-top:.5px solid var(--sep)}
+.otr b{font-size:13px;color:var(--sec);font-weight:600;text-transform:uppercase;letter-spacing:.02em}.otr span{font-size:16px;font-weight:600}.otr span i{color:var(--ter);font-style:normal;font-weight:400}.otr small{font-size:13px;color:var(--sec)}
+.jrow.now{background:color-mix(in srgb,var(--tint) 12%,transparent)}
 .jcard{margin-top:6px}.jcard .lb{display:flex;flex-direction:column;font-weight:600}.jcard small{font-weight:400;font-size:13px;color:var(--sec);margin-top:1px}.jcard small.hot{color:var(--red);font-weight:600}
 .jnext{margin:4px 16px 14px;padding:16px 18px;border-radius:14px;background:linear-gradient(135deg,#FF3B30,#FF9500);color:#fff;display:flex;flex-direction:column;gap:3px;position:relative}
 .jnext small{font-size:13px;opacity:.9;text-transform:uppercase;letter-spacing:.03em}.jnext b{font-size:22px}.jnext span{font-size:15px}.jnext em{position:absolute;right:14px;top:14px;font-style:normal;font-weight:700;background:rgba(255,255,255,.25);padding:3px 9px;border-radius:10px;font-size:13px}
@@ -507,7 +510,7 @@ svg{display:block}
 <script>
 {
 /* ================= penyimpanan di perangkat (IndexedDB) ================= */
-const APP_VERSION = 'v48';
+const APP_VERSION = 'v49';
 const ERRLOG = [];
 addEventListener('error', (e) => ERRLOG.push(new Date().toTimeString().slice(0, 8) + ' ' + (e.message || e.type)));
 addEventListener('unhandledrejection', (e) => ERRLOG.push(new Date().toTimeString().slice(0, 8) + ' ' + ((e.reason && (e.reason.name + ': ' + e.reason.message)) || e.reason)));
@@ -798,7 +801,7 @@ $$('[data-back]').forEach((b) => b.addEventListener('click', () => back()));
 }
 
 // judul besar → judul kecil saat digulir
-for (const id of ['sFolders', 'sList', 'sNote', 'sSet']) {
+for (const id of ['sFolders', 'sList', 'sNote', 'sSet', 'sJaga']) {
   const sc = $('#' + id);
   sc.addEventListener('scroll', () => sc.parentElement.querySelector('.nav').classList.toggle('solid', sc.scrollTop > (id === 'sNote' ? 70 : 38)), { passive: true });
 }
@@ -2845,8 +2848,105 @@ async function jagaFromPdfLocal(file) {
   return parseJadwal(items, [JAGA.name, ...String(JAGA.alias || '').split(',')].map((x) => x.trim()).filter(Boolean));
 }
 
+/* ================= Jadwal lain: DPJP jaga, DPJP RSUH, Poli ================= */
+const OCATS = [
+  { k: 'dpjp', n: 'DPJP Jaga', c: '#AF52DE', ic: 'M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM4.5 20a7.5 7.5 0 0 1 15 0' },
+  { k: 'rsuh', n: 'DPJP Jaga RSUH', c: '#5856D6', ic: 'M4 21V5l8-3 8 3v16M9 21v-5h6v5M12 7v4M10 9h4' },
+  { k: 'poli', n: 'Poli', c: '#34C759', ic: 'M9 3h6v4H9zM5 6h14v15H5zM12 11v6M9 14h6' },
+];
+const HARI = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
+const oList = (k) => ((JAGA.other || {})[k] || []);
+function oFor(k, date) { const d = new Date(date + 'T12:00'); return oList(k).filter((e) => e.date ? e.date === date : e.dow === d.getDay()); }
+const oName = (k, date) => oFor(k, date).map((e) => e.name + (e.note ? ' (' + e.note + ')' : '')).join(', ');
+function oTodayHTML() {
+  const today = ymd(new Date()), tmr = ymd(new Date(Date.now() + DAY));
+  const any = OCATS.some((c) => oList(c.k).length); if (!any) return '';
+  const row = (c) => { const a = oName(c.k, today), b = oName(c.k, tmr); return `<div class="otr"><b>${esc(c.n)}</b><span>${a ? esc(a) : '<i>—</i>'}</span>${b ? `<small>Besok: ${esc(b)}</small>` : ''}</div>`; };
+  return `<div class="sh">Hari Ini</div><div class="group otoday">${OCATS.filter((c) => oList(c.k).length).map(row).join('')}</div>`;
+}
+function oGroupHTML() {
+  return `<div class="sh">Jadwal DPJP & Poli</div><div class="group">${OCATS.map((c) => `<button class="srow" data-ocat="${c.k}">${SIC(c.c, c.ic)}<span class="lb">${esc(c.n)}</span><span class="vl">${oList(c.k).length ? oList(c.k).length + ' data' : 'Kosong'}</span>${I.chev}</button>`).join('')}</div>`;
+}
+function oLabel(e) { return e.date ? new Date(e.date + 'T12:00').toLocaleDateString('id-ID', { weekday: 'short', day: 'numeric', month: 'short' }) : 'Tiap ' + HARI[e.dow]; }
+function oSorted(k) {
+  const today = ymd(new Date());
+  return [...oList(k)].sort((a, b) => (a.date ? 1 : 0) - (b.date ? 1 : 0) || (a.date || '').localeCompare(b.date || '') || (a.dow ?? 0) - (b.dow ?? 0))
+    .filter((e) => !e.date || e.date >= ymd(new Date(Date.now() - 7 * DAY)));
+}
+async function oSave() { await saveJaga(); renderJaga(); }
+function openOCat(k) {
+  const c = OCATS.find((x) => x.k === k);
+  const ov = overlay(`<div class="jrv"><div class="jrh"><button data-x>Tutup</button><b>${esc(c.n)}</b><button data-add class="b">Tambah</button></div><div class="jrs"></div></div>`);
+  const draw = () => {
+    const l = oSorted(k), today = ymd(new Date());
+    $('.jrs', ov).innerHTML = `<div class="group" style="margin-top:10px">
+      <button class="srow" data-up>${SIC('#34C759', 'M12 16V4M7 9l5-5 5 5M4 20h16')}<span class="lb">Unggah Jadwal (Foto / PDF)</span>${I.chev}</button>
+      ${l.length ? `<button class="srow" data-clr>${SIC('#FF3B30', 'M6 6l12 12M18 6L6 18')}<span class="lb">Hapus Semua</span></button>` : ''}</div>
+      ${l.length ? `<div class="group">${l.map((e) => `<button class="jrow ${e.date && e.date < today ? 'old' : ''} ${e.date === today ? 'now' : ''}" data-oe="${esc(e.id)}"><span class="jd"><b>${e.date ? +e.date.slice(8) : '↻'}</b><i>${e.date ? new Date(e.date + 'T12:00').toLocaleDateString('id-ID', { weekday: 'short' }) : HARI[e.dow].slice(0, 3)}</i></span><span class="jt"><b>${esc(e.name)}</b><small>${esc(oLabel(e))}${e.note ? ' · ' + esc(e.note) : ''}</small></span>${e.date === today ? '<span class="jw">Hari ini</span>' : ''}</button>`).join('')}</div>`
+        : `<p class="jri">Belum ada data. Ketuk <b>Tambah</b> untuk mengisi manual (per tanggal atau tiap hari tertentu, mis. tiap Senin), atau unggah foto/PDF jadwalnya.</p>`}`;
+  };
+  draw();
+  ov.addEventListener('click', async (e) => {
+    if (e.target.closest('[data-x]')) { ov.close(); renderJaga(); return; }
+    if (e.target.closest('[data-add]')) { const x = await oEdit({ id: 'o' + uid(), date: ymd(new Date()), dow: null, name: '', note: '' }, c, true); if (x) { JAGA.other[k] = [...oList(k), x]; await oSave(); draw(); } return; }
+    if (e.target.closest('[data-up]')) { const f = await pickFiles('application/pdf,image/*'); if (f.length && await oUpload(k, f)) draw(); return; }
+    if (e.target.closest('[data-clr]')) { const r = await alertBox({ title: 'Hapus semua ' + c.n + '?', buttons: [{ t: 'Batal' }, { t: 'Hapus', des: 1 }] }); if (r.btn === 1) { JAGA.other[k] = []; await oSave(); draw(); } return; }
+    const b = e.target.closest('[data-oe]'); if (!b) return;
+    const it = oList(k).find((x) => x.id === b.dataset.oe); if (!it) return;
+    const i = await sheet({ title: oLabel(it) + ' · ' + it.name, items: [{ t: 'Ubah' }, { t: 'Hapus', des: 1 }] });
+    if (i === 0 && await oEdit(it, c)) { await oSave(); draw(); }
+    if (i === 1) { JAGA.other[k] = oList(k).filter((x) => x !== it); await oSave(); draw(); }
+  });
+}
+function pickFiles(accept) {
+  return new Promise((res) => { const inp = document.createElement('input'); inp.type = 'file'; inp.accept = accept; inp.multiple = true; inp.onchange = () => res([...inp.files]); inp.click(); setTimeout(() => {}, 0); });
+}
+async function oEdit(e, c, isNew) {
+  const r1 = await alertBox({ title: (isNew ? 'Tambah ' : 'Ubah ') + c.n, msg: 'Tanggal (TTTT-BB-HH), atau nama hari untuk jadwal mingguan (mis. Senin)', input: e.date || (e.dow != null ? HARI[e.dow] : ''), buttons: [{ t: 'Batal' }, { t: 'Lanjut', b: 1 }] });
+  if (r1.btn !== 1) return null;
+  const v = r1.value.trim(), di = HARI.findIndex((h) => h.toLowerCase() === v.toLowerCase().replace(/^jum'at$/, 'jumat'));
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(v) && di < 0) { toast('Isi tanggal mis. ' + ymd(new Date()) + ' atau nama hari'); return null; }
+  const r2 = await alertBox({ title: 'Nama ' + (c.k === 'poli' ? 'dokter / poli' : 'DPJP'), input: e.name, placeholder: 'dr. …, Sp.JP(K)', buttons: [{ t: 'Batal' }, { t: 'Lanjut', b: 1 }] });
+  if (r2.btn !== 1 || !r2.value.trim()) return null;
+  const r3 = await alertBox({ title: 'Keterangan', msg: 'Boleh kosong (mis. jam, ruangan, no. HP)', input: e.note, buttons: [{ t: 'Batal' }, { t: 'Simpan', b: 1 }] });
+  if (r3.btn !== 1) return null;
+  Object.assign(e, { date: di < 0 ? v : '', dow: di < 0 ? null : di, name: r2.value.trim(), note: r3.value.trim() });
+  return e;
+}
+const OSCHEMA = { type: 'OBJECT', properties: { info: { type: 'STRING' }, entries: { type: 'ARRAY', items: { type: 'OBJECT', properties: { date: { type: 'STRING' }, weekday: { type: 'STRING' }, name: { type: 'STRING' }, note: { type: 'STRING' } }, required: ['name'] } } }, required: ['entries'] };
+async function oUpload(k, files) {
+  const c = OCATS.find((x) => x.k === k);
+  if (AIPROV === 'gemini' ? !(await ensureGemKey()) : !(await ensureClaudeKey())) return false;
+  const bz = busy('Membaca jadwal ' + c.n + '…');
+  try {
+    const today = new Date();
+    const prompt = `Lampiran di atas adalah jadwal ${c.n} di rumah sakit (bagian kardiologi).
+Ambil SEMUA baris jadwal ${c.n}: untuk setiap tanggal (atau hari, bila jadwalnya mingguan) siapa dokternya.
+- date: YYYY-MM-DD bila jadwal per tanggal. Hari ini ${today.toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}; bila tahun tidak tertulis, pilih tahun yang paling masuk akal.
+- weekday: nama hari dalam bahasa Indonesia (Senin…Minggu) bila jadwalnya mingguan/berulang dan tidak ada tanggal; kosongkan bila ada tanggal.
+- name: nama dokter lengkap dengan gelar seperti tertulis. Bila satu tanggal ada beberapa dokter, buat entri terpisah.
+- note: keterangan singkat (mis. jam, poli/ruangan, RS, pagi/malam, no. HP) bila ada.
+${k === 'rsuh' ? '- Ambil hanya jadwal untuk RSUH (RS Universitas Hasanuddin) bila jadwal memuat beberapa RS.\n' : k === 'dpjp' ? '- Bila jadwal memuat beberapa RS, ambil yang bukan RSUH dan tulis nama RS di note.\n' : ''}- info: ringkasan singkat (periode jadwal).
+Jawab dalam bahasa Indonesia.`;
+    const res = await aiReadFiles(files, prompt, OSCHEMA, bz);
+    bz.close(); if (!res) return false;
+    const out = [];
+    for (const x of res.entries || []) {
+      const di = HARI.findIndex((h) => h.toLowerCase() === String(x.weekday || '').toLowerCase().replace("'", ''));
+      if (/^\d{4}-\d{2}-\d{2}$/.test(x.date || '')) out.push({ id: 'o' + uid(), date: x.date, dow: null, name: x.name.trim(), note: (x.note || '').trim() });
+      else if (di >= 0) out.push({ id: 'o' + uid(), date: '', dow: di, name: x.name.trim(), note: (x.note || '').trim() });
+    }
+    if (!out.length) { alertBox({ title: 'Tidak ada data terbaca', msg: (res.info || '') + '\n\nCoba foto yang lebih jelas, atau isi manual dengan Tambah.', buttons: [{ t: 'OK', b: 1 }] }); return false; }
+    const r = await alertBox({ title: out.length + ' data ' + c.n + ' terbaca', msg: (res.info ? res.info + '\n\n' : '') + out.slice(0, 8).map((e) => oLabel(e) + ': ' + e.name).join('\n') + (out.length > 8 ? '\n…' : ''), buttons: [{ t: 'Batal' }, { t: 'Tambahkan' }, { t: 'Ganti Semua', b: 1 }] });
+    if (r.btn === 0) return false;
+    if (r.btn === 2) JAGA.other[k] = out;
+    else { const keys = new Set(out.map((e) => (e.date || 'd' + e.dow) + '|' + e.name.toLowerCase())); JAGA.other[k] = oList(k).filter((e) => !keys.has((e.date || 'd' + e.dow) + '|' + e.name.toLowerCase())).concat(out); }
+    await oSave(); toast(out.length + ' data disimpan'); return true;
+  } catch (e) { bz.close(); ERRLOG.push('jadwal lain: ' + e.message); alertBox({ title: 'Gagal membaca jadwal', msg: e.message, buttons: [{ t: 'OK', b: 1 }] }); return false; }
+}
+
 /* ================= Jadwal Jaga ================= */
-let JAGA = { name: '', alias: '', shifts: [], srcs: [], remind: { pre: 120, eve: true, on: false }, hours: { biasa: ['14:00', '07:00'], pagi: ['07:00', '19:00'], malam: ['19:00', '07:00'] } };
+let JAGA = { name: '', alias: '', shifts: [], srcs: [], remind: { pre: 120, eve: true, on: false }, hours: { biasa: ['14:00', '07:00'], pagi: ['07:00', '19:00'], malam: ['19:00', '07:00'] }, other: { dpjp: [], rsuh: [], poli: [] } };
 const pad2 = (n) => String(n).padStart(2, '0');
 const ymd = (d) => d.getFullYear() + '-' + pad2(d.getMonth() + 1) + '-' + pad2(d.getDate());
 const DEFTIME = (t) => { const H = JAGA.hours || {}; return /malam|night/i.test(t) ? (H.malam || ['19:00', '07:00']) : /pagi|morning/i.test(t) ? (H.pagi || ['07:00', '19:00']) : /24/.test(t) ? ['07:00', '07:00'] : (H.biasa || ['14:00', '07:00']); };
@@ -2863,7 +2963,7 @@ function jWhen(s) {
 const jDate = (s, o = { weekday: 'long', day: 'numeric', month: 'long' }) => jStart(s).toLocaleDateString('id-ID', o);
 const jTime = (s) => (s.start || DEFTIME(s.type)[0]).replace(':', '.') + '–' + (s.end || DEFTIME(s.type)[1]).replace(':', '.');
 async function saveJaga() { await DB.setMeta('jaga', JAGA); }
-async function loadJaga() { CLKEY = (await DB.getMeta('claudeKey')) || ''; AIPROV = (await DB.getMeta('aiProv')) || 'gemini'; const j = await DB.getMeta('jaga'); if (j && typeof j === 'object') JAGA = { ...JAGA, ...j, remind: { ...JAGA.remind, ...(j.remind || {}) }, hours: { ...JAGA.hours, ...(j.hours || {}) } }; GEMKEY = (await DB.getMeta('gemKey')) || ''; GEMMODEL = (await DB.getMeta('gemModel')) || ''; }
+async function loadJaga() { CLKEY = (await DB.getMeta('claudeKey')) || ''; AIPROV = (await DB.getMeta('aiProv')) || 'gemini'; const j = await DB.getMeta('jaga'); if (j && typeof j === 'object') JAGA = { ...JAGA, ...j, remind: { ...JAGA.remind, ...(j.remind || {}) }, hours: { ...JAGA.hours, ...(j.hours || {}) }, other: { dpjp: [], rsuh: [], poli: [], ...(j.other || {}) } }; GEMKEY = (await DB.getMeta('gemKey')) || ''; GEMMODEL = (await DB.getMeta('gemModel')) || ''; }
 
 function jagaCardHTML() {
   const nx = jUpcoming()[0];
@@ -2874,12 +2974,13 @@ function jagaCardHTML() {
 function renderJaga() {
   const up = jUpcoming(), past = jSorted().filter((s) => jEnd(s) <= new Date()).reverse();
   const nx = up[0];
-  const rowH = (s, old) => { const st = jStart(s); return `<button class="jrow ${old ? 'old' : ''}" data-j="${esc(s.id)}"><span class="jd"><b>${st.getDate()}</b><i>${st.toLocaleDateString('id-ID', { weekday: 'short' })}</i></span><span class="jt"><b>${esc(s.type || 'Jaga')}</b><small>${jTime(s)}${s.place ? ' · ' + esc(s.place) : ''}${s.partner ? ' · ' + esc(s.partner) : ''}${s.note ? ' · ' + esc(s.note) : ''}</small></span>${!old && jWhen(s) ? `<span class="jw">${jWhen(s)}</span>` : ''}</button>`; };
+  const rowH = (s, old) => { const st = jStart(s); return `<button class="jrow ${old ? 'old' : ''}" data-j="${esc(s.id)}"><span class="jd"><b>${st.getDate()}</b><i>${st.toLocaleDateString('id-ID', { weekday: 'short' })}</i></span><span class="jt"><b>${esc(s.type || 'Jaga')}</b><small>${jTime(s)}${s.place ? ' · ' + esc(s.place) : ''}${s.partner ? ' · ' + esc(s.partner) : ''}${s.note ? ' · ' + esc(s.note) : ''}${oName('dpjp', s.date) ? '<br>DPJP: ' + esc(oName('dpjp', s.date)) : ''}</small></span>${!old && jWhen(s) ? `<span class="jw">${jWhen(s)}</span>` : ''}</button>`; };
   const byMonth = {}; for (const s of up) { const k = jStart(s).toLocaleDateString('id-ID', { month: 'long', year: 'numeric' }); (byMonth[k] = byMonth[k] || []).push(s); }
   const remTxt = JAGA.remind.on ? [JAGA.remind.eve ? 'H-1' : '', JAGA.remind.pre ? (JAGA.remind.pre / 60) + ' jam sebelum' : ''].filter(Boolean).join(' & ') : 'Mati';
   $('#jagaBody').innerHTML = `
-   ${nx ? `<div class="jnext"><small>${jWhen(nx) === 'Sedang jaga' ? 'Sedang jaga' : 'Jaga berikutnya'}</small><b>${esc(jDate(nx))}</b><span>${esc(nx.type)} · ${jTime(nx)}${nx.place ? ' · ' + esc(nx.place) : ''}</span>${jWhen(nx) && jWhen(nx) !== 'Sedang jaga' ? `<em>${jWhen(nx)}</em>` : ''}</div>`
+   ${nx ? `<div class="jnext"><small>${jWhen(nx) === 'Sedang jaga' ? 'Sedang jaga' : 'Jaga berikutnya'}</small><b>${esc(jDate(nx))}</b><span>${esc(nx.type)} · ${jTime(nx)}${nx.place ? ' · ' + esc(nx.place) : ''}</span>${oName('dpjp', nx.date) ? `<span>DPJP: ${esc(oName('dpjp', nx.date))}</span>` : ''}${jWhen(nx) && jWhen(nx) !== 'Sedang jaga' ? `<em>${jWhen(nx)}</em>` : ''}</div>`
     : `<div class="jempty">${JAGA.shifts.length ? 'Tidak ada jaga mendatang.' : 'Belum ada jadwal. Unggah foto atau PDF jadwal jaga, nanti hanya jaga atas nama Anda yang diambil.'}</div>`}
+   ${oTodayHTML()}
    <div class="group">
     <button class="srow" data-jk="upload">${SIC('#34C759', 'M12 16V4M7 9l5-5 5 5M4 20h16')}<span class="lb">Unggah Jadwal (Foto / PDF)</span>${I.chev}</button>
     <button class="srow" data-jk="name">${SIC('#007AFF', 'M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM4.5 20a7.5 7.5 0 0 1 15 0')}<span class="lb">Nama Saya di Jadwal</span><span class="vl">${esc(JAGA.name || 'Belum diisi')}</span>${I.chev}</button>
@@ -2889,6 +2990,8 @@ function renderJaga() {
     ${JAGA.srcs.length ? `<button class="srow" data-jk="srcs">${SIC('#8E8E93', 'M7 3h7l5 5v13H7zM14 3v5h5')}<span class="lb">Jadwal Asli</span><span class="vl">${JAGA.srcs.length} file</span>${I.chev}</button>` : ''}
     <button class="srow" data-jk="add">${SIC('#00C7BE', 'M12 5v14M5 12h14')}<span class="lb">Tambah Jaga Manual</span>${I.chev}</button>
    </div>
+   ${oGroupHTML()}
+   ${Object.entries(byMonth).length ? '<div class="sh" style="font-size:15px;color:var(--sec);margin-bottom:0">Jaga Saya</div>' : ''}
    ${Object.entries(byMonth).map(([m, l]) => `<div class="sh">${esc(m)}</div><div class="group">${l.map((s) => rowH(s)).join('')}</div>`).join('')}
    ${past.length ? `<details class="jpast"><summary>Sudah lewat (${past.length})</summary><div class="group">${past.slice(0, 60).map((s) => rowH(s, 1)).join('')}</div></details>` : ''}
    ${JAGA.shifts.length ? `<button class="jclear" data-jk="clear">Hapus Semua Jadwal</button>` : ''}
@@ -3056,6 +3159,7 @@ $('#jagaBody').addEventListener('click', async (e) => {
     if (i === 3) { JAGA.shifts = JAGA.shifts.filter((x) => x !== s); await saveJaga(); renderJaga(); renderFolders(); toast('Dihapus'); }
     return;
   }
+  const oc = e.target.closest('[data-ocat]'); if (oc) return openOCat(oc.dataset.ocat);
   const k = e.target.closest('[data-jk]')?.dataset.jk; if (!k) return;
   if (k === 'upload') popMenu(() => ({ items: [
     { icon: SIC('#34C759', 'M4 5h16v14H4zM4 15l5-5 4 4 3-3 4 4'), label: 'Foto dari Galeri', fn: () => $('#fJagaImg').click() },
