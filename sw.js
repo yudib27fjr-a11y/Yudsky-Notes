@@ -2,7 +2,7 @@
 // Aturan: coba ambil versi terbaru dari internet maksimal 2,5 detik.
 // Kalau internet lambat/mati, langsung pakai salinan tersimpan (aplikasi tidak pernah macet di logo),
 // sambil memperbarui salinan di belakang layar.
-const CACHE = 'yudsky-notes-v53';
+const CACHE = 'yudsky-notes-v54';
 const SHARE = 'yudsky-share';   // kotak masuk sementara untuk isi yang dibagikan dari aplikasi lain
 const FILES = ['./', './index.html', './manifest.webmanifest', './icon-192.png', './icon-512.png'];
 const WAIT = 2500;
@@ -71,19 +71,19 @@ async function jagaCheckSW() {
   const J = await idbMeta('readonly', (s) => s.get('jaga'));
   if (!J || !J.remind || !J.remind.on || !Array.isArray(J.shifts)) return;
   const sent = (await idbMeta('readonly', (s) => s.get('jagaNotif'))) || {}, now = Date.now(); let ch = false;
-  const H = J.hours || {}; const DT = (t) => /malam|night/i.test(t) ? (H.malam || ['19:00', '07:00']) : /pagi/i.test(t) ? (H.pagi || ['07:00', '19:00']) : /24/.test(t) ? ['07:00', '07:00'] : (H.biasa || ['14:00', '07:00']);
+  const H = J.hours || {}; const DT = (t, date) => { const wd = date ? new Date(date + 'T12:00').getDay() : 1; return /malam|night/i.test(t) ? (H.malam || ['19:00', '07:00']) : /pagi/i.test(t) ? (H.pagi || ['07:00', '19:00']) : /24/.test(t) ? ['07:00', '07:00'] : (wd === 0 || wd === 6) ? (H.libur || ['07:00', '07:00']) : (H.biasa || ['16:00', '07:00']); };
   for (const s of J.shifts) {
-    const [y, m, d] = String(s.date).split('-').map(Number); const [h, mi] = (s.start || DT(s.type)[0]).split(':').map(Number);
+    const [y, m, d] = String(s.date).split('-').map(Number); const [h, mi] = (s.start || DT(s.type, s.date)[0]).split(':').map(Number);
     const st = new Date(y, m - 1, d, h || 0, mi || 0).getTime(); if (!(st > now)) continue;
     const evs = [];
-    if (J.remind.eve) { const e = new Date(st - 864e5); e.setHours(19, 0, 0, 0); evs.push(['eve', e.getTime(), 'Besok jaga']); }
-    if (J.remind.pre) evs.push(['pre', st - J.remind.pre * 6e4, 'Jaga ' + (J.remind.pre >= 60 ? J.remind.pre / 60 + ' jam' : J.remind.pre + ' menit') + ' lagi']);
+    if (J.remind.eve) { const e = new Date(st - 864e5); const [eh, em] = (J.remind.eveTime || '19:00').split(':').map(Number); e.setHours(eh, em || 0, 0, 0); evs.push(['eve', e.getTime(), 'Besok jaga']); }
+    if (J.remind.pre) evs.push(['pre', st - J.remind.pre * 6e4, 'Jaga ' + (J.remind.pre % 60 === 0 ? J.remind.pre / 60 + ' jam' : J.remind.pre + ' menit') + ' lagi']);
     for (const [k, at, t] of evs) {
       const id = s.id + ':' + k;
       if (now >= at && now < st && !sent[id]) {
         sent[id] = now; ch = true;
         const tgl = new Date(st).toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long' });
-        await self.registration.showNotification('🔔 ' + t, { body: tgl + ' · ' + s.type + ' ' + (s.start || DT(s.type)[0]).replace(':', '.') + (s.place ? ' · ' + s.place : ''), tag: id, icon: 'icon-192.png', data: { url: './?jaga=1' } });
+        await self.registration.showNotification('🔔 ' + t, { body: tgl + ' · ' + s.type + ' ' + (s.start || DT(s.type, s.date)[0]).replace(':', '.') + (s.place ? ' · ' + s.place : ''), tag: id, icon: 'icon-192.png', data: { url: './?jaga=1' } });
       }
     }
   }
