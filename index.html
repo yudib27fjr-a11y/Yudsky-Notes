@@ -114,6 +114,8 @@ svg{display:block}
 .opl{display:flex;flex-direction:column;gap:8px;padding-left:30px}.opr{display:flex;align-items:center;gap:10px}
 .otag{flex:none;width:72px;display:flex;flex-direction:column;align-items:center;padding:4px 2px;border-radius:8px;background:color-mix(in srgb,#34C759 16%,transparent);color:#34C759;font-weight:700;font-size:13px;line-height:1.15;text-align:center}
 .otag i{font-style:normal;font-weight:500;font-size:10.5px;color:var(--sec);white-space:nowrap}
+.odb{padding-left:30px;display:flex;flex-direction:column;gap:6px}.odl{display:flex;flex-direction:column}.odl span{font-size:12px;color:var(--sec)}.odl b{font-size:16px;font-weight:600;line-height:1.25}.onone0{color:var(--ter);font-weight:400}
+.oth.sub{margin:12px 0 6px 30px}.oth.sub b{color:var(--tint)}
 .sh .shd{font-size:14px;font-weight:500;color:var(--sec);margin-left:6px}
 .otr{display:flex;flex-direction:column;padding:9px 16px;position:relative}.otr+.otr::before{content:"";position:absolute;top:0;left:16px;right:0;border-top:.5px solid var(--sep)}
 .otr b{font-size:13px;color:var(--sec);font-weight:600;text-transform:uppercase;letter-spacing:.02em}.otr span{font-size:16px;font-weight:600}.otr span i{color:var(--ter);font-style:normal;font-weight:400}.otr small{font-size:13px;color:var(--sec)}
@@ -520,7 +522,7 @@ svg{display:block}
 <script>
 {
 /* ================= penyimpanan di perangkat (IndexedDB) ================= */
-const APP_VERSION = 'v58';
+const APP_VERSION = 'v59';
 const ERRLOG = [];
 addEventListener('error', (e) => ERRLOG.push(new Date().toTimeString().slice(0, 8) + ' ' + (e.message || e.type)));
 addEventListener('unhandledrejection', (e) => ERRLOG.push(new Date().toTimeString().slice(0, 8) + ' ' + ((e.reason && (e.reason.name + ': ' + e.reason.message)) || e.reason)));
@@ -2893,7 +2895,16 @@ function oTodayHTML() {
   const today = ymd(new Date()), tmr = ymd(new Date(Date.now() + DAY));
   const cats = OCATS.filter((c) => oList(c.k).length); if (!cats.length) return '';
   const names = (k, d) => oFor(k, d).map((e) => e.name);
+  const nm = (k, d) => { const a = names(k, d); return a.length ? a.map(esc).join(' / ') : '<span class="onone0">—</span>'; };
+  const hasRS = oList('dpjp').length || oList('pci').length;
+  const dpjpCard = () => {
+    const on = (JAGA.onsite || {})[today];
+    const blk = (d) => `<div class="odl"><span>DPJP Utama</span><b>${nm('dpjp', d)}</b></div><div class="odl"><span>DPJP Tindakan</span><b>${nm('pci', d)}</b></div>`;
+    return `<div class="otd"><div class="oth">${SIC('#AF52DE', OCATS[0].ic)}<b>DPJP Jaga RSWS · Hari Ini</b></div><div class="odb">${blk(today)}${on ? `<div class="odl"><span>DPJP Onsite</span><b>${esc(on)}</b></div>` : ''}</div>
+      <div class="oth sub"><b>Setelah Pk. 00.00 WITA · ${esc(new Date(Date.now() + DAY).toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'short' }))}</b></div><div class="odb">${blk(tmr)}</div></div>`;
+  };
   const row = (c) => {
+    if (c.k === 'dpjp' || c.k === 'pci') return '';
     if (c.k === 'poli') {
       const l = oFor('poli', today);
       const hari = new Date().toLocaleDateString('id-ID', { weekday: 'long' });
@@ -2902,7 +2913,8 @@ function oTodayHTML() {
     const a = names(c.k, today), bn = names(c.k, tmr), same = a.join() === bn.join();
     return `<div class="otd"><div class="oth">${SIC(c.c, c.ic)}<b>${esc(c.n)}</b></div><div class="onm big">${a.length ? a.map(esc).join('<br>') : '<span class="onone">—</span>'}</div>${bn.length && !same ? `<div class="otm">Besok: ${bn.map(esc).join(', ')}</div>` : ''}</div>`;
   };
-  return `<div class="sh">Hari Ini <small class="shd">${esc(new Date().toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long' }))}</small></div><div class="group otoday">${cats.map(row).join('')}</div>`;
+  const html = (hasRS ? dpjpCard() : '') + cats.map(row).join('');
+  return `<div class="sh">Hari Ini <small class="shd">${esc(new Date().toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long' }))}</small></div><div class="group otoday">${html}</div>`;
 }
 function oGroupHTML() {
   return `<div class="sh">Jadwal DPJP & Poli</div><div class="group">${OCATS.map((c) => `<button class="srow" data-ocat="${c.k}">${SIC(c.c, c.ic)}<span class="lb">${esc(c.n)}</span><span class="vl">${oList(c.k).length ? oList(c.k).length + ' data' : 'Kosong'}</span>${I.chev}</button>`).join('')}</div>`;
