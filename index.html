@@ -507,7 +507,7 @@ svg{display:block}
 <script>
 {
 /* ================= penyimpanan di perangkat (IndexedDB) ================= */
-const APP_VERSION = 'v45';
+const APP_VERSION = 'v46';
 const ERRLOG = [];
 addEventListener('error', (e) => ERRLOG.push(new Date().toTimeString().slice(0, 8) + ' ' + (e.message || e.type)));
 addEventListener('unhandledrejection', (e) => ERRLOG.push(new Date().toTimeString().slice(0, 8) + ' ' + ((e.reason && (e.reason.name + ': ' + e.reason.message)) || e.reason)));
@@ -2819,11 +2819,12 @@ async function jagaUpload(files) {
     const today = new Date();
     const prompt = `Lampiran di atas adalah jadwal jaga/dinas dokter residen (bisa berupa tabel, foto kertas, atau PDF; bisa lebih dari satu halaman).
 Tugas: temukan SEMUA jadwal jaga milik orang bernama "${JAGA.name}"${JAGA.alias ? ` (juga bisa tertulis: ${JAGA.alias})` : ''}.
-- Nama bisa tertulis dengan gelar (dr.), singkatan, inisial, atau nama panggilan. Cocokkan dengan teliti; JANGAN ambil jaga orang lain. Jika ragu, cantumkan alasannya di note.
+- Nama bisa tertulis dengan gelar (dr.), singkatan, atau nama panggilan. Jadwal sering hanya memakai INISIAL di dalam tabel: cari dulu nama orang itu di daftar/legenda nama (mis. "dr. Yudi Wahyudi … YW"), lalu cari SEMUA sel berisi inisial itu di tabel (periksa setiap baris dan setiap kolom, termasuk baris Pagi/Malam di akhir pekan). Cocokkan dengan teliti; JANGAN ambil jaga orang lain. Jika ragu, cantumkan alasannya di note.
+- Satu baris tanggal bisa terbagi menjadi Pagi dan Malam (mis. "Sabtu Pagi", "Sabtu Malam"); pakai tanggal yang benar untuk keduanya.
 - Hari ini ${today.toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}. Jika tahun tidak tertulis, pilih tahun yang paling masuk akal untuk bulan jadwal tersebut.
 - date: format YYYY-MM-DD (tanggal mulai jaga).
 - start/end: jam 24-jam HH:MM jika tertulis atau bisa disimpulkan dari legenda/keterangan jadwal; kosongkan jika tidak ada.
-- type: jenis jaga memakai istilah di jadwal (mis. Jaga Malam, Jaga Pagi, Jaga 24 Jam, Oncall, IGD, ICCU, CVCU). Terjemahkan kode legenda (mis. P=Pagi, S=Sore, M=Malam).
+- type: pos/jenis jaga = judul KOLOM tempat inisial itu berada, ditambah Pagi/Malam bila barisnya begitu (mis. "Bangsal B", "IGD PJT – Malam", "CVCU PJT – Pagi"). Istilah lain di jadwal (mis. Jaga Malam, Jaga Pagi, Jaga 24 Jam, Oncall, IGD, ICCU, CVCU). Terjemahkan kode legenda (mis. P=Pagi, S=Sore, M=Malam).
 - place: ruangan/lokasi bila ada. partner: nama rekan yang jaga bersamaan bila tertera (singkat). note: keterangan lain yang penting, singkat.
 - Jika nama tidak ditemukan: found=false, shifts kosong, dan tulis di info nama-nama yang mirip.
 - info: ringkasan singkat (bulan/periode jadwal, legenda kode).
