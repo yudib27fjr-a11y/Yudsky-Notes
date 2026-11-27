@@ -110,6 +110,7 @@ svg{display:block}
 /* jadwal jaga */
 .otr{display:flex;flex-direction:column;padding:9px 16px;position:relative}.otr+.otr::before{content:"";position:absolute;top:0;left:16px;right:0;border-top:.5px solid var(--sep)}
 .otr b{font-size:13px;color:var(--sec);font-weight:600;text-transform:uppercase;letter-spacing:.02em}.otr span{font-size:16px;font-weight:600}.otr span i{color:var(--ter);font-style:normal;font-weight:400}.otr small{font-size:13px;color:var(--sec)}
+.dpick{display:block;width:calc(100% - 32px);margin:8px 16px 4px;padding:10px;border-radius:10px;border:.5px solid var(--sep);background:var(--fill);color:var(--ink);font-size:17px;font-family:inherit}
 .jrow.now{background:color-mix(in srgb,var(--tint) 12%,transparent)}
 .jcard{margin-top:6px}.jcard .lb{display:flex;flex-direction:column;font-weight:600}.jcard small{font-weight:400;font-size:13px;color:var(--sec);margin-top:1px}.jcard small.hot{color:var(--red);font-weight:600}
 .jnext{margin:4px 16px 14px;padding:16px 18px;border-radius:14px;background:linear-gradient(135deg,#FF3B30,#FF9500);color:#fff;display:flex;flex-direction:column;gap:3px;position:relative}
@@ -510,7 +511,7 @@ svg{display:block}
 <script>
 {
 /* ================= penyimpanan di perangkat (IndexedDB) ================= */
-const APP_VERSION = 'v54';
+const APP_VERSION = 'v55';
 const ERRLOG = [];
 addEventListener('error', (e) => ERRLOG.push(new Date().toTimeString().slice(0, 8) + ' ' + (e.message || e.type)));
 addEventListener('unhandledrejection', (e) => ERRLOG.push(new Date().toTimeString().slice(0, 8) + ' ' + ((e.reason && (e.reason.name + ': ' + e.reason.message)) || e.reason)));
@@ -3070,7 +3071,7 @@ function jagaCardHTML() {
 function renderJaga() {
   const up = jUpcoming(), past = jSorted().filter((s) => jEnd(s) <= new Date()).reverse();
   const nx = up[0];
-  const rowH = (s, old) => { const st = jStart(s); return `<button class="jrow ${old ? 'old' : ''}" data-j="${esc(s.id)}"><span class="jd"><b>${st.getDate()}</b><i>${st.toLocaleDateString('id-ID', { weekday: 'short' })}</i></span><span class="jt"><b>${esc(s.type || 'Jaga')}</b><small>${jTime(s)}${s.place ? ' · ' + esc(s.place) : ''}${s.partner ? ' · ' + esc(s.partner) : ''}${s.note ? ' · ' + esc(s.note) : ''}${oName('dpjp', s.date) ? '<br>DPJP: ' + esc(oName('dpjp', s.date)) : ''}${oName('rsuh', s.date) ? '<br>DPJP RSUH: ' + esc(oName('rsuh', s.date)) : ''}${oName('pci', s.date) ? '<br>PCI: ' + esc(oName('pci', s.date)) : ''}</small></span>${!old && jWhen(s) ? `<span class="jw">${jWhen(s)}</span>` : ''}</button>`; };
+  const rowH = (s, old) => { const st = jStart(s); return `<button class="jrow ${old ? 'old' : ''}" data-j="${esc(s.id)}"><span class="jd"><b>${st.getDate()}</b><i>${st.toLocaleDateString('id-ID', { weekday: 'short' })}</i></span><span class="jt"><b>${esc(s.type || 'Jaga')}</b><small>${jTime(s)}${s.place ? ' · ' + esc(s.place) : ''}${s.partner ? ' · ' + esc(s.partner) : ''}${s.note ? ' · ' + esc(s.note) : ''}${s.swap ? '<br>↔ Tukar dengan ' + esc(s.swap.with) + ' (asal ' + esc(oD(s.swap.from, { day: 'numeric', month: 'short' })) + ')' : ''}${oName('dpjp', s.date) ? '<br>DPJP: ' + esc(oName('dpjp', s.date)) : ''}${oName('rsuh', s.date) ? '<br>DPJP RSUH: ' + esc(oName('rsuh', s.date)) : ''}${oName('pci', s.date) ? '<br>PCI: ' + esc(oName('pci', s.date)) : ''}</small></span>${!old && jWhen(s) ? `<span class="jw">${jWhen(s)}</span>` : ''}</button>`; };
   const byMonth = {}; for (const s of up) { const k = jStart(s).toLocaleDateString('id-ID', { month: 'long', year: 'numeric' }); (byMonth[k] = byMonth[k] || []).push(s); }
   const remTxt = JAGA.remind.on ? [JAGA.remind.eve ? 'H-1 ' + (JAGA.remind.eveTime || '19:00').replace(':', '.') : '', JAGA.remind.pre ? (JAGA.remind.pre % 60 === 0 ? JAGA.remind.pre / 60 + ' jam' : JAGA.remind.pre + ' mnt') + ' sblm' : ''].filter(Boolean).join(' & ') : 'Mati';
   $('#jagaBody').innerHTML = `
@@ -3155,7 +3156,9 @@ Jawab dalam bahasa Indonesia.`;
     for (const f of files) { const id = 'a' + uid(); if (await DB.putFile({ id, name: f.name || 'Jadwal', type: f.type || 'application/octet-stream', size: f.size, blob: f, at: Date.now() })) JAGA.srcs.push({ fid: id, name: f.name || 'Jadwal', type: f.type, at: Date.now() }); }
     const key = (s) => s.date + '|' + (s.type || '').toLowerCase();
     const newKeys = new Set(ok.map(key));
-    JAGA.shifts = JAGA.shifts.filter((s) => !newKeys.has(key(s))).concat(ok);
+    const moved = new Set(JAGA.shifts.filter((s) => s.swap).map((s) => s.swap.from + '|' + String(s.swap.fromType || s.type).toLowerCase()));
+    const keep = JAGA.shifts.filter((s) => s.swap || !newKeys.has(key(s)));
+    JAGA.shifts = keep.concat(ok.filter((s) => !moved.has(key(s)) && !keep.some((x) => x.swap && key(x) === key(s))));
     await saveJaga(); renderJaga(); renderFolders(); toast(ok.length + ' jaga disimpan');
     if (!JAGA.remind.on) { const r = await alertBox({ title: 'Nyalakan Pengingat?', msg: 'Pengingat sehari sebelum dan 2 jam sebelum jaga.', buttons: [{ t: 'Nanti' }, { t: 'Nyalakan', b: 1 }] }); if (r.btn === 1) { await enableRemind(); renderJaga(); } }
   } catch (e) {
@@ -3192,7 +3195,7 @@ async function jagaCheck() {
     if (JAGA.remind.eve) { const e = new Date(st - DAY); const [eh, em] = (JAGA.remind.eveTime || '19:00').split(':').map(Number); e.setHours(eh, em || 0, 0, 0); evs.push(['eve', e.getTime(), 'Besok jaga']); }
     if (JAGA.remind.pre) evs.push(['pre', st - JAGA.remind.pre * 6e4, 'Jaga ' + (JAGA.remind.pre % 60 === 0 ? JAGA.remind.pre / 60 + ' jam' : JAGA.remind.pre + ' menit') + ' lagi']);
     for (const [k, at, t] of evs) {
-      const id = s.id + ':' + k;
+      const id = s.id + ':' + s.date + ':' + k;
       if (now >= at && now < st && !sent[id]) {
         sent[id] = now; changed = true;
         const body = `${jDate(s)} · ${s.type} ${jTime(s)}${s.place ? ' · ' + s.place : ''}`;
@@ -3229,9 +3232,17 @@ async function jagaToCalendar() {
   if (i === 0 || i === 1) { const a = document.createElement('a'); a.href = URL.createObjectURL(file); a.download = file.name; document.body.appendChild(a); a.click(); a.remove(); toast('Buka file jadwal-jaga.ics untuk memasukkan ke kalender'); }
   if (i === 2) { const ov = overlay(`<div class="as"><div class="asg"><div class="ast"><b>Ketuk satu per satu</b></div>${list.map((s) => `<a class="gcl" target="_blank" rel="noopener" href="${esc(gcalURL(s))}">${esc(jDate(s, { weekday: 'short', day: 'numeric', month: 'short' }))} · ${esc(s.type)} ${jTime(s)}</a>`).join('')}</div><div class="asc"><button data-i="-1">Selesai</button></div></div>`); ov.addEventListener('click', (e) => { if (e.target.closest('[data-i]')) ov.close(); else if (e.target.closest('a')) e.target.closest('a').classList.add('done'); }); }
 }
+function pickDate(title, val, msg) {
+  return new Promise((done) => {
+    const ov = overlay(`<div class="al"><h3>${esc(title)}</h3>${msg ? `<p>${esc(msg)}</p>` : ''}<input type="date" class="dpick" value="${esc(val || ymd(new Date()))}"><div class="alb"><button data-v="0">Batal</button><button data-v="1" class="b">Pilih</button></div></div>`);
+    const inp = $('.dpick', ov);
+    setTimeout(() => { try { inp.showPicker && inp.showPicker(); } catch {} }, 150);
+    ov.addEventListener('click', (e) => { const b = e.target.closest('[data-v]'); if (!b) return; ov.close(); done(b.dataset.v === '1' && /^\d{4}-\d{2}-\d{2}$/.test(inp.value) ? inp.value : null); });
+  });
+}
 async function editShift(s, isNew) {
-  const r1 = await alertBox({ title: isNew ? 'Tanggal Jaga' : 'Ubah Tanggal', msg: 'Format: TTTT-BB-HH (mis. ' + ymd(new Date()) + ')', input: s.date, buttons: [{ t: 'Batal' }, { t: 'Lanjut', b: 1 }] }); if (r1.btn !== 1) return false;
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(r1.value.trim())) { toast('Format tanggal salah'); return false; }
+  const nd = await pickDate(isNew ? 'Tanggal Jaga' : 'Ubah Tanggal', s.date); if (!nd) return false;
+  const r1 = { value: nd };
   const r2 = await alertBox({ title: 'Jenis Jaga', input: s.type, placeholder: 'Jaga Malam', buttons: [{ t: 'Batal' }, { t: 'Lanjut', b: 1 }] }); if (r2.btn !== 1) return false;
   const typ = r2.value.trim() || 'Jaga';
   const r3 = await alertBox({ title: 'Jam Jaga', msg: 'Mulai–selesai, mis. 21:00-07:00', input: (s.start || DEFTIME(typ, r1.value.trim())[0]) + '-' + (s.end || DEFTIME(typ, r1.value.trim())[1]), buttons: [{ t: 'Batal' }, { t: 'Lanjut', b: 1 }] }); if (r3.btn !== 1) return false;
@@ -3244,11 +3255,27 @@ $('#jagaBody').addEventListener('click', async (e) => {
   const j = e.target.closest('[data-j]');
   if (j) {
     const s = JAGA.shifts.find((x) => x.id === j.dataset.j); if (!s) return;
-    const i = await sheet({ title: jDate(s) + ' · ' + s.type + ' ' + jTime(s), items: [{ t: 'Ubah Jam' }, { t: 'Ubah Tanggal / Jenis / Tempat' }, { t: 'Tambah ke Google Calendar' }, { t: 'Hapus', des: 1 }] });
+    const items = [{ t: 'Tukar Jaga…' }, ...(s.swap ? [{ t: 'Batalkan Tukar (kembali ke ' + oD(s.swap.from, { day: 'numeric', month: 'short' }) + ')' }] : []), { t: 'Ubah Jam' }, { t: 'Ubah Tanggal / Jenis / Tempat' }, { t: 'Tambah ke Google Calendar' }, { t: 'Hapus', des: 1 }];
+    const pick = await sheet({ title: jDate(s) + ' · ' + s.type + ' ' + jTime(s) + (s.swap ? '\n↔ tukar dengan ' + s.swap.with : ''), items });
+    if (pick < 0) return;
+    const act = items[pick].t, i = act.startsWith('Tukar') ? 't' : act.startsWith('Batalkan') ? 'u' : act === 'Ubah Jam' ? 0 : act.startsWith('Ubah Tanggal') ? 1 : act.startsWith('Tambah ke') ? 2 : 3;
+    if (i === 't') {
+      const nd = await pickDate('Tukar ke tanggal berapa?', s.date, 'Jaga ' + jDate(s) + ' (' + s.type + ') dipindah ke tanggal baru.');
+      if (!nd) return;
+      const r = await alertBox({ title: 'Tukar dengan siapa?', msg: 'Nama rekan yang bertukar jaga (boleh inisial)', input: s.swap ? s.swap.with : '', placeholder: 'dr. … / inisial', buttons: [{ t: 'Batal' }, { t: 'Lanjut', b: 1 }] });
+      if (r.btn !== 1) return;
+      const r2 = await alertBox({ title: 'Pos / Jenis Jaga di Tanggal Baru', msg: 'Ubah bila posnya berbeda (mis. IGD PJT – Malam)', input: s.type, buttons: [{ t: 'Batal' }, { t: 'Simpan', b: 1 }] });
+      if (r2.btn !== 1) return;
+      const from = s.swap ? s.swap.from : s.date, fromType = s.swap ? s.swap.fromType : s.type;
+      Object.assign(s, { date: nd, type: r2.value.trim() || s.type, start: '', end: '', swap: { from, fromType, with: r.value.trim() || 'rekan' } });
+      await saveJaga(); renderJaga(); renderFolders(); toast('Jaga ditukar ke ' + jDate(s, { weekday: 'long', day: 'numeric', month: 'short' }));
+      return;
+    }
+    if (i === 'u') { Object.assign(s, { date: s.swap.from, type: s.swap.fromType || s.type, start: '', end: '' }); delete s.swap; await saveJaga(); renderJaga(); renderFolders(); toast('Tukar dibatalkan'); return; }
     if (i === 0) {
-      const r = await alertBox({ title: 'Jam Jaga', msg: jDate(s) + ' · ' + s.type + '\nMulai–selesai, mis. 14:00-07:00', input: (s.start || DEFTIME(s.type, s.date)[0]) + '-' + (s.end || DEFTIME(s.type, s.date)[1]), buttons: [{ t: 'Batal' }, { t: 'Simpan', b: 1 }] });
+      const r = await alertBox({ title: 'Jam Jaga', msg: jDate(s) + ' · ' + s.type + '\nMulai–selesai, mis. 16:00-07:00', input: (s.start || DEFTIME(s.type, s.date)[0]) + '-' + (s.end || DEFTIME(s.type, s.date)[1]), buttons: [{ t: 'Batal' }, { t: 'Simpan', b: 1 }] });
       const m = r.btn === 1 && r.value.match(/(\d{1,2})[:.](\d{2})\s*[-–]\s*(\d{1,2})[:.](\d{2})/);
-      if (m) { s.start = pad2(m[1]) + ':' + m[2]; s.end = pad2(m[3]) + ':' + m[4]; await saveJaga(); renderJaga(); renderFolders(); toast('Jam diubah'); } else if (r.btn === 1) toast('Format jam salah, contoh 14:00-07:00');
+      if (m) { s.start = pad2(m[1]) + ':' + m[2]; s.end = pad2(m[3]) + ':' + m[4]; await saveJaga(); renderJaga(); renderFolders(); toast('Jam diubah'); } else if (r.btn === 1) toast('Format jam salah, contoh 16:00-07:00');
     }
     if (i === 2) window.open(gcalURL(s), '_blank', 'noopener');
     if (i === 1 && await editShift(s)) { await saveJaga(); renderJaga(); renderFolders(); }

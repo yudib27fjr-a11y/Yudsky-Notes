@@ -2,7 +2,7 @@
 // Aturan: coba ambil versi terbaru dari internet maksimal 2,5 detik.
 // Kalau internet lambat/mati, langsung pakai salinan tersimpan (aplikasi tidak pernah macet di logo),
 // sambil memperbarui salinan di belakang layar.
-const CACHE = 'yudsky-notes-v54';
+const CACHE = 'yudsky-notes-v55';
 const SHARE = 'yudsky-share';   // kotak masuk sementara untuk isi yang dibagikan dari aplikasi lain
 const FILES = ['./', './index.html', './manifest.webmanifest', './icon-192.png', './icon-512.png'];
 const WAIT = 2500;
@@ -79,7 +79,7 @@ async function jagaCheckSW() {
     if (J.remind.eve) { const e = new Date(st - 864e5); const [eh, em] = (J.remind.eveTime || '19:00').split(':').map(Number); e.setHours(eh, em || 0, 0, 0); evs.push(['eve', e.getTime(), 'Besok jaga']); }
     if (J.remind.pre) evs.push(['pre', st - J.remind.pre * 6e4, 'Jaga ' + (J.remind.pre % 60 === 0 ? J.remind.pre / 60 + ' jam' : J.remind.pre + ' menit') + ' lagi']);
     for (const [k, at, t] of evs) {
-      const id = s.id + ':' + k;
+      const id = s.id + ':' + s.date + ':' + k;
       if (now >= at && now < st && !sent[id]) {
         sent[id] = now; ch = true;
         const tgl = new Date(st).toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long' });
