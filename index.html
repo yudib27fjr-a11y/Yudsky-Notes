@@ -115,6 +115,15 @@ svg{display:block}
 .otag{flex:none;width:72px;display:flex;flex-direction:column;align-items:center;padding:4px 2px;border-radius:8px;background:color-mix(in srgb,#34C759 16%,transparent);color:#34C759;font-weight:700;font-size:13px;line-height:1.15;text-align:center}
 .otag i{font-style:normal;font-weight:500;font-size:10.5px;color:var(--sec);white-space:nowrap}
 .dsel input{margin-left:auto;font:inherit;font-size:16px;color:var(--tint);background:none;border:0}.otd[data-ocat],.odl[data-ocat]{cursor:pointer}
+.lapv .jrs{padding-top:4px}.lnav{display:flex;align-items:center;gap:10px;margin:12px 16px 4px}.lnav button{width:44px;height:44px;border-radius:12px;background:var(--cell);color:var(--tint);font-size:26px;line-height:1}.lds{flex:1;font:inherit;font-size:17px;padding:10px 12px;border-radius:12px;border:.5px solid var(--sep);background:var(--cell);color:var(--ink)}
+.lttl{margin:10px 20px 8px;display:flex;flex-direction:column}.lttl b{font-size:20px}.lttl small{color:var(--sec);font-size:14px}
+.lchips{display:flex;gap:8px;margin:0 16px 10px}.lchips button{padding:8px 16px;border-radius:20px;border:1px solid var(--sep);color:var(--ink);font-size:15px}.lchips button.on{background:color-mix(in srgb,var(--tint) 18%,transparent);border-color:var(--tint);color:var(--tint);font-weight:600}
+.lseg{display:flex;margin:0 16px 8px;padding:3px;border-radius:10px;background:var(--fill)}.lseg button{flex:1;padding:8px 6px;border-radius:8px;font-size:14px;color:var(--ink)}.lseg button.on{background:var(--cell);font-weight:600;box-shadow:0 1px 3px rgba(0,0,0,.2)}
+.ltr{display:flex;gap:12px;width:100%;padding:10px 16px;text-align:left;position:relative;color:var(--ink);align-items:flex-start}.ltr+.ltr::before{content:"";position:absolute;top:0;left:16px;right:0;border-top:.5px solid var(--sep)}
+.ltc{width:108px;flex:none;font-size:14px;color:var(--sec);padding-top:2px}.ltc i{display:block;font-style:normal;color:var(--orange,#FF9500);font-size:11px}.ltv{flex:1;display:flex;flex-direction:column;min-width:0}.ltv b{font-size:16px}.ltv small{font-size:12px;color:var(--sec);margin-bottom:2px}
+.pps{display:block;width:calc(100% - 32px);margin:12px 16px;padding:12px 14px;border-radius:12px;border:.5px solid var(--sep);background:var(--cell);color:var(--ink);font:inherit;font-size:17px}
+.ppr{display:flex;gap:12px;align-items:center;width:100%;padding:10px 16px;text-align:left;color:var(--ink);position:relative}.ppr+.ppr::before{content:"";position:absolute;top:0;left:68px;right:0;border-top:.5px solid var(--sep)}.ppr.on{background:color-mix(in srgb,var(--tint) 12%,transparent)}
+.ppi{width:42px;height:34px;flex:none;border-radius:8px;background:color-mix(in srgb,var(--tint) 16%,transparent);color:var(--tint);font-weight:700;display:flex;align-items:center;justify-content:center;font-size:14px}.ppn{display:flex;flex-direction:column;min-width:0}.ppn small{color:var(--sec);font-size:13px}
 .odb{padding-left:30px;display:flex;flex-direction:column;gap:6px}.odl{display:flex;flex-direction:column}.odl span{font-size:12px;color:var(--sec)}.odl b{font-size:16px;font-weight:600;line-height:1.25}.onone0{color:var(--ter);font-weight:400}
 .oth.sub{margin:12px 0 6px 30px}.oth.sub b{color:var(--tint)}
 .sh .shd{font-size:14px;font-weight:500;color:var(--sec);margin-left:6px}
@@ -523,7 +532,7 @@ svg{display:block}
 <script>
 {
 /* ================= penyimpanan di perangkat (IndexedDB) ================= */
-const APP_VERSION = 'v60';
+const APP_VERSION = 'v61';
 const ERRLOG = [];
 addEventListener('error', (e) => ERRLOG.push(new Date().toTimeString().slice(0, 8) + ' ' + (e.message || e.type)));
 addEventListener('unhandledrejection', (e) => ERRLOG.push(new Date().toTimeString().slice(0, 8) + ' ' + ((e.reason && (e.reason.name + ': ' + e.reason.message)) || e.reason)));
@@ -3130,21 +3139,55 @@ async function oConfirm(k, c, out, info) {
 const LAPLABEL = { 'CVCU PJT': 'CVCU', 'Pedi': 'Pediatri', 'RSWS/RSUH': 'RSWS/UH' };
 function defNick(full) { if (!full) return ''; const ws = full.replace(/^(prof\.?\s*)?(dr\.?\s*)+/i, '').trim().split(/\s+/).map((w) => w.replace(/[,]$/, '')); const w = ws.find((x) => x.length >= 3 && !/\.$/.test(x) && !/^(andi|muh|muhammad|muhamad|siti|nur)$/i.test(x)) || ws.find((x) => x.length >= 3 && !/\.$/.test(x)) || ws[0] || ''; return w; }
 const nickOf = (ini) => /^INT/i.test(ini) ? ini : ((JAGA.nick || {})[ini] || defNick((JAGA.legend || {})[ini]) || ini);
+// label orang: "Kiki (RM)" bila inisial dikenal, selain itu teks apa adanya
+const personLabel = (x) => (JAGA.legend || {})[x] || (JAGA.nick || {})[x] ? nickOf(x) + ' (' + x + ')' : x;
 const dpjpRaw = (k, date) => oFor(k, date).map((e) => e.name).join(' / ') || '-';
 function salam() { const h = new Date().getHours(); return h < 11 ? 'pagi' : h < 15 ? 'siang' : h < 18 ? 'sore' : 'malam'; }
-function lapText(date, part, onsite) {
+// pilih orang: ketik nama/panggilan/inisial -> muncul inisial + nama panjang
+function personPicker(title, cur) {
+  return new Promise((done) => {
+    const L = JAGA.legend || {};
+    const people = Object.keys(L).map((ini) => ({ ini, full: L[ini], nick: nickOf(ini) })).sort((a, b) => a.nick.localeCompare(b.nick, 'id'));
+    const ov = overlay(`<div class="jrv"><div class="jrh"><button data-x>Batal</button><b>${esc(title)}</b><span style="width:52px"></span></div>
+      <div class="jrs"><input class="pps" placeholder="Ketik nama, panggilan, atau inisial…" value="${esc(cur && !L[cur] ? cur : '')}" autocomplete="off"><div class="group ppl"></div></div></div>`);
+    const inp = $('.pps', ov), list = $('.ppl', ov);
+    const norm = (t) => String(t).toLowerCase().replace(/^(prof\.?\s*)?(dr\.?\s*)+/, '');
+    const draw = () => {
+      const q = inp.value.trim(), nq = norm(q);
+      const rank = (p) => !nq ? 5 : p.ini.toLowerCase() === nq ? 0 : p.ini.toLowerCase().startsWith(nq) ? 1 : norm(p.nick).startsWith(nq) ? 2 : norm(p.nick).includes(nq) ? 3 : norm(p.full).split(/\s+/).some((w) => w.startsWith(nq)) ? 4 : norm(p.full).includes(nq) ? 6 : 9;
+      const hits = people.map((p) => [rank(p), p]).filter(([r]) => r < 9).sort((a, b) => a[0] - b[0] || a[1].nick.localeCompare(b[1].nick, 'id')).map(([, p]) => p).slice(0, 60);
+      list.innerHTML = (q ? `<button class="ppr" data-free><span class="ppi">✎</span><span class="ppn"><b>Pakai “${esc(q)}”</b><small>tulis apa adanya</small></span></button>` : '')
+        + hits.map((p) => `<button class="ppr ${p.ini === cur ? 'on' : ''}" data-ini="${esc(p.ini)}"><span class="ppi">${esc(p.ini)}</span><span class="ppn"><b>${esc(p.nick)}</b><small>${esc(p.full)}</small></span></button>`).join('')
+        + (!people.length ? '<p class="jri">Daftar nama belum ada — unggah PDF jadwal PPDS dulu. Sementara, ketik nama lalu pilih “Pakai”.</p>' : '');
+    };
+    draw(); inp.addEventListener('input', draw); setTimeout(() => inp.focus(), 250);
+    ov.addEventListener('click', (e) => {
+      if (e.target.closest('[data-x]')) { ov.close(); done(null); return; }
+      if (e.target.closest('[data-free]')) { ov.close(); done(inp.value.trim()); return; }
+      const b = e.target.closest('[data-ini]'); if (b) { ov.close(); done(b.dataset.ini); }
+    });
+  });
+}
+function lapTeam(date, part) {
   const T = { ...((JAGA.team || {})[date + '|' + part] || {}) };
   const me = JAGA.myInit || (String(JAGA.alias || '').split(',').map((x) => x.trim()).find((x) => /^[A-Z]{2,4}$/.test(x))) || '';
   const colPart = (t) => { const m = String(t || '').split(/\s+–\s+/); return [m[0], m[1] || '']; };
   for (const sh of JAGA.shifts) {
     const [c1, p1] = colPart(sh.type);
     if (sh.swap) { const [c0, p0] = colPart(sh.swap.fromType || sh.type); if (sh.swap.from === date && p0 === part && T[c0]) T[c0] = T[c0].split(/,\s*/).map((x) => (x === me ? sh.swap.with : x)).join(', '); }
-    // jaga saya di tanggal ini (hasil tukar / menggantikan): tampilkan saya di kolom itu
     if (sh.date === date && p1 === part && me && (!T[c1] || !T[c1].split(/,\s*/).includes(me))) T[c1] = me;
   }
-  let order = (JAGA.colOrder && JAGA.colOrder.length ? JAGA.colOrder : Object.keys(T)).filter((n) => !/^(hari|tanggal|tgl\.?|no\.?)$/i.test(n));
+  Object.assign(T, (JAGA.teamEdit || {})[date + '|' + part] || {});
+  return T;
+}
+function lapOrder(T) {
+  const order = (JAGA.colOrder && JAGA.colOrder.length ? JAGA.colOrder : Object.keys(T)).filter((n) => !/^(hari|tanggal|tgl\.?|no\.?)$/i.test(n));
   const pi = order.indexOf('Pedi'), ci = order.indexOf('CVCU PJT');
   if (pi > -1 && ci > -1) { order.splice(pi, 1); order.splice(order.indexOf('CVCU PJT') + 1, 0, 'Pedi'); }
+  return order;
+}
+function lapText(date, part, onsite) {
+  const T = lapTeam(date, part), order = lapOrder(T);
   const next = ymd(new Date(new Date(date + 'T12:00').getTime() + DAY));
   const tgl = new Date(date + 'T12:00').toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }).replace(/^(\w+),?/, '$1,');
   const lines = order.map((c) => (LAPLABEL[c] || c) + ' : ' + (T[c] ? T[c].split(/,\s*/).map(nickOf).join(', ') : '-'));
@@ -3166,41 +3209,64 @@ _DPJP Tindakan : ${dpjpRaw('pci', next)}_
 Mohon arahannya dokter. Terima kasih dokter.`;
 }
 async function laporanTim(date, part) {
-  if (!date) { date = await pickDate('Laporan Tim Jaga', ymd(new Date()), 'Pilih tanggal jaga yang mau dilaporkan.'); if (!date) return; }
-  const parts = Object.keys(JAGA.team || {}).filter((k) => k.startsWith(date + '|')).map((k) => k.split('|')[1]);
-  if (part == null) {
-    if (parts.length > 1) { const i = await sheet({ title: 'Jaga yang mana?', items: parts.map((p) => ({ t: p || 'Jaga' })) }); if (i < 0) return; part = parts[i]; }
-    else part = parts[0] || '';
-  }
-  if (!parts.length) toast('Data tim tanggal ini belum ada — unggah ulang PDF jadwal PPDS');
-  JAGA.onsite = JAGA.onsite || {};
-  let onsite = JAGA.onsite[date] || '', edited = false;
-  const ov = overlay(`<div class="jrv"><div class="jrh"><button data-x>Tutup</button><b>Laporan Tim Jaga</b><button data-share class="b">Kirim</button></div>
-    <div class="jrs"><label class="lapf">DPJP Onsite<input class="lon" value="${esc(onsite)}" placeholder="dr. …"></label>
-    <textarea class="lapt" spellcheck="false"></textarea>
-    <div class="group"><button class="srow" data-copy>${SIC('#007AFF', 'M8 8h11v13H8zM5 16V3h11')}<span class="lb">Salin Teks</span></button>
-    <button class="srow" data-wa>${SIC('#25D366', 'M4 20l1.3-4A8 8 0 1 1 8 19.3zM9 9c0 3 3 6 6 6l1-1.5-2-1-1 1c-1-.5-2-1.5-2.5-2.5l1-1-1-2z')}<span class="lb">Kirim ke WhatsApp</span></button>
-    <button class="srow" data-nick>${SIC('#FF9500', 'M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM4.5 20a7.5 7.5 0 0 1 15 0')}<span class="lb">Atur Nama Panggilan</span>${I.chev}</button></div>
-    <p class="jri">Teks bisa diedit langsung sebelum dikirim. Nama panggilan diingat untuk laporan berikutnya.</p></div></div>`);
-  const ta = $('.lapt', ov), on = $('.lon', ov);
-  const draw = () => { ta.value = lapText(date, part, onsite); ta.style.height = 'auto'; ta.style.height = ta.scrollHeight + 'px'; };
+  let sel = date || ymd(new Date()), pt = part, edited = false;
+  JAGA.onsite = JAGA.onsite || {}; JAGA.teamEdit = JAGA.teamEdit || {};
+  const partsOf = (d) => { const p = Object.keys(JAGA.team || {}).filter((k) => k.startsWith(d + '|')).map((k) => k.split('|')[1]); return p.length ? p : ['']; };
+  const ov = overlay(`<div class="jrv lapv"><div class="jrh"><button data-x>Tutup</button><b>Laporan Tim Jaga</b><button data-share class="b">Kirim</button></div><div class="jrs"></div></div>`);
+  const draw = () => {
+    const parts = partsOf(sel); if (pt == null || !parts.includes(pt)) pt = parts.includes('Malam') && new Date().getHours() >= 15 && sel === ymd(new Date()) ? 'Malam' : parts[0];
+    const today = ymd(new Date()), tmr = ymd(new Date(Date.now() + DAY));
+    const T = lapTeam(sel, pt), order = lapOrder(T), hasTeam = Object.keys((JAGA.team || {})[sel + '|' + pt] || {}).length;
+    const ed = JAGA.teamEdit[sel + '|' + pt] || {};
+    $('.jrs', ov).innerHTML = `
+      <div class="lnav"><button data-dd="-1" aria-label="Sebelumnya">‹</button><input type="date" class="lds" value="${sel}"><button data-dd="1" aria-label="Berikutnya">›</button></div>
+      <div class="lttl"><b>${esc(oD(sel, { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }))}</b>${sel === today ? '<small>Hari ini</small>' : sel === tmr ? '<small>Besok</small>' : ''}</div>
+      <div class="lchips"><button data-day="${today}" class="${sel === today ? 'on' : ''}">${sel === today ? '✓ ' : ''}Hari ini</button><button data-day="${tmr}" class="${sel === tmr ? 'on' : ''}">${sel === tmr ? '✓ ' : ''}Besok</button></div>
+      ${parts.length > 1 ? `<div class="lseg">${parts.map((p) => `<button data-pt="${esc(p)}" class="${p === pt ? 'on' : ''}">${esc(oD(sel, { weekday: 'long' }) + ' ' + (p || 'Jaga'))}</button>`).join('')}</div>` : ''}
+      <div class="sh">Tim Jaga <small class="shd">ketuk untuk ganti orang</small></div>
+      ${hasTeam || order.length ? `<div class="group">${order.map((c) => { const v = T[c] || ''; const ps = v ? v.split(/,\s*/) : []; return `<button class="ltr" data-col="${esc(c)}"><span class="ltc">${esc(LAPLABEL[c] || c)}${ed[c] != null ? ' <i>diubah</i>' : ''}</span><span class="ltv">${ps.length ? ps.map((x) => `<b>${esc(nickOf(x))}</b>${(JAGA.legend || {})[x] ? `<small>${esc(x)} · ${esc(JAGA.legend[x])}</small>` : ''}`).join('') : '<span class="onone0">—</span>'}</span></button>`; }).join('')}</div>` : '<p class="jri">Data tim tanggal ini belum ada — unggah PDF jadwal PPDS di halaman Jadwal Jaga.</p>'}
+      <label class="lapf">DPJP Onsite<input class="lon" value="${esc(JAGA.onsite[sel] || '')}" placeholder="dr. …"></label>
+      <div class="sh">Teks Laporan</div>
+      <textarea class="lapt" spellcheck="false"></textarea>
+      <div class="group"><button class="srow" data-copy>${SIC('#007AFF', 'M8 8h11v13H8zM5 16V3h11')}<span class="lb">Salin Teks</span></button>
+      <button class="srow" data-wa>${SIC('#25D366', 'M4 20l1.3-4A8 8 0 1 1 8 19.3zM9 9c0 3 3 6 6 6l1-1.5-2-1-1 1c-1-.5-2-1.5-2.5-2.5l1-1-1-2z')}<span class="lb">Kirim ke WhatsApp</span></button>
+      <button class="srow" data-nick>${SIC('#FF9500', 'M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM4.5 20a7.5 7.5 0 0 1 15 0')}<span class="lb">Atur Nama Panggilan</span>${I.chev}</button></div>
+      <p class="jri">Teks bisa diedit langsung. Perubahan orang di Tim Jaga disimpan per tanggal; nama panggilan diingat untuk laporan berikutnya.</p>`;
+    const ta = $('.lapt', ov);
+    ta.value = lapText(sel, pt, JAGA.onsite[sel]); edited = false;
+    const fit = () => { ta.style.height = 'auto'; ta.style.height = ta.scrollHeight + 'px'; }; fit();
+    ta.addEventListener('input', () => { edited = true; fit(); });
+    $('.lon', ov).addEventListener('input', (ev) => { JAGA.onsite[sel] = ev.target.value.trim(); if (!edited) { ta.value = lapText(sel, pt, JAGA.onsite[sel]); fit(); } else ta.value = ta.value.replace(/(_DPJP Onsite: ).*?(_)$/m, '$1' + (JAGA.onsite[sel] || '-') + '$2'); });
+    $('.lon', ov).addEventListener('change', () => saveJaga());
+    $('.lds', ov).addEventListener('change', (ev) => { if (/^\d{4}-\d{2}-\d{2}$/.test(ev.target.value)) { sel = ev.target.value; pt = null; draw(); } });
+  };
   draw();
-  ta.addEventListener('input', () => { edited = true; });
-  on.addEventListener('input', () => { onsite = on.value.trim(); JAGA.onsite[date] = onsite; if (!edited) draw(); else ta.value = ta.value.replace(/(_DPJP Onsite: ).*?(_)$/m, '$1' + (onsite || '-') + '$2'); });
-  on.addEventListener('change', () => saveJaga());
   ov.addEventListener('click', async (e) => {
+    const ta = $('.lapt', ov);
     if (e.target.closest('[data-x]')) { await saveJaga(); ov.close(); return; }
+    const dd = e.target.closest('[data-dd]'); if (dd) { sel = ymd(new Date(new Date(sel + 'T12:00').getTime() + +dd.dataset.dd * DAY)); pt = null; draw(); return; }
+    const dy = e.target.closest('[data-day]'); if (dy) { sel = dy.dataset.day; pt = null; draw(); return; }
+    const sg = e.target.closest('[data-pt]'); if (sg) { pt = sg.dataset.pt; draw(); return; }
+    const col = e.target.closest('[data-col]');
+    if (col) {
+      const c = col.dataset.col, key = sel + '|' + pt, cur = (lapTeam(sel, pt)[c] || '').split(/,\s*/)[0];
+      const has = (JAGA.teamEdit[key] || {})[c] != null;
+      if (has) { const i = await sheet({ title: (LAPLABEL[c] || c), items: [{ t: 'Ganti orang' }, { t: 'Kembalikan sesuai jadwal' }] }); if (i < 0) return; if (i === 1) { delete JAGA.teamEdit[key][c]; await saveJaga(); draw(); return; } }
+      const who = await personPicker('Ganti ' + (LAPLABEL[c] || c), cur); if (who == null) return;
+      JAGA.teamEdit[key] = { ...(JAGA.teamEdit[key] || {}), [c]: who }; await saveJaga(); draw(); toast((LAPLABEL[c] || c) + ': ' + personLabel(who));
+      return;
+    }
     if (e.target.closest('[data-copy]')) { try { await navigator.clipboard.writeText(ta.value); toast('Teks disalin'); } catch { ta.select(); document.execCommand('copy'); toast('Teks disalin'); } return; }
     if (e.target.closest('[data-wa]')) { await saveJaga(); window.open('https://wa.me/?text=' + encodeURIComponent(ta.value), '_blank', 'noopener'); return; }
     if (e.target.closest('[data-share]')) { await saveJaga(); try { if (navigator.share) { await navigator.share({ text: ta.value }); return; } } catch (er) { if (er.name === 'AbortError') return; } window.open('https://wa.me/?text=' + encodeURIComponent(ta.value), '_blank', 'noopener'); return; }
     if (e.target.closest('[data-nick]')) {
-      const T = (JAGA.team || {})[date + '|' + part] || {};
-      const inis = [...new Set(Object.values(T).flatMap((v) => v.split(/,\s*/)).filter((x) => !/^INT/i.test(x)))];
+      const T = lapTeam(sel, pt);
+      const inis = [...new Set(Object.values(T).flatMap((v) => v.split(/,\s*/)).filter((x) => (JAGA.legend || {})[x]))];
       if (!inis.length) return toast('Belum ada data tim');
-      const i = await sheet({ title: 'Nama panggilan', items: inis.map((x) => ({ t: x + ' → ' + nickOf(x) + ((JAGA.legend || {})[x] ? '  (' + JAGA.legend[x] + ')' : '') })) });
+      const i = await sheet({ title: 'Nama panggilan', items: inis.map((x) => ({ t: x + ' → ' + nickOf(x) + '  (' + JAGA.legend[x] + ')' })) });
       if (i < 0) return;
-      const x = inis[i], r = await alertBox({ title: 'Panggilan untuk ' + x, msg: (JAGA.legend || {})[x] || '', input: nickOf(x), buttons: [{ t: 'Batal' }, { t: 'Simpan', b: 1 }] });
-      if (r.btn === 1 && r.value.trim()) { JAGA.nick = JAGA.nick || {}; JAGA.nick[x] = r.value.trim(); await saveJaga(); edited = false; draw(); toast('Disimpan'); }
+      const x = inis[i], r = await alertBox({ title: 'Panggilan untuk ' + x, msg: JAGA.legend[x] || '', input: nickOf(x), buttons: [{ t: 'Batal' }, { t: 'Simpan', b: 1 }] });
+      if (r.btn === 1 && r.value.trim()) { JAGA.nick = JAGA.nick || {}; JAGA.nick[x] = r.value.trim(); await saveJaga(); draw(); toast('Disimpan'); }
     }
   });
 }
@@ -3235,7 +3301,7 @@ function jagaCardHTML() {
 function renderJaga() {
   const up = jUpcoming(), past = jSorted().filter((s) => jEnd(s) <= new Date()).reverse();
   const nx = up[0];
-  const rowH = (s, old) => { const st = jStart(s); return `<button class="jrow ${old ? 'old' : ''}" data-j="${esc(s.id)}"><span class="jd"><b>${st.getDate()}</b><i>${st.toLocaleDateString('id-ID', { weekday: 'short' })}</i></span><span class="jt"><b>${esc(s.type || 'Jaga')}</b><small>${jTime(s)}${s.place ? ' · ' + esc(s.place) : ''}${s.partner ? ' · ' + esc(s.partner) : ''}${s.note ? ' · ' + esc(s.note) : ''}${s.swap ? '<br>↔ Tukar dengan ' + esc(s.swap.with) + ' (asal ' + esc(oD(s.swap.from, { day: 'numeric', month: 'short' })) + ')' : ''}${oName('dpjp', s.date) ? '<br>DPJP: ' + esc(oName('dpjp', s.date)) : ''}${oName('rsuh', s.date) ? '<br>DPJP RSUH: ' + esc(oName('rsuh', s.date)) : ''}${oName('pci', s.date) ? '<br>PCI: ' + esc(oName('pci', s.date)) : ''}</small></span>${!old && jWhen(s) ? `<span class="jw">${jWhen(s)}</span>` : ''}</button>`; };
+  const rowH = (s, old) => { const st = jStart(s); return `<button class="jrow ${old ? 'old' : ''}" data-j="${esc(s.id)}"><span class="jd"><b>${st.getDate()}</b><i>${st.toLocaleDateString('id-ID', { weekday: 'short' })}</i></span><span class="jt"><b>${esc(s.type || 'Jaga')}</b><small>${jTime(s)}${s.place ? ' · ' + esc(s.place) : ''}${s.partner ? ' · ' + esc(s.partner) : ''}${s.note ? ' · ' + esc(s.note) : ''}${s.swap ? '<br>↔ Tukar dengan ' + esc(personLabel(s.swap.with)) + ' (asal ' + esc(oD(s.swap.from, { day: 'numeric', month: 'short' })) + ')' : ''}${oName('dpjp', s.date) ? '<br>DPJP: ' + esc(oName('dpjp', s.date)) : ''}${oName('rsuh', s.date) ? '<br>DPJP RSUH: ' + esc(oName('rsuh', s.date)) : ''}${oName('pci', s.date) ? '<br>PCI: ' + esc(oName('pci', s.date)) : ''}</small></span>${!old && jWhen(s) ? `<span class="jw">${jWhen(s)}</span>` : ''}</button>`; };
   const byMonth = {}; for (const s of up) { const k = jStart(s).toLocaleDateString('id-ID', { month: 'long', year: 'numeric' }); (byMonth[k] = byMonth[k] || []).push(s); }
   const remTxt = JAGA.remind.on ? [JAGA.remind.eve ? 'H-1 ' + (JAGA.remind.eveTime || '19:00').replace(':', '.') : '', JAGA.remind.pre ? (JAGA.remind.pre % 60 === 0 ? JAGA.remind.pre / 60 + ' jam' : JAGA.remind.pre + ' mnt') + ' sblm' : ''].filter(Boolean).join(' & ') : 'Mati';
   $('#jagaBody').innerHTML = `
@@ -3421,7 +3487,7 @@ $('#jagaBody').addEventListener('click', async (e) => {
   if (j) {
     const s = JAGA.shifts.find((x) => x.id === j.dataset.j); if (!s) return;
     const items = [{ t: 'Laporan Tim Jaga' }, { t: 'Tukar Jaga…' }, ...(s.swap ? [{ t: 'Batalkan Tukar (kembali ke ' + oD(s.swap.from, { day: 'numeric', month: 'short' }) + ')' }] : []), { t: 'Ubah Jam' }, { t: 'Ubah Tanggal / Jenis / Tempat' }, { t: 'Tambah ke Google Calendar' }, { t: 'Hapus', des: 1 }];
-    const pick = await sheet({ title: jDate(s) + ' · ' + s.type + ' ' + jTime(s) + (s.swap ? '\n↔ tukar dengan ' + s.swap.with : ''), items });
+    const pick = await sheet({ title: jDate(s) + ' · ' + s.type + ' ' + jTime(s) + (s.swap ? '\n↔ tukar dengan ' + personLabel(s.swap.with) : ''), items });
     if (pick < 0) return;
     const act = items[pick].t;
     if (act === 'Laporan Tim Jaga') return laporanTim(s.date, (s.type.match(/–\s*(Pagi|Malam|Sore)$/) || [])[1] || '');
@@ -3429,8 +3495,9 @@ $('#jagaBody').addEventListener('click', async (e) => {
     if (i === 't') {
       const nd = await pickDate('Tukar ke tanggal berapa?', s.date, 'Jaga ' + jDate(s) + ' (' + s.type + ') dipindah ke tanggal baru.');
       if (!nd) return;
-      const r = await alertBox({ title: 'Tukar dengan siapa?', msg: 'Nama rekan yang bertukar jaga (boleh inisial)', input: s.swap ? s.swap.with : '', placeholder: 'dr. … / inisial', buttons: [{ t: 'Batal' }, { t: 'Lanjut', b: 1 }] });
-      if (r.btn !== 1) return;
+      const who = await personPicker('Tukar dengan siapa?', s.swap ? s.swap.with : '');
+      if (who == null) return;
+      const r = { value: who };
       const r2 = await alertBox({ title: 'Pos / Jenis Jaga di Tanggal Baru', msg: 'Ubah bila posnya berbeda (mis. IGD PJT – Malam)', input: s.type, buttons: [{ t: 'Batal' }, { t: 'Simpan', b: 1 }] });
       if (r2.btn !== 1) return;
       const from = s.swap ? s.swap.from : s.date, fromType = s.swap ? s.swap.fromType : s.type;
