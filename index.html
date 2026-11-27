@@ -138,6 +138,8 @@ svg{display:block}
 .rw.hasimg .row{padding-right:72px}
 .acts{position:absolute;top:0;bottom:0;display:flex}
 .acts.r{right:0}.acts.l{left:0}
+.rw .acts{visibility:hidden}.rw.sl .acts.l,.rw.sr .acts.r{visibility:visible}
+.rw.sl .row,.rw.sr .row{background:var(--cell)!important}
 .acts button{width:76px;color:#fff;font-size:13px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px}
 .acts .ic{width:22px;height:22px}
 .a-del{background:var(--red)}.a-pin{background:var(--orange)}.a-mov{background:var(--indigo)}.a-res{background:var(--blue)}
@@ -477,7 +479,7 @@ svg{display:block}
 <script>
 {
 /* ================= penyimpanan di perangkat (IndexedDB) ================= */
-const APP_VERSION = 'v37';
+const APP_VERSION = 'v38';
 const ERRLOG = [];
 addEventListener('error', (e) => ERRLOG.push(new Date().toTimeString().slice(0, 8) + ' ' + (e.message || e.type)));
 addEventListener('unhandledrejection', (e) => ERRLOG.push(new Date().toTimeString().slice(0, 8) + ' ' + ((e.reason && (e.reason.name + ': ' + e.reason.message)) || e.reason)));
@@ -1702,7 +1704,9 @@ async function act(id, a) {
 // geser baris (swipe) & ketuk
 function bindRows(container) {
   let st = null;
-  const closeAll = (except) => $$('.rw.open', document).forEach((r) => { if (r !== except) { r.classList.remove('open'); $('.row', r).style.transform = ''; } });
+  const side = (rw, x) => { clearTimeout(rw._st); rw.classList.toggle('sl', x > 0); rw.classList.toggle('sr', x < 0); };
+  const hideSide = (rw) => { clearTimeout(rw._st); rw._st = setTimeout(() => { if (!rw.classList.contains('open') && !rw.classList.contains('drag')) rw.classList.remove('sl', 'sr'); }, 280); };
+  const closeAll = (except) => $$('.rw.open', document).forEach((r) => { if (r !== except) { r.classList.remove('open'); $('.row', r).style.transform = ''; hideSide(r); } });
   container.addEventListener('touchstart', (e) => {
     const rw = e.target.closest('.rw'); if (!rw || e.target.closest('.acts') || S.picked) return;
     const t = e.touches[0];
@@ -1716,16 +1720,16 @@ function bindRows(container) {
     const rW = $('.acts.r', st.rw).offsetWidth, lW = $('.acts.l', st.rw).offsetWidth;
     let x = st.base + dx;
     if (x < -rW) x = -rW + (x + rW) * .35; if (x > lW) x = lW + (x - lW) * .35;
-    st.dx = x; $('.row', st.rw).style.transform = `translateX(${x}px)`;
+    st.dx = x; side(st.rw, x); $('.row', st.rw).style.transform = `translateX(${x}px)`;
   }, { passive: false });
   container.addEventListener('touchend', () => {
     if (!st || st.mode !== 'h') { st = null; return; }
     const { rw, dx } = st; st = null; rw.classList.remove('drag');
     const rW = $('.acts.r', rw).offsetWidth, lW = $('.acts.l', rw).offsetWidth, row = $('.row', rw);
-    if (dx < -rw.offsetWidth * .62) { row.style.transform = ''; return act(rw.dataset.n, $('.acts.r button:last-child', rw).dataset.act); }
-    if (dx > rw.offsetWidth * .5) { row.style.transform = ''; return act(rw.dataset.n, $('.acts.l button', rw).dataset.act); }
+    if (dx < -rw.offsetWidth * .62) { row.style.transform = ''; hideSide(rw); return act(rw.dataset.n, $('.acts.r button:last-child', rw).dataset.act); }
+    if (dx > rw.offsetWidth * .5) { row.style.transform = ''; hideSide(rw); return act(rw.dataset.n, $('.acts.l button', rw).dataset.act); }
     const off = dx < -40 ? -rW : dx > 40 ? lW : 0;
-    rw.dataset.off = off; rw.classList.toggle('open', off !== 0); row.style.transform = off ? `translateX(${off}px)` : '';
+    rw.dataset.off = off; rw.classList.toggle('open', off !== 0); row.style.transform = off ? `translateX(${off}px)` : ''; if (!off) hideSide(rw);
     rw._swiped = Date.now();
   });
   container.addEventListener('click', (e) => {
