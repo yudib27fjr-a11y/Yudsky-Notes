@@ -507,7 +507,7 @@ svg{display:block}
 <script>
 {
 /* ================= penyimpanan di perangkat (IndexedDB) ================= */
-const APP_VERSION = 'v46';
+const APP_VERSION = 'v47';
 const ERRLOG = [];
 addEventListener('error', (e) => ERRLOG.push(new Date().toTimeString().slice(0, 8) + ' ' + (e.message || e.type)));
 addEventListener('unhandledrejection', (e) => ERRLOG.push(new Date().toTimeString().slice(0, 8) + ' ' + ((e.reason && (e.reason.name + ': ' + e.reason.message)) || e.reason)));
@@ -2675,6 +2675,7 @@ async function gemTest() {
 function busy(msg) {
   const ov = overlay(`<div class="al busy"><div class="spin"></div><h3>${esc(msg)}</h3><p class="bsub">Jangan tutup aplikasi</p></div>`);
   ov.set = (t) => { const h = $('h3', ov); if (h) h.textContent = t; };
+  ov.show = () => { const n = busy($('h3', ov)?.textContent || msg); ov.set = n.set; ov.close = n.close; };
   return ov;
 }
 
@@ -2749,11 +2750,106 @@ async function aiReadFiles(files, prompt, schema, bz) {
   return claudeJSON(content, schema);
 }
 
+/* ================= baca jadwal PDF langsung di HP (tanpa AI) ================= */
+let PDFJS = null;
+async function loadPdfJs() {
+  if (PDFJS) return PDFJS;
+  const m = await import('./lib/pdf.min.mjs');
+  m.GlobalWorkerOptions.workerSrc = new URL('./lib/pdf.worker.min.mjs', location.href).href;
+  PDFJS = m; return m;
+}
+const BULAN = ['januari', 'februari', 'maret', 'april', 'mei', 'juni', 'juli', 'agustus', 'september', 'oktober', 'november', 'desember'];
+const HARI_RE = /^(senin|selasa|rabu|kamis|jum'?at|sabtu|minggu|ahad)\b/i;
+const normTxt = (t) => String(t || '').toLowerCase().replace(/^dr\.?\s*/, '').replace(/[^a-z0-9 ]+/g, ' ').replace(/\s+/g, ' ').trim();
+async function pdfItems(file) {
+  const pj = await loadPdfJs();
+  const doc = await pj.getDocument({ data: new Uint8Array(await file.arrayBuffer()) }).promise;
+  const items = [];
+  for (let p = 1; p <= doc.numPages; p++) {
+    const pg = await doc.getPage(p), vp = pg.getViewport({ scale: 1 }), tc = await pg.getTextContent();
+    for (const it of tc.items) {
+      const str = String(it.str || '').replace(/[⁠​ ]/g, ' ').trim(); if (!str) continue;
+      const h = Math.abs(it.transform[3]) || it.height || 8;
+      items.push({ t: str, x: it.transform[4], y: (p - 1) * 100000 + (vp.height - it.transform[5]) - h / 2, w: it.width || str.length * h * .5, h, p });
+    }
+  }
+  return items;
+}
+// cari jaga milik nama/inisial tertentu di tabel jadwal
+function parseJadwal(items, names) {
+  const info = [];
+  const full = items.map((i) => i.t).join(' ');
+  // 1. inisial: dari alias yang berupa singkatan, atau dari daftar nama di jadwal
+  const inits = new Set(names.filter((n) => /^[A-Z]{2,4}$/.test(n)));
+  const longNames = names.filter((n) => !/^[A-Z]{2,4}$/.test(n)).map(normTxt).filter((n) => n.length > 3);
+  for (const it of items) {
+    const nt = normTxt(it.t);
+    if (!longNames.some((n) => nt === n || nt.includes(n) || (n.includes(nt) && nt.split(' ').length >= 2))) continue;
+    const right = items.filter((o) => o.p === it.p && Math.abs(o.y - it.y) < it.h * .7 && o.x > it.x && o.x - it.x < 260 && /^[A-Z]{2,4}$/.test(o.t)).sort((a, b) => a.x - b.x);
+    if (right[0]) { inits.add(right[0].t); info.push(it.t.replace(/[⁠]/g, '') + ' = ' + right[0].t); }
+  }
+  if (!inits.size) return { shifts: [], why: 'Nama tidak ditemukan di daftar nama jadwal. Isi “Nama Saya di Jadwal” dengan inisial juga, mis. "Yudi Wahyudi, YW".' };
+  // 2. bulan & tahun dari judul
+  // ambil dari teks paling atas yang memuat nama bulan utuh (judul), bukan dari nama orang
+  const monRe = new RegExp('\\b(' + BULAN.join('|') + '|jan|feb|mar|apr|jun|jul|agu|agt|sep|okt|nov|des)\\b', 'i');
+  const top = items.filter((i) => monRe.test(i.t)).sort((a, b) => a.y - b.y)[0];
+  let m0 = -1;
+  if (top) { const w = top.t.toLowerCase().match(monRe)[1]; m0 = BULAN.findIndex((b) => b.startsWith(w.slice(0, 3))); }
+  const topLine = top ? items.filter((i) => Math.abs(i.y - top.y) < top.h).map((i) => i.t).join(' ') : full;
+  const ym = topLine.match(/\b(20\d{2})\b/) || full.match(/\b(20\d{2})\b/); let year = ym ? +ym[1] : new Date().getFullYear();
+  if (m0 < 0) m0 = new Date().getMonth();
+  // 3. kolom tanggal & hari
+  const days = items.filter((i) => HARI_RE.test(i.t));
+  if (!days.length) return { shifts: [], why: 'Tabel jadwal tidak dikenali (tidak ada kolom hari).' };
+  const dayX = Math.min(...days.map((d) => d.x));
+  const dates = items.filter((i) => /^\d{1,2}$/.test(i.t) && +i.t >= 1 && +i.t <= 31 && i.x < dayX + 4).sort((a, b) => a.y - b.y);
+  // urutan bulan: angka tanggal turun -> bulan berikutnya
+  let mon = m0, yr = year, prev = 0;
+  for (const d of dates) { const n = +d.t; if (prev && n < prev - 3) { mon++; if (mon > 11) { mon = 0; yr++; } } d.ym = [yr, mon]; prev = n; }
+  // 4. judul kolom: baris yang memuat "TANGGAL"/"HARI"
+  const hdr = items.find((i) => /^tanggal$|^tgl\.?$/i.test(i.t)) || items.find((i) => /^hari$/i.test(i.t));
+  const hy = hdr ? hdr.y : Math.min(...days.map((d) => d.y)) - 12, hp = hdr ? hdr.p : days[0].p;
+  const firstRowY = Math.min(...dates.filter((d) => d.p === hp).map((d) => d.y).concat(days.filter((d) => d.p === hp).map((d) => d.y)));
+  const band = items.filter((i) => i.p === hp && i.y > hy - 7 && i.y < Math.max(hy + 1, firstRowY - 2.5) && i.x > dayX + 10);
+  const noHdr = band.filter((i) => /^no\.?$/i.test(i.t)).sort((a, b) => a.x - b.x)[0];
+  const tableRight = noHdr ? noHdr.x - 2 : Infinity;
+  const hcols = band.filter((i) => i.x < tableRight).sort((a, b) => a.x - b.x);
+  const cols = [];
+  for (const it of hcols) { const c = cols.find((c) => Math.abs(c.x - it.x) < 5); if (c) c.parts.push(it); else cols.push({ x: it.x, parts: [it] }); }
+  cols.sort((a, b) => a.x - b.x);
+  const titleCase = (s) => s.toLowerCase().replace(/\b([a-z])/g, (m) => m.toUpperCase()).replace(/\b(Pjt|Igd|Cvcu|Iccu|Icu|Rsws|Rsuh|Pcc|Uh|Lb|Ok|Hcu)\b/g, (m) => m.toUpperCase());
+  cols.forEach((c) => { c.name = titleCase(c.parts.sort((a, b) => a.y - b.y || a.x - b.x).map((p) => p.t).join(' ')); });
+  // 5. sel berisi inisial
+  const shifts = [];
+  for (const it of items) {
+    if (!inits.has(it.t) || it.x <= dayX + 10 || it.x >= tableRight) continue;
+    if (it.p === hp && it.y < firstRowY - 3) continue;
+    const day = days.filter((d) => d.p === it.p).sort((a, b) => Math.abs(a.y - it.y) - Math.abs(b.y - it.y))[0];
+    if (!day || Math.abs(day.y - it.y) > it.h * 1.2) continue;
+    const dt = dates.filter((d) => d.p === it.p).sort((a, b) => Math.abs(a.y - it.y) - Math.abs(b.y - it.y))[0];
+    if (!dt || Math.abs(dt.y - it.y) > it.h * 2.2) continue;
+    const col = cols.filter((c) => c.x <= it.x + 3).pop();
+    const part = /pagi/i.test(day.t) ? 'Pagi' : /malam/i.test(day.t) ? 'Malam' : /siang|sore/i.test(day.t) ? 'Sore' : '';
+    const date = dt.ym[0] + '-' + pad2(dt.ym[1] + 1) + '-' + pad2(+dt.t);
+    // cek hari cocok dengan tanggal
+    const realDay = new Date(dt.ym[0], dt.ym[1], +dt.t).toLocaleDateString('id-ID', { weekday: 'long' }).toLowerCase();
+    const note = day.t.toLowerCase().startsWith(realDay.slice(0, 4)) ? '' : 'periksa tanggal (' + day.t + ')';
+    shifts.push({ date, start: '', end: '', type: [col ? col.name : 'Jaga', part].filter(Boolean).join(' – '), place: '', partner: '', note });
+  }
+  const seen = new Set();
+  return { shifts: shifts.filter((s) => { const k = s.date + s.type; if (seen.has(k)) return false; seen.add(k); return true; }), info: 'Dibaca langsung dari PDF (tanpa AI). ' + info.join(', ') };
+}
+async function jagaFromPdfLocal(file) {
+  const items = await pdfItems(file);
+  if (items.length < 20) return { shifts: [], why: 'PDF ini berupa gambar/scan (tidak ada teks).', scan: true };
+  return parseJadwal(items, [JAGA.name, ...String(JAGA.alias || '').split(',')].map((x) => x.trim()).filter(Boolean));
+}
+
 /* ================= Jadwal Jaga ================= */
-let JAGA = { name: '', alias: '', shifts: [], srcs: [], remind: { pre: 120, eve: true, on: false } };
+let JAGA = { name: '', alias: '', shifts: [], srcs: [], remind: { pre: 120, eve: true, on: false }, hours: { biasa: ['14:00', '07:00'], pagi: ['07:00', '19:00'], malam: ['19:00', '07:00'] } };
 const pad2 = (n) => String(n).padStart(2, '0');
 const ymd = (d) => d.getFullYear() + '-' + pad2(d.getMonth() + 1) + '-' + pad2(d.getDate());
-const DEFTIME = (t) => /malam|night/i.test(t) ? ['21:00', '07:00'] : /sore|siang|afternoon/i.test(t) ? ['14:00', '21:00'] : /24/.test(t) ? ['07:00', '07:00'] : ['07:00', '14:00'];
+const DEFTIME = (t) => { const H = JAGA.hours || {}; return /malam|night/i.test(t) ? (H.malam || ['19:00', '07:00']) : /pagi|morning/i.test(t) ? (H.pagi || ['07:00', '19:00']) : /24/.test(t) ? ['07:00', '07:00'] : (H.biasa || ['14:00', '07:00']); };
 function jStart(s) { const [y, m, d] = s.date.split('-').map(Number); const [h, mi] = (s.start || DEFTIME(s.type)[0]).split(':').map(Number); return new Date(y, m - 1, d, h || 0, mi || 0); }
 function jEnd(s) { const st = jStart(s); const [h, mi] = (s.end || DEFTIME(s.type)[1]).split(':').map(Number); const e = new Date(st); e.setHours(h || 0, mi || 0, 0, 0); if (e <= st) e.setDate(e.getDate() + 1); return e; }
 const jSorted = () => [...JAGA.shifts].sort((a, b) => jStart(a) - jStart(b));
@@ -2767,7 +2863,7 @@ function jWhen(s) {
 const jDate = (s, o = { weekday: 'long', day: 'numeric', month: 'long' }) => jStart(s).toLocaleDateString('id-ID', o);
 const jTime = (s) => (s.start || DEFTIME(s.type)[0]).replace(':', '.') + '–' + (s.end || DEFTIME(s.type)[1]).replace(':', '.');
 async function saveJaga() { await DB.setMeta('jaga', JAGA); }
-async function loadJaga() { CLKEY = (await DB.getMeta('claudeKey')) || ''; AIPROV = (await DB.getMeta('aiProv')) || 'gemini'; const j = await DB.getMeta('jaga'); if (j && typeof j === 'object') JAGA = { ...JAGA, ...j, remind: { ...JAGA.remind, ...(j.remind || {}) } }; GEMKEY = (await DB.getMeta('gemKey')) || ''; GEMMODEL = (await DB.getMeta('gemModel')) || ''; }
+async function loadJaga() { CLKEY = (await DB.getMeta('claudeKey')) || ''; AIPROV = (await DB.getMeta('aiProv')) || 'gemini'; const j = await DB.getMeta('jaga'); if (j && typeof j === 'object') JAGA = { ...JAGA, ...j, remind: { ...JAGA.remind, ...(j.remind || {}) }, hours: { ...JAGA.hours, ...(j.hours || {}) } }; GEMKEY = (await DB.getMeta('gemKey')) || ''; GEMMODEL = (await DB.getMeta('gemModel')) || ''; }
 
 function jagaCardHTML() {
   const nx = jUpcoming()[0];
@@ -2787,6 +2883,7 @@ function renderJaga() {
    <div class="group">
     <button class="srow" data-jk="upload">${SIC('#34C759', 'M12 16V4M7 9l5-5 5 5M4 20h16')}<span class="lb">Unggah Jadwal (Foto / PDF)</span>${I.chev}</button>
     <button class="srow" data-jk="name">${SIC('#007AFF', 'M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM4.5 20a7.5 7.5 0 0 1 15 0')}<span class="lb">Nama Saya di Jadwal</span><span class="vl">${esc(JAGA.name || 'Belum diisi')}</span>${I.chev}</button>
+    <button class="srow" data-jk="hours">${SIC('#8E8E93', 'M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zM12 7v5l3 2')}<span class="lb">Jam Jaga Bawaan</span><span class="vl">${esc((JAGA.hours.biasa || []).join('–').replace(/:/g, '.'))}</span>${I.chev}</button>
     <button class="srow" data-jk="remind">${SIC('#FF9500', 'M6 16V11a6 6 0 0 1 12 0v5l1.5 2h-15zM10 20.5a2 2 0 0 0 4 0')}<span class="lb">Pengingat</span><span class="vl">${remTxt}</span>${I.chev}</button>
     <button class="srow" data-jk="cal">${SIC('#5856D6', FICONS.calendar)}<span class="lb">Masukkan ke Kalender HP</span>${I.chev}</button>
     ${JAGA.srcs.length ? `<button class="srow" data-jk="srcs">${SIC('#8E8E93', 'M7 3h7l5 5v13H7zM14 3v5h5')}<span class="lb">Jadwal Asli</span><span class="vl">${JAGA.srcs.length} file</span>${I.chev}</button>` : ''}
@@ -2812,10 +2909,27 @@ const JSCHEMA = { type: 'OBJECT', properties: {
 async function jagaUpload(files) {
   files = [...files].filter((f) => /^image\/|pdf$/i.test(f.type) || /\.(pdf|jpe?g|png|heic|webp)$/i.test(f.name || ''));
   if (!files.length) return toast('Pilih foto atau PDF');
-  if (AIPROV === 'gemini' ? !(await ensureGemKey()) : !(await ensureClaudeKey())) return;
   if (!JAGA.name && !(await askJagaName(true))) return;
-  const bz = busy('Menyiapkan jadwal…');
+  const bz = busy('Membaca jadwal…');
   try {
+    // 1) PDF teks (mis. dari Excel): baca langsung di HP, cepat & tanpa internet
+    let res = null, localWhy = '';
+    const isPdf = (f) => /pdf$/i.test(f.type) || /\.pdf$/i.test(f.name || '');
+    if (files.every(isPdf)) {
+      const all = []; const infos = [];
+      for (const f of files) {
+        try { const r = await jagaFromPdfLocal(f); all.push(...r.shifts); if (r.info) infos.push(r.info); if (!r.shifts.length) localWhy = r.why || ''; }
+        catch (e) { ERRLOG.push('pdf lokal: ' + e.message); localWhy = 'PDF tidak bisa dibaca langsung (' + e.message + ').'; }
+      }
+      if (all.length) res = { shifts: all, info: infos.join(' ') };
+    }
+    if (!res) {
+      bz.close();
+      if (localWhy) { const r = await alertBox({ title: 'Belum ketemu', msg: localWhy + '\n\nCoba baca dengan AI ' + (AIPROV === 'gemini' ? 'Gemini' : 'Claude') + '?', buttons: [{ t: 'Batal' }, { t: 'Pakai AI', b: 1 }] }); if (r.btn !== 1) return; }
+      if (AIPROV === 'gemini' ? !(await ensureGemKey()) : !(await ensureClaudeKey())) return;
+      bz.show();
+    }
+    if (!res) {
     const today = new Date();
     const prompt = `Lampiran di atas adalah jadwal jaga/dinas dokter residen (bisa berupa tabel, foto kertas, atau PDF; bisa lebih dari satu halaman).
 Tugas: temukan SEMUA jadwal jaga milik orang bernama "${JAGA.name}"${JAGA.alias ? ` (juga bisa tertulis: ${JAGA.alias})` : ''}.
@@ -2829,7 +2943,8 @@ Tugas: temukan SEMUA jadwal jaga milik orang bernama "${JAGA.name}"${JAGA.alias 
 - Jika nama tidak ditemukan: found=false, shifts kosong, dan tulis di info nama-nama yang mirip.
 - info: ringkasan singkat (bulan/periode jadwal, legenda kode).
 Jawab dalam bahasa Indonesia.`;
-    const res = await aiReadFiles(files, prompt, JSCHEMA, bz);
+    res = await aiReadFiles(files, prompt, JSCHEMA, bz);
+    }
     bz.close(); if (!res) return;
     const shifts = (res.shifts || []).filter((s) => /^\d{4}-\d{2}-\d{2}$/.test(s.date || '')).map((s) => ({ id: 'j' + uid(), date: s.date, start: /^\d{1,2}[:.]\d{2}$/.test(s.start || '') ? pad2(s.start.split(/[:.]/)[0]) + ':' + s.start.split(/[:.]/)[1] : '', end: /^\d{1,2}[:.]\d{2}$/.test(s.end || '') ? pad2(s.end.split(/[:.]/)[0]) + ':' + s.end.split(/[:.]/)[1] : '', type: (s.type || 'Jaga').trim(), place: (s.place || '').trim(), partner: (s.partner || '').trim(), note: (s.note || '').trim() }));
     if (!shifts.length) {
@@ -2853,7 +2968,7 @@ function jagaReview(shifts, res) {
   return new Promise((done) => {
     const ov = overlay(`<div class="jrv"><div class="jrh"><button data-x>Batal</button><b>${shifts.length} jaga ditemukan</b><button data-ok class="b">Simpan</button></div>
      <div class="jrs">${res.matchedName ? `<p class="jri">Nama di jadwal: <b>${esc(res.matchedName)}</b></p>` : ''}${res.info ? `<p class="jri">${esc(res.info)}</p>` : ''}
-     ${shifts.map((s, i) => `<label class="jrr"><input type="checkbox" checked data-i="${i}"><span><b>${esc(jDate(s))}</b><small>${esc(s.type)} · ${jTime(s)}${s.start ? '' : ' (perkiraan)'}${s.place ? ' · ' + esc(s.place) : ''}${s.partner ? ' · ' + esc(s.partner) : ''}${s.note ? '<br>' + esc(s.note) : ''}</small></span></label>`).join('')}
+     ${shifts.map((s, i) => `<label class="jrr"><input type="checkbox" checked data-i="${i}"><span><b>${esc(jDate(s))}</b><small>${esc(s.type)} · ${jTime(s)}${s.start ? '' : ' (jam bawaan)'}${s.place ? ' · ' + esc(s.place) : ''}${s.partner ? ' · ' + esc(s.partner) : ''}${s.note ? '<br>' + esc(s.note) : ''}</small></span></label>`).join('')}
      <p class="jri">Periksa dulu — hapus centang jika ada yang salah. Jam bisa diubah nanti dengan mengetuk jadwalnya.</p></div></div>`);
     ov.addEventListener('click', (e) => {
       if (e.target.closest('[data-x]')) { ov.close(); done(null); }
@@ -2951,6 +3066,16 @@ $('#jagaBody').addEventListener('click', async (e) => {
     renderJaga();
   }
   if (k === 'cal') jagaToCalendar();
+  if (k === 'hours') {
+    const keys = [['biasa', 'Jaga hari biasa (tanpa Pagi/Malam)'], ['pagi', 'Jaga Pagi (akhir pekan/libur)'], ['malam', 'Jaga Malam (akhir pekan/libur)']];
+    const i = await sheet({ title: 'Jam Jaga Bawaan — dipakai bila jadwal tidak menulis jam', items: keys.map(([k2, l]) => ({ t: l + ': ' + JAGA.hours[k2].join('–') })) });
+    if (i < 0) return;
+    const [k2, l] = keys[i];
+    const r = await alertBox({ title: l, msg: 'Mulai–selesai, mis. 14:00-07:00', input: JAGA.hours[k2].join('-'), buttons: [{ t: 'Batal' }, { t: 'Simpan', b: 1 }] });
+    const m = r.btn === 1 && r.value.match(/(\d{1,2})[:.](\d{2})\s*[-–]\s*(\d{1,2})[:.](\d{2})/);
+    if (m) { JAGA.hours[k2] = [pad2(m[1]) + ':' + m[2], pad2(m[3]) + ':' + m[4]]; await saveJaga(); renderJaga(); renderFolders(); toast('Jam disimpan — berlaku untuk jaga tanpa jam khusus'); }
+    else if (r.btn === 1) toast('Format jam salah');
+  }
   if (k === 'add') { const s = { id: 'j' + uid(), date: ymd(new Date()), type: 'Jaga Malam', start: '', end: '', place: '', partner: '', note: '' }; if (await editShift(s, true)) { JAGA.shifts.push(s); await saveJaga(); renderJaga(); renderFolders(); } }
   if (k === 'srcs') {
     const i = await sheet({ title: 'Jadwal Asli', items: [...JAGA.srcs.map((x) => ({ t: x.name + ' · ' + new Date(x.at).toLocaleDateString('id-ID', { day: 'numeric', month: 'short' }) })), { t: 'Hapus Semua File Asli', des: 1 }] });

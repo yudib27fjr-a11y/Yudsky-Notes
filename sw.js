@@ -2,7 +2,7 @@
 // Aturan: coba ambil versi terbaru dari internet maksimal 2,5 detik.
 // Kalau internet lambat/mati, langsung pakai salinan tersimpan (aplikasi tidak pernah macet di logo),
 // sambil memperbarui salinan di belakang layar.
-const CACHE = 'yudsky-notes-v46';
+const CACHE = 'yudsky-notes-v47';
 const SHARE = 'yudsky-share';   // kotak masuk sementara untuk isi yang dibagikan dari aplikasi lain
 const FILES = ['./', './index.html', './manifest.webmanifest', './icon-192.png', './icon-512.png'];
 const WAIT = 2500;
@@ -71,7 +71,7 @@ async function jagaCheckSW() {
   const J = await idbMeta('readonly', (s) => s.get('jaga'));
   if (!J || !J.remind || !J.remind.on || !Array.isArray(J.shifts)) return;
   const sent = (await idbMeta('readonly', (s) => s.get('jagaNotif'))) || {}, now = Date.now(); let ch = false;
-  const DT = (t) => /malam|night/i.test(t) ? ['21:00', '07:00'] : /sore|siang/i.test(t) ? ['14:00', '21:00'] : ['07:00', '14:00'];
+  const H = J.hours || {}; const DT = (t) => /malam|night/i.test(t) ? (H.malam || ['19:00', '07:00']) : /pagi/i.test(t) ? (H.pagi || ['07:00', '19:00']) : /24/.test(t) ? ['07:00', '07:00'] : (H.biasa || ['14:00', '07:00']);
   for (const s of J.shifts) {
     const [y, m, d] = String(s.date).split('-').map(Number); const [h, mi] = (s.start || DT(s.type)[0]).split(':').map(Number);
     const st = new Date(y, m - 1, d, h || 0, mi || 0).getTime(); if (!(st > now)) continue;
