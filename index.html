@@ -507,7 +507,7 @@ svg{display:block}
 <script>
 {
 /* ================= penyimpanan di perangkat (IndexedDB) ================= */
-const APP_VERSION = 'v47';
+const APP_VERSION = 'v48';
 const ERRLOG = [];
 addEventListener('error', (e) => ERRLOG.push(new Date().toTimeString().slice(0, 8) + ' ' + (e.message || e.type)));
 addEventListener('unhandledrejection', (e) => ERRLOG.push(new Date().toTimeString().slice(0, 8) + ' ' + ((e.reason && (e.reason.name + ': ' + e.reason.message)) || e.reason)));
@@ -3045,10 +3045,15 @@ $('#jagaBody').addEventListener('click', async (e) => {
   const j = e.target.closest('[data-j]');
   if (j) {
     const s = JAGA.shifts.find((x) => x.id === j.dataset.j); if (!s) return;
-    const i = await sheet({ title: jDate(s) + ' · ' + s.type + ' ' + jTime(s), items: [{ t: 'Tambah ke Google Calendar' }, { t: 'Ubah' }, { t: 'Hapus', des: 1 }] });
-    if (i === 0) window.open(gcalURL(s), '_blank', 'noopener');
+    const i = await sheet({ title: jDate(s) + ' · ' + s.type + ' ' + jTime(s), items: [{ t: 'Ubah Jam' }, { t: 'Ubah Tanggal / Jenis / Tempat' }, { t: 'Tambah ke Google Calendar' }, { t: 'Hapus', des: 1 }] });
+    if (i === 0) {
+      const r = await alertBox({ title: 'Jam Jaga', msg: jDate(s) + ' · ' + s.type + '\nMulai–selesai, mis. 14:00-07:00', input: (s.start || DEFTIME(s.type)[0]) + '-' + (s.end || DEFTIME(s.type)[1]), buttons: [{ t: 'Batal' }, { t: 'Simpan', b: 1 }] });
+      const m = r.btn === 1 && r.value.match(/(\d{1,2})[:.](\d{2})\s*[-–]\s*(\d{1,2})[:.](\d{2})/);
+      if (m) { s.start = pad2(m[1]) + ':' + m[2]; s.end = pad2(m[3]) + ':' + m[4]; await saveJaga(); renderJaga(); renderFolders(); toast('Jam diubah'); } else if (r.btn === 1) toast('Format jam salah, contoh 14:00-07:00');
+    }
+    if (i === 2) window.open(gcalURL(s), '_blank', 'noopener');
     if (i === 1 && await editShift(s)) { await saveJaga(); renderJaga(); renderFolders(); }
-    if (i === 2) { JAGA.shifts = JAGA.shifts.filter((x) => x !== s); await saveJaga(); renderJaga(); renderFolders(); toast('Dihapus'); }
+    if (i === 3) { JAGA.shifts = JAGA.shifts.filter((x) => x !== s); await saveJaga(); renderJaga(); renderFolders(); toast('Dihapus'); }
     return;
   }
   const k = e.target.closest('[data-jk]')?.dataset.jk; if (!k) return;
