@@ -507,7 +507,7 @@ svg{display:block}
 <script>
 {
 /* ================= penyimpanan di perangkat (IndexedDB) ================= */
-const APP_VERSION = 'v40';
+const APP_VERSION = 'v41';
 const ERRLOG = [];
 addEventListener('error', (e) => ERRLOG.push(new Date().toTimeString().slice(0, 8) + ' ' + (e.message || e.type)));
 addEventListener('unhandledrejection', (e) => ERRLOG.push(new Date().toTimeString().slice(0, 8) + ' ' + ((e.reason && (e.reason.name + ': ' + e.reason.message)) || e.reason)));
@@ -2024,8 +2024,7 @@ async function renderSettings() {
   <div class="st">AI & Jadwal</div><div class="group">
     ${row('jaga', SIC('#FF3B30', FICONS.calendar), 'Jadwal Jaga', chev)}
     ${row('aiprov', SIC('#AF52DE', 'M12 3c.6 4.6 3.4 7.4 9 9-5.6 1.6-8.4 4.4-9 9-.6-4.6-3.4-7.4-9-9 5.6-1.6 8.4-4.4 9-9z'), 'AI Pembaca Jadwal', vl(AIPROV === 'gemini' ? 'Gemini' : 'Claude') + chev)}
-    ${row('claude', SIC('#D97757', 'M12 3v18M3 12h18M5.6 5.6l12.8 12.8M18.4 5.6L5.6 18.4'), 'Kunci API Claude', vl(CLKEY ? 'Tersimpan' : 'Belum') + chev)}
-    ${AIPROV === 'gemini' ? row('gemini', SIC('#4285F4', 'M12 3c.6 4.6 3.4 7.4 9 9-5.6 1.6-8.4 4.4-9 9-.6-4.6-3.4-7.4-9-9 5.6-1.6 8.4-4.4 9-9z'), 'Kunci API Gemini', vl(GEMKEY ? 'Tersimpan' : 'Belum') + chev) : ''}
+    ${AIPROV === 'gemini' ? row('gemini', SIC('#4285F4', 'M12 3c.6 4.6 3.4 7.4 9 9-5.6 1.6-8.4 4.4-9 9-.6-4.6-3.4-7.4-9-9 5.6-1.6 8.4-4.4 9-9z'), 'Kunci API Gemini', vl(GEMKEY ? 'Tersimpan' : 'Belum') + chev) : row('claude', SIC('#D97757', 'M12 3v18M3 12h18M5.6 5.6l12.8 12.8M18.4 5.6L5.6 18.4'), 'Kunci API Claude', vl(CLKEY ? 'Tersimpan' : 'Belum') + chev)}
   </div>
   <div class="st">Aplikasi</div><div class="group">
     ${row('update', SIC('#FF9500', 'M4 12a8 8 0 1 0 2.4-5.7M4 4v4.5h4.5'), 'Periksa Pembaruan', vl(APP_VERSION) + chev)}
@@ -2060,7 +2059,7 @@ $('#setBody').addEventListener('click', async (e) => {
     case 'jaga': back(); openJaga(); return;
     case 'gemini': await ensureGemKey(true); break;
     case 'claude': await ensureClaudeKey(true); break;
-    case 'aiprov': { const i = await sheet({ title: 'AI Pembaca Jadwal', items: [{ t: (AIPROV === 'claude' ? '✓ ' : '') + 'Claude (berbayar, sangat akurat)' }, { t: (AIPROV === 'gemini' ? '✓ ' : '') + 'Gemini Google (gratis)' }] }); if (i >= 0) { AIPROV = i ? 'gemini' : 'claude'; await DB.setMeta('aiProv', AIPROV); } break; }
+    case 'aiprov': { const i = await sheet({ title: 'AI Pembaca Jadwal', items: [{ t: (AIPROV === 'gemini' ? '✓ ' : '') + 'Gemini Google (gratis)' }, { t: (AIPROV === 'claude' ? '✓ ' : '') + 'Claude (berbayar)' }] }); if (i >= 0) { AIPROV = i ? 'claude' : 'gemini'; await DB.setMeta('aiProv', AIPROV); } break; }
   }
   if (S.stack[S.stack.length - 1] === 'settings') renderSettings();
 });
@@ -2635,7 +2634,7 @@ function busy(msg) {
 
 
 /* ================= Claude (Anthropic) ================= */
-let CLKEY = '', AIPROV = 'claude';
+let CLKEY = '', AIPROV = 'gemini';
 async function ensureClaudeKey(force) {
   if (CLKEY && !force) return CLKEY;
   const { btn, value } = await alertBox({ title: 'Kunci API Claude', msg: 'Buka platform.claude.com → masuk/daftar → Billing: isi saldo (mis. $5) → API Keys → Create Key → salin, lalu tempel di sini. Membaca satu jadwal biasanya di bawah Rp1.000. Kunci hanya tersimpan di HP ini.', input: CLKEY, placeholder: 'sk-ant-…', buttons: [{ t: 'Batal' }, { t: 'Buka Situs' }, { t: 'Simpan', b: 1 }] });
@@ -2722,7 +2721,7 @@ function jWhen(s) {
 const jDate = (s, o = { weekday: 'long', day: 'numeric', month: 'long' }) => jStart(s).toLocaleDateString('id-ID', o);
 const jTime = (s) => (s.start || DEFTIME(s.type)[0]).replace(':', '.') + '–' + (s.end || DEFTIME(s.type)[1]).replace(':', '.');
 async function saveJaga() { await DB.setMeta('jaga', JAGA); }
-async function loadJaga() { CLKEY = (await DB.getMeta('claudeKey')) || ''; AIPROV = (await DB.getMeta('aiProv')) || 'claude'; const j = await DB.getMeta('jaga'); if (j && typeof j === 'object') JAGA = { ...JAGA, ...j, remind: { ...JAGA.remind, ...(j.remind || {}) } }; GEMKEY = (await DB.getMeta('gemKey')) || ''; GEMMODEL = (await DB.getMeta('gemModel')) || ''; }
+async function loadJaga() { CLKEY = (await DB.getMeta('claudeKey')) || ''; AIPROV = (await DB.getMeta('aiProv')) || 'gemini'; const j = await DB.getMeta('jaga'); if (j && typeof j === 'object') JAGA = { ...JAGA, ...j, remind: { ...JAGA.remind, ...(j.remind || {}) } }; GEMKEY = (await DB.getMeta('gemKey')) || ''; GEMMODEL = (await DB.getMeta('gemModel')) || ''; }
 
 function jagaCardHTML() {
   const nx = jUpcoming()[0];
