@@ -507,7 +507,7 @@ svg{display:block}
 <script>
 {
 /* ================= penyimpanan di perangkat (IndexedDB) ================= */
-const APP_VERSION = 'v39';
+const APP_VERSION = 'v40';
 const ERRLOG = [];
 addEventListener('error', (e) => ERRLOG.push(new Date().toTimeString().slice(0, 8) + ' ' + (e.message || e.type)));
 addEventListener('unhandledrejection', (e) => ERRLOG.push(new Date().toTimeString().slice(0, 8) + ' ' + ((e.reason && (e.reason.name + ': ' + e.reason.message)) || e.reason)));
@@ -2023,7 +2023,9 @@ async function renderSettings() {
   <div class="sf">${live().length} catatan · ${used} terpakai di HP ini</div>
   <div class="st">AI & Jadwal</div><div class="group">
     ${row('jaga', SIC('#FF3B30', FICONS.calendar), 'Jadwal Jaga', chev)}
-    ${row('gemini', SIC('#4285F4', 'M12 3c.6 4.6 3.4 7.4 9 9-5.6 1.6-8.4 4.4-9 9-.6-4.6-3.4-7.4-9-9 5.6-1.6 8.4-4.4 9-9z'), 'Kunci API Gemini', vl(GEMKEY ? 'Tersimpan' : 'Belum') + chev)}
+    ${row('aiprov', SIC('#AF52DE', 'M12 3c.6 4.6 3.4 7.4 9 9-5.6 1.6-8.4 4.4-9 9-.6-4.6-3.4-7.4-9-9 5.6-1.6 8.4-4.4 9-9z'), 'AI Pembaca Jadwal', vl(AIPROV === 'gemini' ? 'Gemini' : 'Claude') + chev)}
+    ${row('claude', SIC('#D97757', 'M12 3v18M3 12h18M5.6 5.6l12.8 12.8M18.4 5.6L5.6 18.4'), 'Kunci API Claude', vl(CLKEY ? 'Tersimpan' : 'Belum') + chev)}
+    ${AIPROV === 'gemini' ? row('gemini', SIC('#4285F4', 'M12 3c.6 4.6 3.4 7.4 9 9-5.6 1.6-8.4 4.4-9 9-.6-4.6-3.4-7.4-9-9 5.6-1.6 8.4-4.4 9-9z'), 'Kunci API Gemini', vl(GEMKEY ? 'Tersimpan' : 'Belum') + chev) : ''}
   </div>
   <div class="st">Aplikasi</div><div class="group">
     ${row('update', SIC('#FF9500', 'M4 12a8 8 0 1 0 2.4-5.7M4 4v4.5h4.5'), 'Periksa Pembaruan', vl(APP_VERSION) + chev)}
@@ -2057,6 +2059,8 @@ $('#setBody').addEventListener('click', async (e) => {
     case 'diag': diagnose(); break;
     case 'jaga': back(); openJaga(); return;
     case 'gemini': await ensureGemKey(true); break;
+    case 'claude': await ensureClaudeKey(true); break;
+    case 'aiprov': { const i = await sheet({ title: 'AI Pembaca Jadwal', items: [{ t: (AIPROV === 'claude' ? '✓ ' : '') + 'Claude (berbayar, sangat akurat)' }, { t: (AIPROV === 'gemini' ? '✓ ' : '') + 'Gemini Google (gratis)' }] }); if (i >= 0) { AIPROV = i ? 'gemini' : 'claude'; await DB.setMeta('aiProv', AIPROV); } break; }
   }
   if (S.stack[S.stack.length - 1] === 'settings') renderSettings();
 });
@@ -2629,6 +2633,77 @@ function busy(msg) {
   return ov;
 }
 
+
+/* ================= Claude (Anthropic) ================= */
+let CLKEY = '', AIPROV = 'claude';
+async function ensureClaudeKey(force) {
+  if (CLKEY && !force) return CLKEY;
+  const { btn, value } = await alertBox({ title: 'Kunci API Claude', msg: 'Buka platform.claude.com → masuk/daftar → Billing: isi saldo (mis. $5) → API Keys → Create Key → salin, lalu tempel di sini. Membaca satu jadwal biasanya di bawah Rp1.000. Kunci hanya tersimpan di HP ini.', input: CLKEY, placeholder: 'sk-ant-…', buttons: [{ t: 'Batal' }, { t: 'Buka Situs' }, { t: 'Simpan', b: 1 }] });
+  if (btn === 1) { window.open('https://platform.claude.com/', '_blank', 'noopener'); return ''; }
+  if (btn !== 2) return '';
+  const k = value.trim(); if (!k) return '';
+  CLKEY = k; await DB.setMeta('claudeKey', k); toast('Kunci API Claude disimpan'); return k;
+}
+const CLMODELS = ['claude-sonnet-5-5', 'claude-sonnet-5', 'claude-opus-5-5'];
+// buat skema JSON ketat (additionalProperties:false, semua properti wajib)
+function strictSchema(sc) {
+  const t = String(sc.type || '').toLowerCase(), o = { type: t };
+  if (t === 'object') { o.properties = {}; for (const [k, v] of Object.entries(sc.properties || {})) o.properties[k] = strictSchema(v); o.required = Object.keys(o.properties); o.additionalProperties = false; }
+  if (t === 'array') o.items = strictSchema(sc.items || { type: 'STRING' });
+  return o;
+}
+async function claudeJSON(content, schema) {
+  if (!navigator.onLine) throw new Error('Tidak ada internet. Sambungkan dulu lalu coba lagi.');
+  let lastErr = '';
+  for (const model of CLMODELS) {
+    const r = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', 'x-api-key': CLKEY, 'anthropic-version': '2023-06-01', 'anthropic-dangerous-direct-browser-access': 'true' },
+      body: JSON.stringify({ model, max_tokens: 16000, messages: [{ role: 'user', content }], output_config: { format: { type: 'json_schema', schema: strictSchema(schema) } } }),
+    }).catch(() => null);
+    if (!r) throw new Error('Tidak bisa menghubungi server Claude. Periksa internet.');
+    const j = await r.json().catch(() => ({}));
+    const m = (j.error && j.error.message) || '';
+    if (r.ok) {
+      const txt = (j.content || []).filter((b) => b.type === 'text').map((b) => b.text).join('');
+      if (!txt) throw new Error('Claude tidak memberi jawaban.');
+      return JSON.parse(txt);
+    }
+    if (r.status === 404 || /model/i.test(m) && r.status === 400) { lastErr = m; continue; }
+    if (r.status === 401) throw new Error('Kunci API Claude salah. Periksa lagi di Pengaturan → Kunci API Claude.');
+    if (r.status === 402 || /credit balance|billing/i.test(m)) throw new Error('Saldo API Claude habis. Isi saldo di platform.claude.com → Billing.');
+    if (r.status === 429) throw new Error('Terlalu banyak permintaan. Coba lagi sebentar.');
+    if (r.status === 529 || r.status >= 500) throw new Error('Server Claude sedang sibuk. Coba lagi beberapa saat.');
+    throw new Error('Claude error ' + r.status + (m ? ': ' + m.slice(0, 180) : ''));
+  }
+  throw new Error('Model Claude tidak tersedia' + (lastErr ? ': ' + lastErr.slice(0, 160) : ''));
+}
+// baca file (foto/PDF) + perintah -> JSON, memakai AI yang dipilih
+async function aiReadFiles(files, prompt, schema, bz) {
+  const prep = [];
+  for (const f of files) {
+    const isPdf = /pdf$/i.test(f.type) || /\.pdf$/i.test(f.name || '');
+    let blob = f, mime = isPdf ? 'application/pdf' : (f.type || 'image/jpeg');
+    if (!isPdf && (f.size > 3e6 || !/^image\/(jpeg|png|webp|gif)$/.test(mime))) { const s = await shrinkPhoto(f).catch(() => null); if (s) { blob = s; mime = 'image/jpeg'; } }
+    prep.push({ blob, mime, name: f.name || 'jadwal', isPdf });
+  }
+  if (AIPROV === 'gemini') {
+    if (!(await ensureGemKey())) return null;
+    const parts = []; for (const x of prep) parts.push(await gemPart(x.blob, x.name, x.mime));
+    parts.push({ text: prompt }); bz && bz.set('Membaca dengan Gemini…');
+    return gemJSON(parts, schema);
+  }
+  if (!(await ensureClaudeKey())) return null;
+  const content = [];
+  for (const x of prep) {
+    if (x.blob.size > 25e6) throw new Error(x.name + ' terlalu besar (' + fmtSize(x.blob.size) + '). Maksimal sekitar 25 MB.');
+    const data = await blobB64(x.blob);
+    content.push(x.isPdf ? { type: 'document', source: { type: 'base64', media_type: 'application/pdf', data } } : { type: 'image', source: { type: 'base64', media_type: x.mime, data } });
+  }
+  content.push({ type: 'text', text: prompt }); bz && bz.set('Membaca dengan Claude…');
+  return claudeJSON(content, schema);
+}
+
 /* ================= Jadwal Jaga ================= */
 let JAGA = { name: '', alias: '', shifts: [], srcs: [], remind: { pre: 120, eve: true, on: false } };
 const pad2 = (n) => String(n).padStart(2, '0');
@@ -2647,7 +2722,7 @@ function jWhen(s) {
 const jDate = (s, o = { weekday: 'long', day: 'numeric', month: 'long' }) => jStart(s).toLocaleDateString('id-ID', o);
 const jTime = (s) => (s.start || DEFTIME(s.type)[0]).replace(':', '.') + '–' + (s.end || DEFTIME(s.type)[1]).replace(':', '.');
 async function saveJaga() { await DB.setMeta('jaga', JAGA); }
-async function loadJaga() { const j = await DB.getMeta('jaga'); if (j && typeof j === 'object') JAGA = { ...JAGA, ...j, remind: { ...JAGA.remind, ...(j.remind || {}) } }; GEMKEY = (await DB.getMeta('gemKey')) || ''; GEMMODEL = (await DB.getMeta('gemModel')) || ''; }
+async function loadJaga() { CLKEY = (await DB.getMeta('claudeKey')) || ''; AIPROV = (await DB.getMeta('aiProv')) || 'claude'; const j = await DB.getMeta('jaga'); if (j && typeof j === 'object') JAGA = { ...JAGA, ...j, remind: { ...JAGA.remind, ...(j.remind || {}) } }; GEMKEY = (await DB.getMeta('gemKey')) || ''; GEMMODEL = (await DB.getMeta('gemModel')) || ''; }
 
 function jagaCardHTML() {
   const nx = jUpcoming()[0];
@@ -2675,7 +2750,7 @@ function renderJaga() {
    ${Object.entries(byMonth).map(([m, l]) => `<div class="sh">${esc(m)}</div><div class="group">${l.map((s) => rowH(s)).join('')}</div>`).join('')}
    ${past.length ? `<details class="jpast"><summary>Sudah lewat (${past.length})</summary><div class="group">${past.slice(0, 60).map((s) => rowH(s, 1)).join('')}</div></details>` : ''}
    ${JAGA.shifts.length ? `<button class="jclear" data-jk="clear">Hapus Semua Jadwal</button>` : ''}
-   <div class="sf">Foto/PDF jadwal dibaca oleh Gemini (Google). Pengingat muncul saat aplikasi dibuka; agar berbunyi walau aplikasi tertutup, pakai “Masukkan ke Kalender HP”.</div>`;
+   <div class="sf">Foto/PDF jadwal dibaca oleh ${AIPROV === 'gemini' ? 'Gemini (Google)' : 'Claude (Anthropic)'}. Pengingat muncul saat aplikasi dibuka; agar berbunyi walau aplikasi tertutup, pakai “Masukkan ke Kalender HP”.</div>`;
 }
 function openJaga() { renderJaga(); $('#sJaga').scrollTop = 0; push('jaga'); }
 
@@ -2692,19 +2767,12 @@ const JSCHEMA = { type: 'OBJECT', properties: {
 async function jagaUpload(files) {
   files = [...files].filter((f) => /^image\/|pdf$/i.test(f.type) || /\.(pdf|jpe?g|png|heic|webp)$/i.test(f.name || ''));
   if (!files.length) return toast('Pilih foto atau PDF');
-  if (!(await ensureGemKey())) return;
+  if (AIPROV === 'gemini' ? !(await ensureGemKey()) : !(await ensureClaudeKey())) return;
   if (!JAGA.name && !(await askJagaName(true))) return;
   const bz = busy('Menyiapkan jadwal…');
   try {
-    const parts = [];
-    for (const f of files) {
-      const isPdf = /pdf$/i.test(f.type) || /\.pdf$/i.test(f.name || '');
-      let blob = f, mime = isPdf ? 'application/pdf' : (f.type || 'image/jpeg');
-      if (!isPdf && (f.size > 3e6 || /heic|heif/i.test(f.type))) { const s = await shrinkPhoto(f).catch(() => null); if (s) { blob = s; mime = 'image/jpeg'; } }
-      parts.push(await gemPart(blob, f.name || 'jadwal', mime));
-    }
     const today = new Date();
-    parts.push({ text: `Lampiran di atas adalah jadwal jaga/dinas dokter residen (bisa berupa tabel, foto kertas, atau PDF; bisa lebih dari satu halaman).
+    const prompt = `Lampiran di atas adalah jadwal jaga/dinas dokter residen (bisa berupa tabel, foto kertas, atau PDF; bisa lebih dari satu halaman).
 Tugas: temukan SEMUA jadwal jaga milik orang bernama "${JAGA.name}"${JAGA.alias ? ` (juga bisa tertulis: ${JAGA.alias})` : ''}.
 - Nama bisa tertulis dengan gelar (dr.), singkatan, inisial, atau nama panggilan. Cocokkan dengan teliti; JANGAN ambil jaga orang lain. Jika ragu, cantumkan alasannya di note.
 - Hari ini ${today.toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}. Jika tahun tidak tertulis, pilih tahun yang paling masuk akal untuk bulan jadwal tersebut.
@@ -2714,10 +2782,9 @@ Tugas: temukan SEMUA jadwal jaga milik orang bernama "${JAGA.name}"${JAGA.alias 
 - place: ruangan/lokasi bila ada. partner: nama rekan yang jaga bersamaan bila tertera (singkat). note: keterangan lain yang penting, singkat.
 - Jika nama tidak ditemukan: found=false, shifts kosong, dan tulis di info nama-nama yang mirip.
 - info: ringkasan singkat (bulan/periode jadwal, legenda kode).
-Jawab dalam bahasa Indonesia.` });
-    bz.set('Membaca jadwal dengan Gemini…');
-    const res = await gemJSON(parts, JSCHEMA);
-    bz.close();
+Jawab dalam bahasa Indonesia.`;
+    const res = await aiReadFiles(files, prompt, JSCHEMA, bz);
+    bz.close(); if (!res) return;
     const shifts = (res.shifts || []).filter((s) => /^\d{4}-\d{2}-\d{2}$/.test(s.date || '')).map((s) => ({ id: 'j' + uid(), date: s.date, start: /^\d{1,2}[:.]\d{2}$/.test(s.start || '') ? pad2(s.start.split(/[:.]/)[0]) + ':' + s.start.split(/[:.]/)[1] : '', end: /^\d{1,2}[:.]\d{2}$/.test(s.end || '') ? pad2(s.end.split(/[:.]/)[0]) + ':' + s.end.split(/[:.]/)[1] : '', type: (s.type || 'Jaga').trim(), place: (s.place || '').trim(), partner: (s.partner || '').trim(), note: (s.note || '').trim() }));
     if (!shifts.length) {
       return alertBox({ title: 'Jaga Anda tidak ditemukan', msg: `Nama "${JAGA.name}" tidak ditemukan di jadwal.${res.info ? '\n\n' + res.info : ''}\n\nCoba ubah “Nama Saya di Jadwal” sesuai tulisan di jadwal, lalu unggah lagi.`, buttons: [{ t: 'OK', b: 1 }] });
