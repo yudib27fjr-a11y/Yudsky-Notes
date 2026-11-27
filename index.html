@@ -507,7 +507,7 @@ svg{display:block}
 <script>
 {
 /* ================= penyimpanan di perangkat (IndexedDB) ================= */
-const APP_VERSION = 'v41';
+const APP_VERSION = 'v42';
 const ERRLOG = [];
 addEventListener('error', (e) => ERRLOG.push(new Date().toTimeString().slice(0, 8) + ' ' + (e.message || e.type)));
 addEventListener('unhandledrejection', (e) => ERRLOG.push(new Date().toTimeString().slice(0, 8) + ' ' + ((e.reason && (e.reason.name + ': ' + e.reason.message)) || e.reason)));
@@ -2570,7 +2570,7 @@ let GEMKEY = '', GEMMODEL = '';
 const GEMBASE = 'https://generativelanguage.googleapis.com';
 async function ensureGemKey(force) {
   if (GEMKEY && !force) return GEMKEY;
-  const { btn, value } = await alertBox({ title: 'Kunci API Gemini', msg: 'Dipakai untuk membaca foto/PDF jadwal dan rekaman suara. Gratis: buka aistudio.google.com/apikey → masuk akun Google → Create API key → salin, lalu tempel di sini. Kunci hanya tersimpan di HP ini.', input: GEMKEY, placeholder: 'AIza…', buttons: [{ t: 'Batal' }, { t: 'Buka Situs' }, { t: 'Simpan', b: 1 }] });
+  const { btn, value } = await alertBox({ title: 'Kunci API Gemini', msg: 'Dipakai untuk membaca foto/PDF jadwal dan rekaman suara. Gratis: buka aistudio.google.com/apikey → masuk akun Google → Create API key → Copy key, lalu tempel di sini. Kunci hanya tersimpan di HP ini.', input: GEMKEY, placeholder: 'AQ.… atau AIza…', buttons: [{ t: 'Batal' }, { t: 'Buka Situs' }, { t: 'Simpan', b: 1 }] });
   if (btn === 1) { window.open('https://aistudio.google.com/apikey', '_blank', 'noopener'); return ''; }
   if (btn !== 2) return '';
   const k = value.trim(); if (!k) return '';
@@ -2587,7 +2587,7 @@ async function gemPickModel() {
         .map((m) => m.name.replace('models/', '')).filter((n) => /^gemini-[\d.]+-flash$/.test(n));
       const ver = (n) => parseFloat(n.split('-')[1]) || 0;
       ms.sort((a, b) => ver(b) - ver(a)); if (ms[0]) best = ms[0];
-    } else if (r.status === 400 || r.status === 403) throw new Error('KEY');
+    } else if (r.status === 400 || r.status === 401 || r.status === 403) throw new Error('KEY');
   } catch (e) { if (e.message === 'KEY') throw new Error('Kunci API Gemini tidak valid. Periksa lagi di Pengaturan.'); }
   GEMMODEL = best; DB.setMeta('gemModel', best); return best;
 }
@@ -2619,7 +2619,7 @@ async function gemJSON(parts, schema, retry = true) {
   if (!r.ok) {
     const m = (j.error && j.error.message) || '';
     if (r.status === 429) throw new Error('Batas pemakaian gratis Gemini sedang habis. Coba lagi beberapa menit lagi.');
-    if (r.status === 400 && /API key/i.test(m) || r.status === 403) throw new Error('Kunci API Gemini ditolak. Periksa lagi di Pengaturan → Kunci API Gemini.');
+    if (r.status === 400 && /API key/i.test(m) || r.status === 401 || r.status === 403) throw new Error('Kunci API Gemini ditolak. Periksa lagi di Pengaturan → Kunci API Gemini.');
     throw new Error('Gemini error ' + r.status + (m ? ': ' + m.slice(0, 160) : ''));
   }
   const txt = ((j.candidates && j.candidates[0] && j.candidates[0].content && j.candidates[0].content.parts) || []).map((p) => p.text || '').join('');
