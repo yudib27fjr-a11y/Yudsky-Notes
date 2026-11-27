@@ -507,7 +507,7 @@ svg{display:block}
 <script>
 {
 /* ================= penyimpanan di perangkat (IndexedDB) ================= */
-const APP_VERSION = 'v43';
+const APP_VERSION = 'v44';
 const ERRLOG = [];
 addEventListener('error', (e) => ERRLOG.push(new Date().toTimeString().slice(0, 8) + ' ' + (e.message || e.type)));
 addEventListener('unhandledrejection', (e) => ERRLOG.push(new Date().toTimeString().slice(0, 8) + ' ' + ((e.reason && (e.reason.name + ': ' + e.reason.message)) || e.reason)));
@@ -2617,11 +2617,18 @@ async function gemJSON(parts, schema, bz) {
   if (!navigator.onLine) throw new Error('Tidak ada internet. Sambungkan dulu lalu coba lagi.');
   const models = await gemModels();
   const body = JSON.stringify({ contents: [{ role: 'user', parts }], generationConfig: { temperature: 0, responseMimeType: 'application/json', responseSchema: schema } });
-  let lastMsg = '', busyCount = 0;
+  let lastMsg = '', busyCount = 0, netFail = 0; const mb = (body.length / 1048576).toFixed(1);
   for (let round = 0; round < 3; round++) {
     for (const model of models) {
-      const r = await fetch(`${GEMBASE}/v1beta/models/${model}:generateContent?key=${encodeURIComponent(GEMKEY)}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body }).catch(() => null);
-      if (!r) throw new Error('Tidak bisa menghubungi Google. Periksa internet.');
+      let netErr = '';
+      const r = await fetch(`${GEMBASE}/v1beta/models/${model}:generateContent?key=${encodeURIComponent(GEMKEY)}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body }).catch((e) => { netErr = (e && (e.name + ': ' + e.message)) || 'putus'; return null; });
+      if (!r) {
+        netFail++; lastMsg = 'Sambungan putus (' + netErr + '), model ' + model + ', kiriman ' + mb + ' MB';
+        ERRLOG.push('gemini: ' + lastMsg);
+        if (!navigator.onLine) throw new Error('Internet terputus. Sambungkan lagi lalu coba ulang.');
+        if (netFail >= 4) throw new Error('Sambungan ke Google terus terputus.\n\nKiriman ' + mb + ' MB' + (+mb > 8 ? ' — terlalu besar untuk sinyal saat ini. Coba foto/screenshot halaman jadwal saja, atau pakai Wi-Fi.' : '. Coba pindah ke Wi-Fi atau sinyal yang lebih kuat.') + '\n\n(' + netErr + ')');
+        bz && bz.set('Sambungan putus, mencoba lagi… (' + netFail + ')'); await new Promise((s) => setTimeout(s, 2500)); continue;
+      }
       const j = await r.json().catch(() => ({}));
       const m = (j.error && j.error.message) || '';
       if (r.ok) {
