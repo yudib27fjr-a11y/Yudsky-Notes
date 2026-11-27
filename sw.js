@@ -2,7 +2,7 @@
 // Aturan: coba ambil versi terbaru dari internet maksimal 2,5 detik.
 // Kalau internet lambat/mati, langsung pakai salinan tersimpan (aplikasi tidak pernah macet di logo),
 // sambil memperbarui salinan di belakang layar.
-const CACHE = 'yudsky-notes-v38';
+const CACHE = 'yudsky-notes-v39';
 const SHARE = 'yudsky-share';   // kotak masuk sementara untuk isi yang dibagikan dari aplikasi lain
 const FILES = ['./', './index.html', './manifest.webmanifest', './icon-192.png', './icon-512.png'];
 const WAIT = 2500;
@@ -50,3 +50,43 @@ self.addEventListener('fetch', (e) => {
     catch { return cached; }
   })());
 });
+
+// ===== pengingat jadwal jaga =====
+self.addEventListener('notificationclick', (e) => {
+  e.notification.close();
+  const url = (e.notification.data && e.notification.data.url) || './';
+  e.waitUntil(clients.matchAll({ type: 'window', includeUncontrolled: true }).then((cs) => {
+    for (const c of cs) { if ('focus' in c) { c.navigate(url).catch(() => {}); return c.focus(); } }
+    return clients.openWindow(url);
+  }));
+});
+const idbMeta = (mode, fn) => new Promise((res) => {
+  try {
+    const r = indexedDB.open('catatan-ios');
+    r.onsuccess = () => { const db = r.result; if (!db.objectStoreNames.contains('meta')) { db.close(); return res(null); } const t = db.transaction('meta', mode); const out = fn(t.objectStore('meta')); t.oncomplete = () => { db.close(); res(out && out.result); }; t.onerror = () => { db.close(); res(null); }; };
+    r.onerror = () => res(null);
+  } catch { res(null); }
+});
+async function jagaCheckSW() {
+  const J = await idbMeta('readonly', (s) => s.get('jaga'));
+  if (!J || !J.remind || !J.remind.on || !Array.isArray(J.shifts)) return;
+  const sent = (await idbMeta('readonly', (s) => s.get('jagaNotif'))) || {}, now = Date.now(); let ch = false;
+  const DT = (t) => /malam|night/i.test(t) ? ['21:00', '07:00'] : /sore|siang/i.test(t) ? ['14:00', '21:00'] : ['07:00', '14:00'];
+  for (const s of J.shifts) {
+    const [y, m, d] = String(s.date).split('-').map(Number); const [h, mi] = (s.start || DT(s.type)[0]).split(':').map(Number);
+    const st = new Date(y, m - 1, d, h || 0, mi || 0).getTime(); if (!(st > now)) continue;
+    const evs = [];
+    if (J.remind.eve) { const e = new Date(st - 864e5); e.setHours(19, 0, 0, 0); evs.push(['eve', e.getTime(), 'Besok jaga']); }
+    if (J.remind.pre) evs.push(['pre', st - J.remind.pre * 6e4, 'Jaga ' + (J.remind.pre >= 60 ? J.remind.pre / 60 + ' jam' : J.remind.pre + ' menit') + ' lagi']);
+    for (const [k, at, t] of evs) {
+      const id = s.id + ':' + k;
+      if (now >= at && now < st && !sent[id]) {
+        sent[id] = now; ch = true;
+        const tgl = new Date(st).toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long' });
+        await self.registration.showNotification('🔔 ' + t, { body: tgl + ' · ' + s.type + ' ' + (s.start || DT(s.type)[0]).replace(':', '.') + (s.place ? ' · ' + s.place : ''), tag: id, icon: 'icon-192.png', data: { url: './?jaga=1' } });
+      }
+    }
+  }
+  if (ch) await idbMeta('readwrite', (s) => s.put(sent, 'jagaNotif'));
+}
+self.addEventListener('periodicsync', (e) => { if (e.tag === 'jaga') e.waitUntil(jagaCheckSW()); });
