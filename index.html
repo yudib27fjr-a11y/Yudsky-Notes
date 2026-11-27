@@ -510,7 +510,7 @@ svg{display:block}
 <script>
 {
 /* ================= penyimpanan di perangkat (IndexedDB) ================= */
-const APP_VERSION = 'v52';
+const APP_VERSION = 'v53';
 const ERRLOG = [];
 addEventListener('error', (e) => ERRLOG.push(new Date().toTimeString().slice(0, 8) + ' ' + (e.message || e.type)));
 addEventListener('unhandledrejection', (e) => ERRLOG.push(new Date().toTimeString().slice(0, 8) + ' ' + ((e.reason && (e.reason.name + ': ' + e.reason.message)) || e.reason)));
@@ -2624,7 +2624,11 @@ async function gemJSON(parts, schema, bz) {
   for (let round = 0; round < 3; round++) {
     for (const model of models) {
       let netErr = '';
-      const r = await fetch(`${GEMBASE}/v1beta/models/${model}:generateContent?key=${encodeURIComponent(GEMKEY)}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body }).catch((e) => { netErr = (e && (e.name + ': ' + e.message)) || 'putus'; return null; });
+      const ac = new AbortController(), outer = BUSY_AC; if (outer) { if (outer.signal.aborted) throw new Error('Dibatalkan'); outer.signal.addEventListener('abort', () => ac.abort(), { once: true }); }
+      const to = setTimeout(() => ac.abort(), 120000);
+      const r = await fetch(`${GEMBASE}/v1beta/models/${model}:generateContent?key=${encodeURIComponent(GEMKEY)}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body, signal: ac.signal }).catch((e) => { netErr = ac.signal.aborted ? 'tidak ada jawaban dalam 2 menit' : ((e && (e.name + ': ' + e.message)) || 'putus'); return null; });
+      clearTimeout(to);
+      if (outer && outer.signal.aborted) throw new Error('Dibatalkan');
       if (!r) {
         netFail++; lastMsg = 'Sambungan putus (' + netErr + '), model ' + model + ', kiriman ' + mb + ' MB';
         ERRLOG.push('gemini: ' + lastMsg);
@@ -2675,8 +2679,11 @@ async function gemTest() {
   bz.close();
   alertBox({ title: 'Hasil Tes Gemini', msg: out.join('\n'), buttons: [{ t: 'Salin' }, { t: 'OK', b: 1 }] }).then((r) => { if (r.btn === 0) navigator.clipboard?.writeText(out.join('\n')).then(() => toast('Disalin')); });
 }
+let BUSY_AC = null;
 function busy(msg) {
-  const ov = overlay(`<div class="al busy"><div class="spin"></div><h3>${esc(msg)}</h3><p class="bsub">Jangan tutup aplikasi</p></div>`);
+  BUSY_AC = new AbortController(); const ac = BUSY_AC;
+  const ov = overlay(`<div class="al busy"><div class="spin"></div><h3>${esc(msg)}</h3><p class="bsub">Jangan tutup aplikasi</p><div class="alb"><button data-cancel>Batal</button></div></div>`);
+  ov.addEventListener('click', (e) => { if (e.target.closest('[data-cancel]')) { ac.abort(); ov.close(); toast('Dibatalkan'); } });
   ov.set = (t) => { const h = $('h3', ov); if (h) h.textContent = t; };
   ov.show = () => { const n = busy($('h3', ov)?.textContent || msg); ov.set = n.set; ov.close = n.close; };
   return ov;
@@ -3009,7 +3016,7 @@ Jawab dalam bahasa Indonesia.`;
     }
     if (!out.length) { alertBox({ title: 'Tidak ada data terbaca', msg: (res.info || '') + '\n\nCoba foto yang lebih jelas, atau isi manual dengan Tambah.', buttons: [{ t: 'OK', b: 1 }] }); return false; }
     return oConfirm(k, c, out, res.info);
-  } catch (e) { bz.close(); ERRLOG.push('jadwal lain: ' + e.message); alertBox({ title: 'Gagal membaca jadwal', msg: e.message, buttons: [{ t: 'OK', b: 1 }] }); return false; }
+  } catch (e) { bz.close(); ERRLOG.push('jadwal lain: ' + e.message); if (e.message === 'Dibatalkan') return false; alertBox({ title: 'Gagal membaca jadwal', msg: e.message, buttons: [{ t: 'OK', b: 1 }] }); return false; }
 }
 async function oConfirmMulti(k, loc) {
   // tentukan kategori tiap kolom: PCI -> pci, poli -> poli, sisanya -> kategori yang sedang dibuka
@@ -3151,7 +3158,7 @@ Jawab dalam bahasa Indonesia.`;
     await saveJaga(); renderJaga(); renderFolders(); toast(ok.length + ' jaga disimpan');
     if (!JAGA.remind.on) { const r = await alertBox({ title: 'Nyalakan Pengingat?', msg: 'Pengingat sehari sebelum dan 2 jam sebelum jaga.', buttons: [{ t: 'Nanti' }, { t: 'Nyalakan', b: 1 }] }); if (r.btn === 1) { await enableRemind(); renderJaga(); } }
   } catch (e) {
-    bz.close(); ERRLOG.push('jaga: ' + e.message);
+    bz.close(); ERRLOG.push('jaga: ' + e.message); if (e.message === 'Dibatalkan') return;
     alertBox({ title: 'Gagal membaca jadwal', msg: e.message, buttons: [{ t: 'OK', b: 1 }] });
   }
 }
