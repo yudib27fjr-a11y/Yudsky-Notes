@@ -513,7 +513,7 @@ svg{display:block}
 <script>
 {
 /* ================= penyimpanan di perangkat (IndexedDB) ================= */
-const APP_VERSION = 'v56';
+const APP_VERSION = 'v57';
 const ERRLOG = [];
 addEventListener('error', (e) => ERRLOG.push(new Date().toTimeString().slice(0, 8) + ' ' + (e.message || e.type)));
 addEventListener('unhandledrejection', (e) => ERRLOG.push(new Date().toTimeString().slice(0, 8) + ' ' + ((e.reason && (e.reason.name + ': ' + e.reason.message)) || e.reason)));
@@ -2850,7 +2850,7 @@ function parseJadwal(items, names) {
   const inits = new Set(names.filter((n) => INIT.test(n)));
   const longNames = names.filter((n) => !INIT.test(n)).map(normTxt).filter((n) => n.length > 3);
   for (const [ini, nm] of Object.entries(legend)) { const nt = normTxt(nm); if (longNames.some((n) => nt === n || nt.includes(n) || (n.includes(nt) && nt.split(' ').length >= 2))) { inits.add(ini); info.push(nm + ' = ' + ini); } }
-  const extra = { team, legend, colOrder };
+  const extra = { team, legend, colOrder, myInit: [...inits][0] || '' };
   if (!inits.size) return { shifts: [], why: 'Nama tidak ditemukan di daftar nama jadwal. Isi “Nama Saya di Jadwal” dengan inisial juga, mis. "Yudi Wahyudi, YW".', ...extra };
   const seen = new Set(), shifts = [];
   for (const c of cells) {
@@ -2923,6 +2923,12 @@ async function importJadwalLink(q) {
   let d; try { d = JSON.parse(decodeURIComponent(escape(atob(q.replace(/-/g, '+').replace(/_/g, '/'))))); } catch { return toast('Tautan jadwal rusak'); }
   const parts = [];
   for (const c of OCATS) { const l = (d.other || {})[c.k]; if (Array.isArray(l) && l.length) parts.push([c, l]); }
+  if (d.nick && typeof d.nick === 'object' && !parts.length) {
+    const ks = Object.keys(d.nick);
+    const r0 = await alertBox({ title: 'Nama Panggilan', msg: ks.map((k) => k + ' → ' + d.nick[k]).join('\n'), buttons: [{ t: 'Batal' }, { t: 'Simpan', b: 1 }] });
+    if (r0.btn === 1) { JAGA.nick = { ...(JAGA.nick || {}), ...d.nick }; await saveJaga(); openJaga(); toast('Nama panggilan disimpan'); }
+    return;
+  }
   if (!parts.length) return toast('Tautan tidak berisi jadwal');
   const r = await alertBox({ title: 'Impor Jadwal', msg: parts.map(([c, l]) => l.length + ' data ' + c.n + (d.title ? '' : '')).join('\n') + (d.title ? '\n\n' + d.title : ''), buttons: [{ t: 'Batal' }, { t: 'Tambahkan' }, { t: 'Ganti', b: 1 }] });
   if (r.btn === 0) return;
@@ -3058,7 +3064,15 @@ const nickOf = (ini) => /^INT/i.test(ini) ? ini : ((JAGA.nick || {})[ini] || def
 const dpjpRaw = (k, date) => oFor(k, date).map((e) => e.name).join(' / ') || '-';
 function salam() { const h = new Date().getHours(); return h < 11 ? 'pagi' : h < 15 ? 'siang' : h < 18 ? 'sore' : 'malam'; }
 function lapText(date, part, onsite) {
-  const T = (JAGA.team || {})[date + '|' + part] || {};
+  const T = { ...((JAGA.team || {})[date + '|' + part] || {}) };
+  const me = JAGA.myInit || (String(JAGA.alias || '').split(',').map((x) => x.trim()).find((x) => /^[A-Z]{2,4}$/.test(x))) || '';
+  const colPart = (t) => { const m = String(t || '').split(/\s+–\s+/); return [m[0], m[1] || '']; };
+  for (const sh of JAGA.shifts) {
+    const [c1, p1] = colPart(sh.type);
+    if (sh.swap) { const [c0, p0] = colPart(sh.swap.fromType || sh.type); if (sh.swap.from === date && p0 === part && T[c0]) T[c0] = T[c0].split(/,\s*/).map((x) => (x === me ? sh.swap.with : x)).join(', '); }
+    // jaga saya di tanggal ini (hasil tukar / menggantikan): tampilkan saya di kolom itu
+    if (sh.date === date && p1 === part && me && (!T[c1] || !T[c1].split(/,\s*/).includes(me))) T[c1] = me;
+  }
   let order = (JAGA.colOrder && JAGA.colOrder.length ? JAGA.colOrder : Object.keys(T)).filter((n) => !/^(hari|tanggal|tgl\.?|no\.?)$/i.test(n));
   const pi = order.indexOf('Pedi'), ci = order.indexOf('CVCU PJT');
   if (pi > -1 && ci > -1) { order.splice(pi, 1); order.splice(order.indexOf('CVCU PJT') + 1, 0, 'Pedi'); }
@@ -3200,7 +3214,7 @@ async function jagaUpload(files) {
     if (files.every(isPdf)) {
       const all = []; const infos = [];
       for (const f of files) {
-        try { const r = await jagaFromPdfLocal(f); all.push(...r.shifts); if (r.info) infos.push(r.info); if (!r.shifts.length) localWhy = r.why || ''; if (r.team && Object.keys(r.team).length) { Object.assign(JAGA.team = JAGA.team || {}, r.team); Object.assign(JAGA.legend = JAGA.legend || {}, r.legend); if (r.colOrder && r.colOrder.length) JAGA.colOrder = r.colOrder; await saveJaga(); } }
+        try { const r = await jagaFromPdfLocal(f); all.push(...r.shifts); if (r.info) infos.push(r.info); if (!r.shifts.length) localWhy = r.why || ''; if (r.team && Object.keys(r.team).length) { Object.assign(JAGA.team = JAGA.team || {}, r.team); Object.assign(JAGA.legend = JAGA.legend || {}, r.legend); if (r.colOrder && r.colOrder.length) JAGA.colOrder = r.colOrder; if (r.myInit) JAGA.myInit = r.myInit; await saveJaga(); } }
         catch (e) { ERRLOG.push('pdf lokal: ' + e.message); localWhy = 'PDF tidak bisa dibaca langsung (' + e.message + ').'; }
       }
       if (all.length) res = { shifts: all, info: infos.join(' ') };
