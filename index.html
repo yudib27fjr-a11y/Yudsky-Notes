@@ -124,10 +124,10 @@ svg{display:block}
 /* deretan ikon folder di atas daftar catatan */
 .fstrip{position:sticky;top:0;z-index:3;background:var(--bg);margin:0 0 4px;padding:4px 0 6px;border-bottom:.5px solid var(--sep)}
 :root[data-bgt] .fstrip{background:var(--g1)}:root.wall .fstrip{background:color-mix(in srgb,var(--bg) 88%,transparent);backdrop-filter:blur(14px)}
-.fsr{display:flex;gap:4px;overflow-x:auto;padding:2px 12px;scrollbar-width:none}.fsr::-webkit-scrollbar{display:none}
-.fsi{flex:none;width:66px;display:flex;flex-direction:column;align-items:center;gap:4px;padding:6px 2px;border-radius:12px;color:var(--ink)}
+.fsr{display:flex;gap:4px;overflow-x:auto;overflow-y:hidden;padding:8px 12px 2px;touch-action:pan-x;scrollbar-width:none}.fsr::-webkit-scrollbar{display:none}
+.fsi{flex:none;width:64px;height:62px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;padding:4px 2px;border-radius:12px;color:var(--ink);overflow:visible}
 .fsi.on{background:color-mix(in srgb,var(--tint) 16%,transparent)}.fsi.on .fsn{color:var(--tint);font-weight:600}
-.fsic{position:relative;display:flex;color:var(--tint)}.fsic .fi{color:var(--tint)}.fsic .fslot,.fsic>*:first-child{transform:scale(1.08)}.fsic b{position:absolute;top:-6px;right:-10px;min-width:18px;height:18px;padding:0 4px;border-radius:9px;background:var(--fill);color:var(--sec);font-size:11px;line-height:18px;text-align:center}
+.fsic{position:relative;display:flex;align-items:center;justify-content:center;width:30px;height:30px;color:var(--tint)}.fsic .fi{color:var(--tint);width:26px;height:26px}.fsic .fimg{width:28px;height:28px;border-radius:7px;object-fit:cover;display:block}.fsic .femo{font-size:22px;line-height:1}.fsic .ftxt{min-width:26px;max-width:40px;height:26px;font-size:10px;overflow:hidden}.fsic b{position:absolute;top:-6px;right:-10px;min-width:18px;height:18px;padding:0 4px;border-radius:9px;background:var(--fill);color:var(--sec);font-size:11px;line-height:18px;text-align:center}
 .fsi.on .fsic b{background:var(--tint);color:#000}
 .fsn{font-size:11.5px;max-width:64px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--sec)}
 /* jadwal jaga */
@@ -558,7 +558,7 @@ svg{display:block}
 <script>
 {
 /* ================= penyimpanan di perangkat (IndexedDB) ================= */
-const APP_VERSION = 'v63';
+const APP_VERSION = 'v64';
 const ERRLOG = [];
 addEventListener('error', (e) => ERRLOG.push(new Date().toTimeString().slice(0, 8) + ' ' + (e.message || e.type)));
 addEventListener('unhandledrejection', (e) => ERRLOG.push(new Date().toTimeString().slice(0, 8) + ' ' + ((e.reason && (e.reason.name + ': ' + e.reason.message)) || e.reason)));
