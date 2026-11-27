@@ -2,7 +2,7 @@
 // Aturan: coba ambil versi terbaru dari internet maksimal 2,5 detik.
 // Kalau internet lambat/mati, langsung pakai salinan tersimpan (aplikasi tidak pernah macet di logo),
 // sambil memperbarui salinan di belakang layar.
-const CACHE = 'yudsky-notes-v59';
+const CACHE = 'yudsky-notes-v60';
 const SHARE = 'yudsky-share';   // kotak masuk sementara untuk isi yang dibagikan dari aplikasi lain
 const FILES = ['./', './index.html', './manifest.webmanifest', './icon-192.png', './icon-512.png'];
 const WAIT = 2500;
