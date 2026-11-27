@@ -510,7 +510,7 @@ svg{display:block}
 <script>
 {
 /* ================= penyimpanan di perangkat (IndexedDB) ================= */
-const APP_VERSION = 'v50';
+const APP_VERSION = 'v52';
 const ERRLOG = [];
 addEventListener('error', (e) => ERRLOG.push(new Date().toTimeString().slice(0, 8) + ' ' + (e.message || e.type)));
 addEventListener('unhandledrejection', (e) => ERRLOG.push(new Date().toTimeString().slice(0, 8) + ' ' + ((e.reason && (e.reason.name + ': ' + e.reason.message)) || e.reason)));
@@ -2850,8 +2850,9 @@ async function jagaFromPdfLocal(file) {
 
 /* ================= Jadwal lain: DPJP jaga, DPJP RSUH, Poli ================= */
 const OCATS = [
-  { k: 'dpjp', n: 'DPJP Jaga', c: '#AF52DE', ic: 'M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM4.5 20a7.5 7.5 0 0 1 15 0' },
+  { k: 'dpjp', n: 'DPJP Jaga RSWS', c: '#AF52DE', ic: 'M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM4.5 20a7.5 7.5 0 0 1 15 0' },
   { k: 'rsuh', n: 'DPJP Jaga RSUH', c: '#5856D6', ic: 'M4 21V5l8-3 8 3v16M9 21v-5h6v5M12 7v4M10 9h4' },
+  { k: 'pci', n: 'DPJP Primary PCI', c: '#FF2D55', ic: 'M3 12h4l2-5 4 10 2-5h6' },
   { k: 'poli', n: 'Poli', c: '#34C759', ic: 'M9 3h6v4H9zM5 6h14v15H5zM12 11v6M9 14h6' },
 ];
 const HARI = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
@@ -2930,9 +2931,62 @@ async function oEdit(e, c, isNew) {
   Object.assign(e, { date: di < 0 ? v : '', end: rg ? rg[2] : '', dow: di < 0 ? null : di, name: r2.value.trim(), note: r3.value.trim() });
   return e;
 }
+// jadwal mingguan dari PDF teks (kolom HARI | NAMA | POLIKLINIK | WAKTU), dibaca langsung di HP
+async function oFromPdfLocal(file) {
+  const items = await pdfItems(file);
+  if (items.length < 15) return null;
+  const hdr = (re) => items.find((i) => re.test(i.t));
+  const hT = hdr(/^tanggal$|^tgl\.?$/i), hH0 = hdr(/^hari$/i);
+  if (hT && !(hH0 && hdr(/^nama/i))) return oDateTable(items, hT);
+  const hH = hH0, hN = hdr(/^nama/i); if (!hH || !hN) return null;
+  const hP = hdr(/^poli|^klinik|^ruang/i), hW = hdr(/^waktu$|^jam$/i);
+  const days = items.filter((i) => i.p === hH.p && i.y > hH.y + 2 && Math.abs(i.x - hH.x) < 40 && HARI.some((h) => h.toLowerCase() === i.t.toLowerCase().replace("'", ''))).sort((a, b) => a.y - b.y);
+  if (!days.length) return null;
+  const cs = [[hN, 'n'], [hP, 'p'], [hW, 'w']].filter((c) => c[0]).sort((a, b) => a[0].x - b[0].x);
+  const colOf = (x) => { let k = cs[0][1]; for (let i = 1; i < cs.length; i++) if (x >= (cs[i - 1][0].x + cs[i][0].x) / 2) k = cs[i][1]; return k; };
+  const cells = items.filter((i) => i.p === hH.p && i.y > hH.y + 2 && i.x > hH.x + 25 && i.y < days[days.length - 1].y + 80);
+  const rows = []; for (const c of cells.sort((a, b) => a.y - b.y || a.x - b.x)) { let r = rows.find((r) => Math.abs(r.y - c.y) < c.h * .6); if (!r) rows.push(r = { y: c.y, n: '', p: '', w: '' }); const k = colOf(c.x); if (k) r[k] = (r[k] ? r[k] + ' ' : '') + c.t; }
+  const out = [];
+  for (const r of rows) {
+    if (!r.n || !/dr\.?|prof|sp\./i.test(r.n)) continue;
+    // hari = label terdekat, batas = titik tengah antar label
+    let di = 0; for (let i = 0; i < days.length; i++) { if (i === 0 || r.y >= (days[i - 1].y + days[i].y) / 2) di = i; }
+    const dow = HARI.findIndex((h) => h.toLowerCase() === days[di].t.toLowerCase().replace("'", ''));
+    const poli = r.p.replace(/^(\d+)\s*\(/, 'Poli $1 (');
+    out.push({ id: 'o' + uid(), date: '', end: '', dow, name: r.n.replace(/\s+/g, ' ').trim(), note: [poli, r.w.replace(/\s*-\s*/, '–')].filter(Boolean).join(' · ') });
+  }
+  const title = items.filter((i) => i.y < hH.y - 2 && i.p === hH.p).sort((a, b) => a.y - b.y || a.x - b.x).map((i) => i.t).join(' ');
+  return out.length ? { entries: out, info: 'Dibaca langsung dari PDF (tanpa AI). ' + title } : null;
+}
+// tabel per tanggal: TANGGAL | kolom A | kolom B … (mis. DPJP Utama | Primary PCI)
+function oDateTable(items, hT) {
+  const heads = items.filter((i) => i.p === hT.p && Math.abs(i.y - hT.y) < 4 && i.x > hT.x + 20).sort((a, b) => a.x - b.x);
+  if (!heads.length) return null;
+  const dRe = new RegExp('^(\\d{1,2})\\s+(' + BULAN.join('|') + ')\\s+(20\\d{2})$', 'i');
+  const dates = items.filter((i) => dRe.test(i.t));
+  const cols = heads.map((h) => ({ h: h.t.replace(/^jadwal\s+/i, ''), e: [] }));
+  const colOf = (x) => { let k = 0; for (let i = 1; i < heads.length; i++) if (x >= (heads[i - 1].x + heads[i].x) / 2 - 40) k = i; return k; };
+  for (const d of dates) {
+    const m = d.t.match(dRe), date = m[3] + '-' + pad2(BULAN.indexOf(m[2].toLowerCase()) + 1) + '-' + pad2(+m[1]);
+    for (const c of items.filter((i) => i.p === d.p && Math.abs(i.y - d.y) < d.h * .6 && i.x > d.x + 40)) {
+      cols[colOf(c.x)].e.push({ id: 'o' + uid(), date, end: '', dow: null, name: c.t.replace(/\s+/g, ' ').trim(), note: '' });
+    }
+  }
+  const title = items.filter((i) => i.p === hT.p && i.y < hT.y - 2).sort((a, b) => a.y - b.y || a.x - b.x).map((i) => i.t).join(' ');
+  const multi = cols.filter((c) => c.e.length);
+  return multi.length ? { multi, info: 'Dibaca langsung dari PDF (tanpa AI). ' + title } : null;
+}
 const OSCHEMA = { type: 'OBJECT', properties: { info: { type: 'STRING' }, entries: { type: 'ARRAY', items: { type: 'OBJECT', properties: { date: { type: 'STRING' }, dateEnd: { type: 'STRING' }, weekday: { type: 'STRING' }, name: { type: 'STRING' }, note: { type: 'STRING' } }, required: ['name'] } } }, required: ['entries'] };
 async function oUpload(k, files) {
   const c = OCATS.find((x) => x.k === k);
+  // PDF teks jadwal mingguan: coba baca langsung dulu
+  if (files.length === 1 && /pdf$/i.test(files[0].type || files[0].name)) {
+    try {
+      const loc = await oFromPdfLocal(files[0]);
+      if (loc && loc.multi) return oConfirmMulti(k, loc);
+      if (loc) return oConfirm(k, c, loc.entries, loc.info);
+    } catch (e) { ERRLOG.push('jadwal lokal: ' + e.message); }
+  }
   if (AIPROV === 'gemini' ? !(await ensureGemKey()) : !(await ensureClaudeKey())) return false;
   const bz = busy('Membaca jadwal ' + c.n + '…');
   try {
@@ -2954,16 +3008,33 @@ Jawab dalam bahasa Indonesia.`;
       else if (di >= 0) out.push({ id: 'o' + uid(), date: '', dow: di, name: x.name.trim(), note: (x.note || '').trim() });
     }
     if (!out.length) { alertBox({ title: 'Tidak ada data terbaca', msg: (res.info || '') + '\n\nCoba foto yang lebih jelas, atau isi manual dengan Tambah.', buttons: [{ t: 'OK', b: 1 }] }); return false; }
+    return oConfirm(k, c, out, res.info);
+  } catch (e) { bz.close(); ERRLOG.push('jadwal lain: ' + e.message); alertBox({ title: 'Gagal membaca jadwal', msg: e.message, buttons: [{ t: 'OK', b: 1 }] }); return false; }
+}
+async function oConfirmMulti(k, loc) {
+  // tentukan kategori tiap kolom: PCI -> pci, poli -> poli, sisanya -> kategori yang sedang dibuka
+  const tgt = (h) => /pci|kateter|cath/i.test(h) ? 'pci' : /poli/i.test(h) ? 'poli' : /rsuh|unhas/i.test(h) ? 'rsuh' : k;
+  const plan = loc.multi.map((col) => ({ col, cat: OCATS.find((x) => x.k === tgt(col.h)) }));
+  const r = await alertBox({ title: 'Jadwal terbaca', msg: loc.info + '\n\n' + plan.map((p) => '• ' + p.col.h + ' → ' + p.cat.n + ' (' + p.col.e.length + ' hari)').join('\n') + '\n\nTanggal yang sama akan diganti dengan data baru.', buttons: [{ t: 'Batal' }, { t: 'Simpan', b: 1 }] });
+  if (r.btn !== 1) return false;
+  for (const p of plan) {
+    const ds = new Set(p.col.e.map((e) => e.date));
+    JAGA.other[p.cat.k] = oList(p.cat.k).filter((e) => !(e.date && !e.end && ds.has(e.date))).concat(p.col.e);
+  }
+  await oSave(); toast('Jadwal disimpan'); return true;
+}
+async function oConfirm(k, c, out, info) {
+  { const res = { info };
     const r = await alertBox({ title: out.length + ' data ' + c.n + ' terbaca', msg: (res.info ? res.info + '\n\n' : '') + out.slice(0, 8).map((e) => oLabel(e) + ': ' + e.name).join('\n') + (out.length > 8 ? '\n…' : ''), buttons: [{ t: 'Batal' }, { t: 'Tambahkan' }, { t: 'Ganti Semua', b: 1 }] });
     if (r.btn === 0) return false;
     if (r.btn === 2) JAGA.other[k] = out;
     else { const keys = new Set(out.map((e) => (e.date || 'd' + e.dow) + '|' + e.name.toLowerCase())); JAGA.other[k] = oList(k).filter((e) => !keys.has((e.date || 'd' + e.dow) + '|' + e.name.toLowerCase())).concat(out); }
     await oSave(); toast(out.length + ' data disimpan'); return true;
-  } catch (e) { bz.close(); ERRLOG.push('jadwal lain: ' + e.message); alertBox({ title: 'Gagal membaca jadwal', msg: e.message, buttons: [{ t: 'OK', b: 1 }] }); return false; }
+  }
 }
 
 /* ================= Jadwal Jaga ================= */
-let JAGA = { name: '', alias: '', shifts: [], srcs: [], remind: { pre: 120, eve: true, on: false }, hours: { biasa: ['14:00', '07:00'], pagi: ['07:00', '19:00'], malam: ['19:00', '07:00'] }, other: { dpjp: [], rsuh: [], poli: [] } };
+let JAGA = { name: '', alias: '', shifts: [], srcs: [], remind: { pre: 120, eve: true, on: false }, hours: { biasa: ['14:00', '07:00'], pagi: ['07:00', '19:00'], malam: ['19:00', '07:00'] }, other: { dpjp: [], rsuh: [], pci: [], poli: [] } };
 const pad2 = (n) => String(n).padStart(2, '0');
 const ymd = (d) => d.getFullYear() + '-' + pad2(d.getMonth() + 1) + '-' + pad2(d.getDate());
 const DEFTIME = (t) => { const H = JAGA.hours || {}; return /malam|night/i.test(t) ? (H.malam || ['19:00', '07:00']) : /pagi|morning/i.test(t) ? (H.pagi || ['07:00', '19:00']) : /24/.test(t) ? ['07:00', '07:00'] : (H.biasa || ['14:00', '07:00']); };
@@ -2980,7 +3051,7 @@ function jWhen(s) {
 const jDate = (s, o = { weekday: 'long', day: 'numeric', month: 'long' }) => jStart(s).toLocaleDateString('id-ID', o);
 const jTime = (s) => (s.start || DEFTIME(s.type)[0]).replace(':', '.') + '–' + (s.end || DEFTIME(s.type)[1]).replace(':', '.');
 async function saveJaga() { await DB.setMeta('jaga', JAGA); }
-async function loadJaga() { CLKEY = (await DB.getMeta('claudeKey')) || ''; AIPROV = (await DB.getMeta('aiProv')) || 'gemini'; const j = await DB.getMeta('jaga'); if (j && typeof j === 'object') JAGA = { ...JAGA, ...j, remind: { ...JAGA.remind, ...(j.remind || {}) }, hours: { ...JAGA.hours, ...(j.hours || {}) }, other: { dpjp: [], rsuh: [], poli: [], ...(j.other || {}) } }; GEMKEY = (await DB.getMeta('gemKey')) || ''; GEMMODEL = (await DB.getMeta('gemModel')) || ''; }
+async function loadJaga() { CLKEY = (await DB.getMeta('claudeKey')) || ''; AIPROV = (await DB.getMeta('aiProv')) || 'gemini'; const j = await DB.getMeta('jaga'); if (j && typeof j === 'object') JAGA = { ...JAGA, ...j, remind: { ...JAGA.remind, ...(j.remind || {}) }, hours: { ...JAGA.hours, ...(j.hours || {}) }, other: { dpjp: [], rsuh: [], pci: [], poli: [], ...(j.other || {}) } }; GEMKEY = (await DB.getMeta('gemKey')) || ''; GEMMODEL = (await DB.getMeta('gemModel')) || ''; }
 
 function jagaCardHTML() {
   const nx = jUpcoming()[0];
@@ -2991,7 +3062,7 @@ function jagaCardHTML() {
 function renderJaga() {
   const up = jUpcoming(), past = jSorted().filter((s) => jEnd(s) <= new Date()).reverse();
   const nx = up[0];
-  const rowH = (s, old) => { const st = jStart(s); return `<button class="jrow ${old ? 'old' : ''}" data-j="${esc(s.id)}"><span class="jd"><b>${st.getDate()}</b><i>${st.toLocaleDateString('id-ID', { weekday: 'short' })}</i></span><span class="jt"><b>${esc(s.type || 'Jaga')}</b><small>${jTime(s)}${s.place ? ' · ' + esc(s.place) : ''}${s.partner ? ' · ' + esc(s.partner) : ''}${s.note ? ' · ' + esc(s.note) : ''}${oName('dpjp', s.date) ? '<br>DPJP: ' + esc(oName('dpjp', s.date)) : ''}${oName('rsuh', s.date) ? '<br>DPJP RSUH: ' + esc(oName('rsuh', s.date)) : ''}</small></span>${!old && jWhen(s) ? `<span class="jw">${jWhen(s)}</span>` : ''}</button>`; };
+  const rowH = (s, old) => { const st = jStart(s); return `<button class="jrow ${old ? 'old' : ''}" data-j="${esc(s.id)}"><span class="jd"><b>${st.getDate()}</b><i>${st.toLocaleDateString('id-ID', { weekday: 'short' })}</i></span><span class="jt"><b>${esc(s.type || 'Jaga')}</b><small>${jTime(s)}${s.place ? ' · ' + esc(s.place) : ''}${s.partner ? ' · ' + esc(s.partner) : ''}${s.note ? ' · ' + esc(s.note) : ''}${oName('dpjp', s.date) ? '<br>DPJP: ' + esc(oName('dpjp', s.date)) : ''}${oName('rsuh', s.date) ? '<br>DPJP RSUH: ' + esc(oName('rsuh', s.date)) : ''}${oName('pci', s.date) ? '<br>PCI: ' + esc(oName('pci', s.date)) : ''}</small></span>${!old && jWhen(s) ? `<span class="jw">${jWhen(s)}</span>` : ''}</button>`; };
   const byMonth = {}; for (const s of up) { const k = jStart(s).toLocaleDateString('id-ID', { month: 'long', year: 'numeric' }); (byMonth[k] = byMonth[k] || []).push(s); }
   const remTxt = JAGA.remind.on ? [JAGA.remind.eve ? 'H-1' : '', JAGA.remind.pre ? (JAGA.remind.pre / 60) + ' jam sebelum' : ''].filter(Boolean).join(' & ') : 'Mati';
   $('#jagaBody').innerHTML = `
