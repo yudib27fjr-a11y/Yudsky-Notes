@@ -113,6 +113,7 @@ svg{display:block}
 :root[data-bgt] #fBox.stick .fstick{background:linear-gradient(170deg,var(--g1),var(--g2)) no-repeat;background-size:100vw 100vh;background-position:0 calc(-44px - var(--sat))}
 .fsep{height:0;border-top:1px solid var(--sep);margin:14px 16px 4px;position:relative}.fsep::after{content:"";position:absolute;left:50%;top:-3px;width:36px;height:5px;margin-left:-18px;border-radius:3px;background:var(--sep)}
 #pFolders:has(#fBox.stick) .navtitle{opacity:0!important}
+.editing .row.pinline{box-shadow:inset 0 -3px 0 var(--tint)}
 .fsep.g{border-top-color:transparent;margin:6px 16px 2px}
 .fsh{display:flex;align-items:center}.fvt{margin-left:auto;display:flex;gap:2px;padding:2px;border-radius:9px;background:var(--fill)}.fvt button{width:34px;height:28px;border-radius:7px;display:flex;align-items:center;justify-content:center;color:var(--sec)}.fvt button.on{background:var(--cell);color:var(--tint);box-shadow:0 1px 2px rgba(0,0,0,.2)}.fvt .ic{width:18px;height:18px}
 .group.fgrid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;background:none!important;overflow:visible;border-radius:0}
@@ -562,7 +563,7 @@ svg{display:block}
 <script>
 {
 /* ================= penyimpanan di perangkat (IndexedDB) ================= */
-const APP_VERSION = 'v65';
+const APP_VERSION = 'v66';
 const ERRLOG = [];
 addEventListener('error', (e) => ERRLOG.push(new Date().toTimeString().slice(0, 8) + ' ' + (e.message || e.type)));
 addEventListener('unhandledrejection', (e) => ERRLOG.push(new Date().toTimeString().slice(0, 8) + ' ' + ((e.reason && (e.reason.name + ': ' + e.reason.message)) || e.reason)));
@@ -736,6 +737,7 @@ function renderFolders() {
   const grid = FVIEW.mode === 'grid' && !S.editFolders;
   const order = rows.map((h) => (h.match(/data-f="([^"]+)"/) || [])[1]);
   let cut = !S.editFolders && FVIEW.pin ? order.indexOf(FVIEW.pin) : -1;
+  if (S.editFolders && FVIEW.pin) { const k = order.indexOf(FVIEW.pin); if (k > -1) rows[k] = rows[k].replace('class="row ', 'class="row pinline '); }
   const tiles = (hs) => hs.map((h) => h.replace('class="row ', 'class="row tile ')).join('');
   const grp = (hs) => hs.length ? `<div class="group ${grid ? 'fgrid' : ''}">${grid ? tiles(hs) : hs.join('')}</div>` : '';
   const pinned = cut >= 0 ? rows.slice(0, cut + 1) : [], rest = cut >= 0 ? rows.slice(cut + 1) : rows;
@@ -940,12 +942,13 @@ $('#fBox').addEventListener('click', async (e) => {
   if (S.editFolders) {
     if (f && e.target.closest('.minus')) return deleteFolder(f);
     const name = folderName(id);
-    const i = await sheet({ title: name, items: [{ t: 'Ganti Nama' }, { t: 'Ganti Ikon' }] });
+    const i = await sheet({ title: name, items: [{ t: 'Ganti Nama' }, { t: 'Ganti Ikon' }, ...(id !== 'trash' ? [{ t: FVIEW.pin === id ? 'Lepas Pembatas di Bawah Folder Ini' : 'Pasang Pembatas di Bawah Folder Ini' }] : [])] });
     if (i === 0) {
       const { btn, value } = await alertBox({ title: 'Ganti Nama Folder', msg: f ? '' : 'Folder bawaan (tidak bisa dihapus).', input: name, buttons: [{ t: 'Batal' }, { t: 'Simpan', b: 1 }] });
       if (btn === 1 && value.trim()) { if (f) f.name = value.trim(); else FIXED[id] = value.trim(); await saveMeta(); renderAll(); }
     }
     if (i === 1) iconPicker(id, name);
+    if (i === 2) { FVIEW.pin = FVIEW.pin === id ? null : id; FVIEW.pinSet = true; await DB.setMeta('fview', FVIEW); renderFolders(); toast(FVIEW.pin ? 'Pembatas dipasang di bawah ' + name + ' — bagian atas terkunci' : 'Pembatas dilepas'); }
     return;
   }
   openFolder(id);
@@ -2115,7 +2118,7 @@ $('#setBody').addEventListener('click', async (e) => {
   switch (k) {
     case 'theme': themePicker(); break;
     case 'fview': { const i = await sheet({ title: 'Tampilan Folder', items: [{ t: (FVIEW.mode !== 'grid' ? '✓ ' : '') + 'Daftar' }, { t: (FVIEW.mode === 'grid' ? '✓ ' : '') + 'Kotak' }] }); if (i >= 0) { FVIEW.mode = i ? 'grid' : 'list'; await DB.setMeta('fview', FVIEW); renderFolders(); } break; }
-    case 'fpin': { const ids = ['all', ...orderedIds()]; const i = await sheet({ title: 'Folder sampai mana yang dikunci (tidak ikut tergulir)?', items: [{ t: (!FVIEW.pin ? '✓ ' : '') + 'Mati — semua ikut tergulir' }, ...ids.map((id) => ({ t: (FVIEW.pin === id ? '✓ ' : '') + 'Sampai ' + folderName(id) }))] }); if (i >= 0) { FVIEW.pin = i ? ids[i - 1] : null; await DB.setMeta('fview', FVIEW); renderFolders(); } break; }
+    case 'fpin': { const ids = ['all', ...orderedIds()]; const i = await sheet({ title: 'Folder sampai mana yang dikunci (tidak ikut tergulir)?', items: [{ t: (!FVIEW.pin ? '✓ ' : '') + 'Mati — semua ikut tergulir' }, ...ids.map((id) => ({ t: (FVIEW.pin === id ? '✓ ' : '') + 'Sampai ' + folderName(id) }))] }); if (i >= 0) { FVIEW.pin = i ? ids[i - 1] : null; FVIEW.pinSet = true; await DB.setMeta('fview', FVIEW); renderFolders(); } break; }
     case 'folders': back(); S.editFolders = true; renderFolders(); toast('Ketuk Ubah untuk nama/ikon, seret ≡ untuk urutan'); break;
     case 'sort': { const keys = ['updated', 'created', 'title']; const i = await sheet({ title: 'Urutkan Catatan', items: keys.map((x) => ({ t: (S.sort === x ? '✓ ' : '') + ({ updated: 'Tanggal Diedit', created: 'Tanggal Dibuat', title: 'Judul' })[x], chk: S.sort === x })) }); if (i >= 0) { S.sort = keys[i]; await saveMeta(); renderAll(); } break; }
     case 'pin': if (!LOCK.pin) { if (await askNewPin()) { unlocked = true; if (fp) { const r = await alertBox({ title: 'Pakai Sidik Jari?', buttons: [{ t: 'Nanti' }, { t: 'Aktifkan', b: 1 }] }); if (r.btn === 1) await registerFinger(); } } } else if (await unlock('Masukkan PIN lama')) { if (await askNewPin()) toast('PIN diubah'); } break;
