@@ -111,6 +111,8 @@ svg{display:block}
 .otr{display:flex;flex-direction:column;padding:9px 16px;position:relative}.otr+.otr::before{content:"";position:absolute;top:0;left:16px;right:0;border-top:.5px solid var(--sep)}
 .otr b{font-size:13px;color:var(--sec);font-weight:600;text-transform:uppercase;letter-spacing:.02em}.otr span{font-size:16px;font-weight:600}.otr span i{color:var(--ter);font-style:normal;font-weight:400}.otr small{font-size:13px;color:var(--sec)}
 .dpick{display:block;width:calc(100% - 32px);margin:8px 16px 4px;padding:10px;border-radius:10px;border:.5px solid var(--sep);background:var(--fill);color:var(--ink);font-size:17px;font-family:inherit}
+.lapf{display:flex;flex-direction:column;gap:4px;margin:10px 16px;font-size:13px;color:var(--sec);font-weight:600}.lapf input{font:inherit;font-size:16px;font-weight:400;color:var(--ink);padding:10px 12px;border-radius:10px;border:.5px solid var(--sep);background:var(--cell)}
+.lapt{display:block;width:calc(100% - 32px);margin:6px 16px 14px;min-height:300px;padding:12px;border-radius:12px;border:.5px solid var(--sep);background:var(--cell);color:var(--ink);font:15px/1.4 -apple-system,system-ui,sans-serif;resize:vertical}
 .jrow.now{background:color-mix(in srgb,var(--tint) 12%,transparent)}
 .jcard{margin-top:6px}.jcard .lb{display:flex;flex-direction:column;font-weight:600}.jcard small{font-weight:400;font-size:13px;color:var(--sec);margin-top:1px}.jcard small.hot{color:var(--red);font-weight:600}
 .jnext{margin:4px 16px 14px;padding:16px 18px;border-radius:14px;background:linear-gradient(135deg,#FF3B30,#FF9500);color:#fff;display:flex;flex-direction:column;gap:3px;position:relative}
@@ -511,7 +513,7 @@ svg{display:block}
 <script>
 {
 /* ================= penyimpanan di perangkat (IndexedDB) ================= */
-const APP_VERSION = 'v55';
+const APP_VERSION = 'v56';
 const ERRLOG = [];
 addEventListener('error', (e) => ERRLOG.push(new Date().toTimeString().slice(0, 8) + ' ' + (e.message || e.type)));
 addEventListener('unhandledrejection', (e) => ERRLOG.push(new Date().toTimeString().slice(0, 8) + ' ' + ((e.reason && (e.reason.name + ': ' + e.reason.message)) || e.reason)));
@@ -2790,18 +2792,8 @@ async function pdfItems(file) {
 function parseJadwal(items, names) {
   const info = [];
   const full = items.map((i) => i.t).join(' ');
-  // 1. inisial: dari alias yang berupa singkatan, atau dari daftar nama di jadwal
-  const inits = new Set(names.filter((n) => /^[A-Z]{2,4}$/.test(n)));
-  const longNames = names.filter((n) => !/^[A-Z]{2,4}$/.test(n)).map(normTxt).filter((n) => n.length > 3);
-  for (const it of items) {
-    const nt = normTxt(it.t);
-    if (!longNames.some((n) => nt === n || nt.includes(n) || (n.includes(nt) && nt.split(' ').length >= 2))) continue;
-    const right = items.filter((o) => o.p === it.p && Math.abs(o.y - it.y) < it.h * .7 && o.x > it.x && o.x - it.x < 260 && /^[A-Z]{2,4}$/.test(o.t)).sort((a, b) => a.x - b.x);
-    if (right[0]) { inits.add(right[0].t); info.push(it.t.replace(/[⁠]/g, '') + ' = ' + right[0].t); }
-  }
-  if (!inits.size) return { shifts: [], why: 'Nama tidak ditemukan di daftar nama jadwal. Isi “Nama Saya di Jadwal” dengan inisial juga, mis. "Yudi Wahyudi, YW".' };
-  // 2. bulan & tahun dari judul
-  // ambil dari teks paling atas yang memuat nama bulan utuh (judul), bukan dari nama orang
+  const INIT = /^[A-Z]{2,4}$/;
+  // 1. bulan & tahun dari judul (baris paling atas yang memuat nama bulan, bukan nama orang)
   const monRe = new RegExp('\\b(' + BULAN.join('|') + '|jan|feb|mar|apr|jun|jul|agu|agt|sep|okt|nov|des)\\b', 'i');
   const top = items.filter((i) => monRe.test(i.t)).sort((a, b) => a.y - b.y)[0];
   let m0 = -1;
@@ -2809,15 +2801,14 @@ function parseJadwal(items, names) {
   const topLine = top ? items.filter((i) => Math.abs(i.y - top.y) < top.h).map((i) => i.t).join(' ') : full;
   const ym = topLine.match(/\b(20\d{2})\b/) || full.match(/\b(20\d{2})\b/); let year = ym ? +ym[1] : new Date().getFullYear();
   if (m0 < 0) m0 = new Date().getMonth();
-  // 3. kolom tanggal & hari
+  // 2. kolom tanggal & hari
   const days = items.filter((i) => HARI_RE.test(i.t));
   if (!days.length) return { shifts: [], why: 'Tabel jadwal tidak dikenali (tidak ada kolom hari).' };
   const dayX = Math.min(...days.map((d) => d.x));
   const dates = items.filter((i) => /^\d{1,2}$/.test(i.t) && +i.t >= 1 && +i.t <= 31 && i.x < dayX + 4).sort((a, b) => a.y - b.y);
-  // urutan bulan: angka tanggal turun -> bulan berikutnya
   let mon = m0, yr = year, prev = 0;
   for (const d of dates) { const n = +d.t; if (prev && n < prev - 3) { mon++; if (mon > 11) { mon = 0; yr++; } } d.ym = [yr, mon]; prev = n; }
-  // 4. judul kolom: baris yang memuat "TANGGAL"/"HARI"
+  // 3. judul kolom
   const hdr = items.find((i) => /^tanggal$|^tgl\.?$/i.test(i.t)) || items.find((i) => /^hari$/i.test(i.t));
   const hy = hdr ? hdr.y : Math.min(...days.map((d) => d.y)) - 12, hp = hdr ? hdr.p : days[0].p;
   const firstRowY = Math.min(...dates.filter((d) => d.p === hp).map((d) => d.y).concat(days.filter((d) => d.p === hp).map((d) => d.y)));
@@ -2830,10 +2821,17 @@ function parseJadwal(items, names) {
   cols.sort((a, b) => a.x - b.x);
   const titleCase = (s) => s.toLowerCase().replace(/\b([a-z])/g, (m) => m.toUpperCase()).replace(/\b(Pjt|Igd|Cvcu|Iccu|Icu|Rsws|Rsuh|Pcc|Uh|Lb|Ok|Hcu)\b/g, (m) => m.toUpperCase());
   cols.forEach((c) => { c.name = titleCase(c.parts.sort((a, b) => a.y - b.y || a.x - b.x).map((p) => p.t).join(' ')); });
-  // 5. sel berisi inisial
-  const shifts = [];
+  // 4. daftar nama: inisial di luar tabel -> nama di kirinya
+  const legend = {};
   for (const it of items) {
-    if (!inits.has(it.t) || it.x <= dayX + 10 || it.x >= tableRight) continue;
+    if (!INIT.test(it.t) || it.x < tableRight) continue;
+    const nm = items.filter((o) => o.p === it.p && Math.abs(o.y - it.y) < it.h * .8 && o.x < it.x && it.x - o.x < 200 && /[a-z]{3}/i.test(o.t) && !INIT.test(o.t) && !/^no\.?$/i.test(o.t)).sort((a, b) => b.x - a.x)[0];
+    if (nm && !legend[it.t]) legend[it.t] = nm.t.replace(/[⁠]/g, '').trim();
+  }
+  // 5. seluruh tim per tanggal (dan Pagi/Malam)
+  const team = {}, cells = [];
+  for (const it of items) {
+    if (!(INIT.test(it.t) || /^INT\s*\d+$/i.test(it.t)) || it.x <= dayX + 10 || it.x >= tableRight) continue;
     if (it.p === hp && it.y < firstRowY - 3) continue;
     const day = days.filter((d) => d.p === it.p).sort((a, b) => Math.abs(a.y - it.y) - Math.abs(b.y - it.y))[0];
     if (!day || Math.abs(day.y - it.y) > it.h * 1.2) continue;
@@ -2842,13 +2840,25 @@ function parseJadwal(items, names) {
     const col = cols.filter((c) => c.x <= it.x + 3).pop();
     const part = /pagi/i.test(day.t) ? 'Pagi' : /malam/i.test(day.t) ? 'Malam' : /siang|sore/i.test(day.t) ? 'Sore' : '';
     const date = dt.ym[0] + '-' + pad2(dt.ym[1] + 1) + '-' + pad2(+dt.t);
-    // cek hari cocok dengan tanggal
+    const key = date + '|' + part, cn = col ? col.name : 'Jaga';
+    team[key] = team[key] || {}; team[key][cn] = team[key][cn] ? team[key][cn] + ', ' + it.t : it.t;
     const realDay = new Date(dt.ym[0], dt.ym[1], +dt.t).toLocaleDateString('id-ID', { weekday: 'long' }).toLowerCase();
-    const note = day.t.toLowerCase().startsWith(realDay.slice(0, 4)) ? '' : 'periksa tanggal (' + day.t + ')';
-    shifts.push({ date, start: '', end: '', type: [col ? col.name : 'Jaga', part].filter(Boolean).join(' – '), place: '', partner: '', note });
+    cells.push({ t: it.t, date, part, col: cn, note: day.t.toLowerCase().startsWith(realDay.slice(0, 4)) ? '' : 'periksa tanggal (' + day.t + ')' });
   }
-  const seen = new Set();
-  return { shifts: shifts.filter((s) => { const k = s.date + s.type; if (seen.has(k)) return false; seen.add(k); return true; }), info: 'Dibaca langsung dari PDF (tanpa AI). ' + info.join(', ') };
+  const colOrder = cols.map((c) => c.name).filter((n) => !/^(hari|tanggal|tgl\.?|no\.?)$/i.test(n));
+  // 6. inisial saya: dari alias berupa singkatan, atau dari daftar nama
+  const inits = new Set(names.filter((n) => INIT.test(n)));
+  const longNames = names.filter((n) => !INIT.test(n)).map(normTxt).filter((n) => n.length > 3);
+  for (const [ini, nm] of Object.entries(legend)) { const nt = normTxt(nm); if (longNames.some((n) => nt === n || nt.includes(n) || (n.includes(nt) && nt.split(' ').length >= 2))) { inits.add(ini); info.push(nm + ' = ' + ini); } }
+  const extra = { team, legend, colOrder };
+  if (!inits.size) return { shifts: [], why: 'Nama tidak ditemukan di daftar nama jadwal. Isi “Nama Saya di Jadwal” dengan inisial juga, mis. "Yudi Wahyudi, YW".', ...extra };
+  const seen = new Set(), shifts = [];
+  for (const c of cells) {
+    if (!inits.has(c.t)) continue;
+    const type = [c.col, c.part].filter(Boolean).join(' – '), k = c.date + type; if (seen.has(k)) continue; seen.add(k);
+    shifts.push({ date: c.date, start: '', end: '', type, place: '', partner: '', note: c.note });
+  }
+  return { shifts, info: 'Dibaca langsung dari PDF (tanpa AI). ' + info.join(', '), ...extra };
 }
 async function jagaFromPdfLocal(file) {
   const items = await pdfItems(file);
@@ -3041,6 +3051,77 @@ async function oConfirm(k, c, out, info) {
   }
 }
 
+/* ================= Laporan Tim Jaga (format WhatsApp) ================= */
+const LAPLABEL = { 'CVCU PJT': 'CVCU', 'Pedi': 'Pediatri', 'RSWS/RSUH': 'RSWS/UH' };
+function defNick(full) { if (!full) return ''; const ws = full.replace(/^(prof\.?\s*)?(dr\.?\s*)+/i, '').trim().split(/\s+/).map((w) => w.replace(/[,]$/, '')); const w = ws.find((x) => x.length >= 3 && !/\.$/.test(x) && !/^(andi|muh|muhammad|muhamad|siti|nur)$/i.test(x)) || ws.find((x) => x.length >= 3 && !/\.$/.test(x)) || ws[0] || ''; return w; }
+const nickOf = (ini) => /^INT/i.test(ini) ? ini : ((JAGA.nick || {})[ini] || defNick((JAGA.legend || {})[ini]) || ini);
+const dpjpRaw = (k, date) => oFor(k, date).map((e) => e.name).join(' / ') || '-';
+function salam() { const h = new Date().getHours(); return h < 11 ? 'pagi' : h < 15 ? 'siang' : h < 18 ? 'sore' : 'malam'; }
+function lapText(date, part, onsite) {
+  const T = (JAGA.team || {})[date + '|' + part] || {};
+  let order = (JAGA.colOrder && JAGA.colOrder.length ? JAGA.colOrder : Object.keys(T)).filter((n) => !/^(hari|tanggal|tgl\.?|no\.?)$/i.test(n));
+  const pi = order.indexOf('Pedi'), ci = order.indexOf('CVCU PJT');
+  if (pi > -1 && ci > -1) { order.splice(pi, 1); order.splice(order.indexOf('CVCU PJT') + 1, 0, 'Pedi'); }
+  const next = ymd(new Date(new Date(date + 'T12:00').getTime() + DAY));
+  const tgl = new Date(date + 'T12:00').toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }).replace(/^(\w+),?/, '$1,');
+  const lines = order.map((c) => (LAPLABEL[c] || c) + ' : ' + (T[c] ? T[c].split(/,\s*/).map(nickOf).join(', ') : '-'));
+  return `Assalamualaikum dokter, selamat ${salam()} dokter
+Tabe dokter, mohon izin melaporkan tim jaga: 
+
+_DPJP Utama : ${dpjpRaw('dpjp', date)}_
+_DPJP Tindakan : ${dpjpRaw('pci', date)}_
+_DPJP Onsite: ${onsite || '-'}_
+
+*Hari/Tanggal : ${tgl}${part ? ' (' + part + ')' : ''}*
+
+${lines.join('\n')}
+
+*DPJP Utama dan Tindakan setelah Pk. 00.00 WITA*
+_DPJP Utama : ${dpjpRaw('dpjp', next)}_
+_DPJP Tindakan : ${dpjpRaw('pci', next)}_
+
+Mohon arahannya dokter. Terima kasih dokter.`;
+}
+async function laporanTim(date, part) {
+  if (!date) { date = await pickDate('Laporan Tim Jaga', ymd(new Date()), 'Pilih tanggal jaga yang mau dilaporkan.'); if (!date) return; }
+  const parts = Object.keys(JAGA.team || {}).filter((k) => k.startsWith(date + '|')).map((k) => k.split('|')[1]);
+  if (part == null) {
+    if (parts.length > 1) { const i = await sheet({ title: 'Jaga yang mana?', items: parts.map((p) => ({ t: p || 'Jaga' })) }); if (i < 0) return; part = parts[i]; }
+    else part = parts[0] || '';
+  }
+  if (!parts.length) toast('Data tim tanggal ini belum ada — unggah ulang PDF jadwal PPDS');
+  JAGA.onsite = JAGA.onsite || {};
+  let onsite = JAGA.onsite[date] || '', edited = false;
+  const ov = overlay(`<div class="jrv"><div class="jrh"><button data-x>Tutup</button><b>Laporan Tim Jaga</b><button data-share class="b">Kirim</button></div>
+    <div class="jrs"><label class="lapf">DPJP Onsite<input class="lon" value="${esc(onsite)}" placeholder="dr. …"></label>
+    <textarea class="lapt" spellcheck="false"></textarea>
+    <div class="group"><button class="srow" data-copy>${SIC('#007AFF', 'M8 8h11v13H8zM5 16V3h11')}<span class="lb">Salin Teks</span></button>
+    <button class="srow" data-wa>${SIC('#25D366', 'M4 20l1.3-4A8 8 0 1 1 8 19.3zM9 9c0 3 3 6 6 6l1-1.5-2-1-1 1c-1-.5-2-1.5-2.5-2.5l1-1-1-2z')}<span class="lb">Kirim ke WhatsApp</span></button>
+    <button class="srow" data-nick>${SIC('#FF9500', 'M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM4.5 20a7.5 7.5 0 0 1 15 0')}<span class="lb">Atur Nama Panggilan</span>${I.chev}</button></div>
+    <p class="jri">Teks bisa diedit langsung sebelum dikirim. Nama panggilan diingat untuk laporan berikutnya.</p></div></div>`);
+  const ta = $('.lapt', ov), on = $('.lon', ov);
+  const draw = () => { ta.value = lapText(date, part, onsite); ta.style.height = 'auto'; ta.style.height = ta.scrollHeight + 'px'; };
+  draw();
+  ta.addEventListener('input', () => { edited = true; });
+  on.addEventListener('input', () => { onsite = on.value.trim(); JAGA.onsite[date] = onsite; if (!edited) draw(); else ta.value = ta.value.replace(/(_DPJP Onsite: ).*?(_)$/m, '$1' + (onsite || '-') + '$2'); });
+  on.addEventListener('change', () => saveJaga());
+  ov.addEventListener('click', async (e) => {
+    if (e.target.closest('[data-x]')) { await saveJaga(); ov.close(); return; }
+    if (e.target.closest('[data-copy]')) { try { await navigator.clipboard.writeText(ta.value); toast('Teks disalin'); } catch { ta.select(); document.execCommand('copy'); toast('Teks disalin'); } return; }
+    if (e.target.closest('[data-wa]')) { await saveJaga(); window.open('https://wa.me/?text=' + encodeURIComponent(ta.value), '_blank', 'noopener'); return; }
+    if (e.target.closest('[data-share]')) { await saveJaga(); try { if (navigator.share) { await navigator.share({ text: ta.value }); return; } } catch (er) { if (er.name === 'AbortError') return; } window.open('https://wa.me/?text=' + encodeURIComponent(ta.value), '_blank', 'noopener'); return; }
+    if (e.target.closest('[data-nick]')) {
+      const T = (JAGA.team || {})[date + '|' + part] || {};
+      const inis = [...new Set(Object.values(T).flatMap((v) => v.split(/,\s*/)).filter((x) => !/^INT/i.test(x)))];
+      if (!inis.length) return toast('Belum ada data tim');
+      const i = await sheet({ title: 'Nama panggilan', items: inis.map((x) => ({ t: x + ' → ' + nickOf(x) + ((JAGA.legend || {})[x] ? '  (' + JAGA.legend[x] + ')' : '') })) });
+      if (i < 0) return;
+      const x = inis[i], r = await alertBox({ title: 'Panggilan untuk ' + x, msg: (JAGA.legend || {})[x] || '', input: nickOf(x), buttons: [{ t: 'Batal' }, { t: 'Simpan', b: 1 }] });
+      if (r.btn === 1 && r.value.trim()) { JAGA.nick = JAGA.nick || {}; JAGA.nick[x] = r.value.trim(); await saveJaga(); edited = false; draw(); toast('Disimpan'); }
+    }
+  });
+}
+
 /* ================= Jadwal Jaga ================= */
 let JAGA = { name: '', alias: '', shifts: [], srcs: [], remind: { pre: 120, eve: true, on: false }, hours: { biasa: ['16:00', '07:00'], libur: ['07:00', '07:00'], pagi: ['07:00', '19:00'], malam: ['19:00', '07:00'] }, other: { dpjp: [], rsuh: [], pci: [], poli: [] } };
 const pad2 = (n) => String(n).padStart(2, '0');
@@ -3079,6 +3160,7 @@ function renderJaga() {
     : `<div class="jempty">${JAGA.shifts.length ? 'Tidak ada jaga mendatang.' : 'Belum ada jadwal. Unggah foto atau PDF jadwal jaga, nanti hanya jaga atas nama Anda yang diambil.'}</div>`}
    ${oTodayHTML()}
    <div class="group">
+    <button class="srow" data-jk="lapor">${SIC('#25D366', 'M4 20l1.3-4A8 8 0 1 1 8 19.3zM8 10h8M8 13h5')}<span class="lb">Laporan Tim Jaga</span>${I.chev}</button>
     <button class="srow" data-jk="upload">${SIC('#34C759', 'M12 16V4M7 9l5-5 5 5M4 20h16')}<span class="lb">Unggah Jadwal (Foto / PDF)</span>${I.chev}</button>
     <button class="srow" data-jk="name">${SIC('#007AFF', 'M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM4.5 20a7.5 7.5 0 0 1 15 0')}<span class="lb">Nama Saya di Jadwal</span><span class="vl">${esc(JAGA.name || 'Belum diisi')}</span>${I.chev}</button>
     <button class="srow" data-jk="hours">${SIC('#8E8E93', 'M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zM12 7v5l3 2')}<span class="lb">Jam Jaga Bawaan</span><span class="vl">${esc('Kerja ' + (JAGA.hours.biasa || [''])[0].replace(':', '.') + ' · Libur ' + (JAGA.hours.libur || ['07:00'])[0].replace(':', '.'))}</span>${I.chev}</button>
@@ -3118,7 +3200,7 @@ async function jagaUpload(files) {
     if (files.every(isPdf)) {
       const all = []; const infos = [];
       for (const f of files) {
-        try { const r = await jagaFromPdfLocal(f); all.push(...r.shifts); if (r.info) infos.push(r.info); if (!r.shifts.length) localWhy = r.why || ''; }
+        try { const r = await jagaFromPdfLocal(f); all.push(...r.shifts); if (r.info) infos.push(r.info); if (!r.shifts.length) localWhy = r.why || ''; if (r.team && Object.keys(r.team).length) { Object.assign(JAGA.team = JAGA.team || {}, r.team); Object.assign(JAGA.legend = JAGA.legend || {}, r.legend); if (r.colOrder && r.colOrder.length) JAGA.colOrder = r.colOrder; await saveJaga(); } }
         catch (e) { ERRLOG.push('pdf lokal: ' + e.message); localWhy = 'PDF tidak bisa dibaca langsung (' + e.message + ').'; }
       }
       if (all.length) res = { shifts: all, info: infos.join(' ') };
@@ -3255,10 +3337,12 @@ $('#jagaBody').addEventListener('click', async (e) => {
   const j = e.target.closest('[data-j]');
   if (j) {
     const s = JAGA.shifts.find((x) => x.id === j.dataset.j); if (!s) return;
-    const items = [{ t: 'Tukar Jaga…' }, ...(s.swap ? [{ t: 'Batalkan Tukar (kembali ke ' + oD(s.swap.from, { day: 'numeric', month: 'short' }) + ')' }] : []), { t: 'Ubah Jam' }, { t: 'Ubah Tanggal / Jenis / Tempat' }, { t: 'Tambah ke Google Calendar' }, { t: 'Hapus', des: 1 }];
+    const items = [{ t: 'Laporan Tim Jaga' }, { t: 'Tukar Jaga…' }, ...(s.swap ? [{ t: 'Batalkan Tukar (kembali ke ' + oD(s.swap.from, { day: 'numeric', month: 'short' }) + ')' }] : []), { t: 'Ubah Jam' }, { t: 'Ubah Tanggal / Jenis / Tempat' }, { t: 'Tambah ke Google Calendar' }, { t: 'Hapus', des: 1 }];
     const pick = await sheet({ title: jDate(s) + ' · ' + s.type + ' ' + jTime(s) + (s.swap ? '\n↔ tukar dengan ' + s.swap.with : ''), items });
     if (pick < 0) return;
-    const act = items[pick].t, i = act.startsWith('Tukar') ? 't' : act.startsWith('Batalkan') ? 'u' : act === 'Ubah Jam' ? 0 : act.startsWith('Ubah Tanggal') ? 1 : act.startsWith('Tambah ke') ? 2 : 3;
+    const act = items[pick].t;
+    if (act === 'Laporan Tim Jaga') return laporanTim(s.date, (s.type.match(/–\s*(Pagi|Malam|Sore)$/) || [])[1] || '');
+    const i = act.startsWith('Tukar') ? 't' : act.startsWith('Batalkan') ? 'u' : act === 'Ubah Jam' ? 0 : act.startsWith('Ubah Tanggal') ? 1 : act.startsWith('Tambah ke') ? 2 : 3;
     if (i === 't') {
       const nd = await pickDate('Tukar ke tanggal berapa?', s.date, 'Jaga ' + jDate(s) + ' (' + s.type + ') dipindah ke tanggal baru.');
       if (!nd) return;
@@ -3311,6 +3395,7 @@ $('#jagaBody').addEventListener('click', async (e) => {
     renderJaga();
   }
   if (k === 'cal') jagaToCalendar();
+  if (k === 'lapor') laporanTim();
   if (k === 'hours') {
     const keys = [['biasa', 'Hari kerja (Senin–Jumat)'], ['libur', 'Sabtu/Minggu tanpa keterangan Pagi/Malam'], ['pagi', 'Jaga Pagi'], ['malam', 'Jaga Malam']];
     const i = await sheet({ title: 'Jam Jaga Bawaan — dipakai bila jadwal tidak menulis jam', items: keys.map(([k2, l]) => ({ t: l + ': ' + JAGA.hours[k2].join('–') })) });
