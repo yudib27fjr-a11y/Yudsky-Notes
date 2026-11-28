@@ -600,7 +600,7 @@ svg{display:block}
 <script>
 {
 /* ================= penyimpanan di perangkat (IndexedDB) ================= */
-const APP_VERSION = 'v85';
+const APP_VERSION = 'v86';
 const ERRLOG = [];
 addEventListener('error', (e) => ERRLOG.push(new Date().toTimeString().slice(0, 8) + ' ' + (e.message || e.type)));
 addEventListener('unhandledrejection', (e) => ERRLOG.push(new Date().toTimeString().slice(0, 8) + ' ' + ((e.reason && (e.reason.name + ': ' + e.reason.message)) || e.reason)));
@@ -2546,6 +2546,7 @@ async function cleanAppleNode(node, out, pics) {
     const fs = parseFloat((st.match(/font-size:\s*([\d.]+)px/) || [])[1] || 0);
     let to = KEEP[tag];
     if (tag === 'IMG') {
+      const yf = ch.getAttribute('data-yfid'); if (yf) { pics.push({ fid: yf }); const ph = document.createElement('i'); ph.dataset.pic = pics.length - 1; out.appendChild(ph); continue; }
       const src = ch.getAttribute('src') || '';
       if (!src.startsWith('data:image')) continue;
       pics.push(src); const ph = document.createElement('i'); ph.dataset.pic = pics.length - 1; out.appendChild(ph); continue;
@@ -2592,9 +2593,11 @@ async function convertAppleNote(src, recMap) {
   let first = '';
   for (const ph of [...box.querySelectorAll('i[data-pic]')]) {
     try {
-      const blob = await dataToBlob(pics[+ph.dataset.pic]);
-      const rec = { id: 'a' + uid(), name: 'Foto.jpg', type: blob.type || 'image/jpeg', size: blob.size, blob, at: Date.now(), pic: true };
-      if (await DB.putFile(rec)) {
+      const pc = pics[+ph.dataset.pic]; let rec, ok;
+      if (pc && pc.fid) { rec = recMap[pc.fid]; if (rec) { rec.pic = true; ok = true; } }
+      else { const blob = await dataToBlob(pc); rec = { id: 'a' + uid(), name: 'Foto.jpg', type: blob.type || 'image/jpeg', size: blob.size, blob, at: Date.now(), pic: true }; ok = await DB.putFile(rec); }
+      const blob = rec && (rec.blob || ((await DB.getFile(rec.id)) || {}).blob);
+      if (ok) {
         if (!first) first = await thumbFromBlob(blob);
         const t = document.createElement('div'); t.innerHTML = figureHTML(rec);
         const fig = t.firstElementChild; const blk = ph.closest('div,h1,h2,h3,li');
@@ -2605,7 +2608,7 @@ async function convertAppleNote(src, recMap) {
   // lampiran lain (PDF, dokumen, foto yang tidak ikut di isi)
   for (const x of src.extra || []) {
     const rec = recMap[x.fid]; if (!rec) continue;
-    if (rec.type.startsWith('image/') && !/heic|heif/.test(rec.type)) { rec.pic = true; if (!first) first = await thumbFromBlob(rec.blob); }
+    if (rec.type.startsWith('image/') && !/heic|heif/.test(rec.type)) { rec.pic = true; if (!first) first = await thumbFromBlob(rec.blob || ((await DB.getFile(rec.id)) || {}).blob); }
     const t = document.createElement('div'); t.innerHTML = figureHTML(rec); box.appendChild(t.firstElementChild);
   }
   // baris pertama selalu Judul, seperti di iPhone
@@ -2624,7 +2627,7 @@ function textInfo(html) {
   holder.remove();
   return { title: (lines[0] || '').slice(0, 120), preview: (lines[1] || (atts.length ? atts.length + ' lampiran' : '')).slice(0, 160), text: lines.join('\n').slice(0, 5000), att: atts.length, files: atts.map((f) => f.dataset.fid) };
 }
-async function importICloud(d, quiet, force) {
+async function importICloud(d, quiet, force, shared) {
   if (!DB.ok) { toast('Penyimpanan belum siap'); return { done: 0, skipped: 0 }; }
   const list = Array.isArray(d.notes) ? d.notes : [];
   toast('Mengimpor ' + list.length + ' catatan' + (d.of > 1 ? ' (bagian ' + d.part + '/' + d.of + ')' : '') + '…');
@@ -2635,10 +2638,11 @@ async function importICloud(d, quiet, force) {
     fmap[name] = f.id;
   }
   await saveMeta();
-  const recMap = {};
+  const recMap = shared || {};
   for (const f of d.files || []) {
+    if (recMap[f.id]) continue;
     try { const blob = await dataToBlob(f.data); const rec = { id: 'a' + uid(), name: String(f.name || 'File'), type: String(f.type || blob.type || 'application/octet-stream'), size: blob.size, blob, at: Date.now() };
-      if (await DB.putFile(rec)) recMap[f.id] = rec; } catch {}
+      if (await DB.putFile(rec)) recMap[f.id] = { ...rec, blob: null }; } catch {}
   }
   let done = 0, skipped = 0;
   for (const src of list) {
@@ -2661,29 +2665,32 @@ async function importICloud(d, quiet, force) {
 const htmlText = (h) => { const t = document.createElement('textarea'); t.innerHTML = String(h || '').replace(/<(br|\/div|\/p|\/h\d|\/li|\/tr)[^>]*>/gi, '\n').replace(/<[^>]+>/g, ''); return t.value.split('\n').map((x) => x.trim()).filter(Boolean); };
 async function pickAndImportICloud(fs) {
   toast('Membaca file iCloud…');
-  const metas = [];
+  const metas = [], PARTINFO = {};
   for (let k = 0; k < fs.length; k++) {
-    let d; try { d = JSON.parse(await fs[k].text()); } catch { continue; }
+    let d; try { d = JSON.parse(await fs[k].text()); } catch { toast('File ' + (fs[k].name || k + 1) + ' terlalu besar / rusak — dilewati'); continue; }
     if (!d || d.app !== 'icloud-export') continue;
+    PARTINFO[k] = { part: +d.part || k, files: (d.files || []).map((f) => f.id) };
     for (const n of d.notes || []) {
       const lines = htmlText(n.html);
+      const yf = [...String(n.html).matchAll(/data-yfid="([^"]+)"/g)].map((m) => m[1]);
       metas.push({ k, id: String(n.id), folder: n.folder || 'Catatan', title: (lines[0] || 'Catatan Baru').slice(0, 90), sub: (lines[1] || '').slice(0, 80),
-        at: +n.updatedAt || 0, att: (n.extra || []).length + ((String(n.html).match(/<img[^>]+src="data:image/gi) || []).length), have: !!S.notes[String(n.id)] });
+        at: +n.updatedAt || 0, att: (n.extra || []).length + yf.length + ((String(n.html).match(/<img[^>]+src="data:image/gi) || []).length), have: !!S.notes[String(n.id)], fids: (n.extra || []).map((x) => x.fid).concat(yf) });
     }
     d = null;
   }
   if (!metas.length) return toast('Tidak ada catatan di file ini');
   const sel = new Set(await icloudPicker(metas)); if (!sel.size) return;
   let done = 0, skipped = 0;
-  const parts = [...new Set(metas.filter((m) => sel.has(m.id)).map((m) => m.k))];
+  const need = new Set(metas.filter((m) => sel.has(m.id)).flatMap((m) => m.fids || []));
+  const parts = Object.keys(PARTINFO).map(Number).filter((k) => metas.some((m) => m.k === k && sel.has(m.id)) || PARTINFO[k].files.some((f) => need.has(f))).sort((a, b) => PARTINFO[a].part - PARTINFO[b].part);
+  const shared = {};
   for (const k of parts) {
     toast('Mengimpor… (' + (parts.indexOf(k) + 1) + '/' + parts.length + ')');
     let d; try { d = JSON.parse(await fs[k].text()); } catch { continue; }
     d.notes = (d.notes || []).filter((n) => sel.has(String(n.id)));
-    const need = new Set(d.notes.flatMap((n) => (n.extra || []).map((x) => x.fid)));
     d.files = (d.files || []).filter((f) => need.has(f.id));
     d.folders = [...new Set(d.notes.map((n) => n.folder))];
-    const r = await importICloud(d, true, true); done += r.done; skipped += r.skipped; d = null;
+    const r = await importICloud(d, true, true, shared); done += r.done; skipped += r.skipped; d = null;
   }
   renderAll();
   alertBox({ title: 'Impor selesai', msg: done + ' catatan diimpor' + (skipped ? ', ' + skipped + ' sudah ada (dilewati)' : '') + '.', buttons: [{ t: 'OK', b: 1 }] });

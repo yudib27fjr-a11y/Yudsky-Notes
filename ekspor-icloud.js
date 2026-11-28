@@ -2,7 +2,7 @@
 // Jalankan di Terminal Mac:
 //   curl -sL https://yudib27fjr-a11y.github.io/Yudsky-Notes/ekspor-icloud.js -o /tmp/yn.js && osascript -l JavaScript /tmp/yn.js
 // Bisa pilih folder, pilih isi (lengkap / tanpa video besar / teks saja), dan pilih tujuan (Desktop atau flashdisk).
-// Hasil: yudsky-icloud-N.json (maks ±40 MB per file). Kirim ke HP Android, lalu di Yudsky Notes: Pengaturan → Impor dari iCloud (Mac).
+// Hasil: yudsky-icloud-N.json (maks ±40 MB per file; foto di dalam catatan dipisah jadi lampiran, catatan besar boleh terbagi ke beberapa file). Kirim ke HP Android, lalu di Yudsky Notes: Pengaturan → Impor dari iCloud (Mac).
 ObjC.import('Foundation');
 
 const app = Application.currentApplication(); app.includeStandardAdditions = true;
@@ -46,7 +46,7 @@ const MODES = ['Teks + foto + file kecil (lewati video & file > 15 MB) — disar
 const pickM = app.chooseFromList(MODES, { withTitle: TITLE, withPrompt: 'Apa saja yang diekspor?', defaultItems: [MODES[free0 >= 0 && free0 < 3 ? 2 : 0]], okButtonName: 'Lanjut', cancelButtonName: 'Batal' });
 if (!pickM) throw new Error('Dibatalkan');
 const mode = MODES.indexOf(pickM[0]); // 0 hemat, 1 lengkap, 2 teks
-const MAXATT = mode === 0 ? 15 * 1048576 : Infinity;
+const MAXATT = mode === 0 ? 15 * 1048576 : 30 * 1048576; // file > 30 MB tidak muat di memori skrip -> dilewati (dicatat)
 
 // ---------- 3. tujuan ----------
 const DEST = ['Desktop (folder “Yudsky iCloud”)', 'Pilih folder lain… (mis. flashdisk / hard disk eksternal)'];
@@ -67,7 +67,7 @@ const folderNames = {};
 // hapus file hasil lama supaya tidak tercampur
 try { const old = FM.contentsOfDirectoryAtPathError(dir, null).js.map((x) => x.js); old.filter((x) => /^yudsky-icloud-\d+\.json$/.test(x)).forEach((x) => rm(dir + '/' + x)); } catch (e) {}
 function flush(last) {
-  if (!cur.notes.length) return;
+  if (!cur.notes.length && !cur.files.length) return;
   part++;
   const out = JSON.stringify({ app: 'icloud-export', v: 1, at: Date.now(), part, of: last ? part : 0, folders: Object.keys(folderNames), notes: cur.notes, files: cur.files });
   totalMB += out.length / 1048576;
@@ -75,6 +75,9 @@ function flush(last) {
   console.log('  ✓ yudsky-icloud-' + part + '.json (' + (out.length / 1048576).toFixed(1) + ' MB)');
   cur = { notes: [], files: [] }; size = 0;
 }
+// lampiran ditulis lebih dulu; bila bagian penuh, bagian ditutup (catatan besar boleh terbagi ke beberapa file)
+function pushFile(f) { if (size + f.data.length > LIMIT && (cur.notes.length || cur.files.length)) flush(false); cur.files.push(f); size += f.data.length; }
+const bigSkipped = [];
 outer:
 for (const f of chosen) {
   console.log((f.i < 0 ? 'Semua catatan' : 'Folder ' + f.nm) + ' (' + f.c + ')…');
@@ -87,10 +90,22 @@ for (const f of chosen) {
       if (f.i < 0) { fname = 'Catatan'; try { fname = n.container().name(); } catch (e) {} if (SKIP_FOLDERS.indexOf(fname) >= 0) continue; }
       if (n.passwordProtected()) { locked++; continue; }
       const id = 'icl-' + String(n.id()).replace(/[^a-zA-Z0-9]/g, '').slice(-24);
-      let html = n.body();
+      let html = '', viaText = false;
+      try { html = n.body(); } catch (e) {
+        // catatan terlalu besar (biasanya banyak foto) -> ambil teksnya, foto diambil sebagai lampiran
+        viaText = true; let t = ''; try { t = n.plaintext(); } catch (e2) {}
+        html = t.split('\n').map((l) => '<div>' + (l.replace(/&/g, '&amp;').replace(/</g, '&lt;') || '<br>') + '</div>').join('');
+        console.log('  catatan besar diambil teks + lampirannya: ' + (t.split('\n')[0] || '').slice(0, 40));
+      }
       if (mode === 2) html = html.replace(/<img[^>]*>/gi, '<div>[foto]</div>');
-      const hasInlineImg = /<img[^>]+src="data:image/i.test(html);
-      const extra = [], noteFiles = [];
+      // foto di dalam isi -> dipisah jadi lampiran sendiri supaya file tidak membengkak
+      let pk = 0; const extra = [], noteFiles = [];
+      html = html.replace(/<img([^>]*?)src="data:(image\/[a-zA-Z0-9.+-]+);base64,([^"]+)"([^>]*)>/g, (m, a1, mime, data, a2) => {
+        const fid = 'p' + id.slice(-10) + (pk++);
+        pushFile({ id: fid, name: 'Foto-' + pk + '.' + (mime.split('/')[1] || 'jpg').replace('jpeg', 'jpg'), type: mime, size: Math.round(data.length * 0.75), data: 'data:' + mime + ';base64,' + data });
+        return '<img' + a1 + 'data-yfid="' + fid + '"' + a2 + '>';
+      });
+      const hasInlineImg = pk > 0 && !viaText;
       if (mode !== 2) {
         let atts = [];
         try { atts = n.attachments(); } catch (e) {}
@@ -105,21 +120,20 @@ for (const f of chosen) {
           try {
             Notes.save(a, { in: Path(path) });
             const sz = fsize(path);
-            if (sz > MAXATT) { attSkip++; rm(path); continue; }
+            if (sz > MAXATT) { attSkip++; if (mode === 1) bigSkipped.push(name + ' (' + (sz / 1048576).toFixed(0) + ' MB)'); rm(path); continue; }
             const data = b64(path); rm(path); // file sementara langsung dihapus
             if (!data) { attFail++; continue; }
             const fid = 'a' + id.slice(-10) + k;
-            noteFiles.push({ id: fid, name, type: mime, size: Math.round(data.length * 0.75), data: 'data:' + mime + ';base64,' + data });
+            pushFile({ id: fid, name, type: mime, size: Math.round(data.length * 0.75), data: 'data:' + mime + ';base64,' + data });
             extra.push({ fid, name, type: mime });
             attOk++;
           } catch (e) { attFail++; rm(path); }
         }
       }
-      const sz = html.length + noteFiles.reduce((t, x) => t + x.data.length, 0);
-      if (cur.notes.length && size + sz > LIMIT) flush(false);
+      if ((cur.notes.length || cur.files.length) && size + html.length > LIMIT) flush(false);
       folderNames[fname] = true;
       cur.notes.push({ id, folder: fname, html, extra, createdAt: n.creationDate().getTime(), updatedAt: n.modificationDate().getTime() });
-      cur.files.push(...noteFiles); size += sz; total++;
+      size += html.length; total++; html = null;
       if (total % 20 === 0) {
         console.log('  ' + total + ' catatan…');
         const fr = freeGB(dir);
@@ -132,7 +146,7 @@ flush(true);
 rm(tmpDir);
 const msg = (stopped ? '⚠️ ' + stopped + '\n\n' : '') + 'Selesai: ' + total + ' catatan, ' + attOk + ' lampiran' +
   (attSkip ? ', ' + attSkip + ' video/file besar dilewati' : '') + (attFail ? ', ' + attFail + ' lampiran gagal' : '') + (locked ? ', ' + locked + ' catatan terkunci dilewati' : '') +
-  '.\n' + part + ' file (' + totalMB.toFixed(0) + ' MB) di:\n' + dir + '\nSisa ruang sekarang: ' + freeGB(dir).toFixed(1) + ' GB';
+  '.\n' + part + ' file (' + totalMB.toFixed(0) + ' MB) di:\n' + dir + (bigSkipped.length ? '\n\nFile > 30 MB dilewati (simpan manual): ' + bigSkipped.slice(0, 8).join(', ') : '') + '\nSisa ruang sekarang: ' + freeGB(dir).toFixed(1) + ' GB';
 console.log(msg);
 app.doShellScript('open ' + JSON.stringify(dir));
 app.displayDialog(msg + '\n\nKirim semua file di folder itu ke HP Android, lalu di Yudsky Notes: Pengaturan → Impor dari iCloud (Mac) → pilih semua file sekaligus.\nSetelah masuk ke HP, file di Mac boleh dihapus untuk mengosongkan ruang.', { buttons: ['OK'], defaultButton: 'OK', withTitle: 'Yudsky Notes' });
