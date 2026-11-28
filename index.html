@@ -262,13 +262,13 @@ svg{display:block}
 /* editor */
 #pNote .scroll{background:var(--paper);padding-bottom:calc(120px + var(--sab) + var(--kb))}
 .ndate{text-align:center;font-size:13px;color:var(--sec);margin:4px 0 6px}
-#ed{outline:none;padding:0 20px 40px;min-height:60vh;font-size:17px;line-height:1.38;caret-color:var(--tint);word-wrap:break-word;overflow-wrap:anywhere}
+#ed{outline:none;padding:0 20px 40px;min-height:60vh;font-size:var(--edfs,15.5px);line-height:1.38;-webkit-text-size-adjust:100%;text-size-adjust:100%;caret-color:var(--tint);word-wrap:break-word;overflow-wrap:anywhere}
 #ed:empty::before{content:"Mulai menulis…";color:var(--ter)}
-#ed h1{font-size:28px;font-weight:700;line-height:1.2;margin:0 0 2px}
+#ed h1{font-size:calc(var(--edfs,15.5px) * 1.65);font-weight:700;line-height:1.2;margin:0 0 2px}
 #ed h1+h1,#ed h2+h1{margin-top:4px}
 .fstyles button.on{background:var(--tint);color:#fff}
-#ed h2{font-size:22px;font-weight:700;margin:6px 0 2px}
-#ed h3{font-size:19px;font-weight:600;margin:4px 0 2px}
+#ed h2{font-size:calc(var(--edfs,15.5px) * 1.3);font-weight:700;margin:6px 0 2px}
+#ed h3{font-size:calc(var(--edfs,15.5px) * 1.12);font-weight:600;margin:4px 0 2px}
 #ed pre{font:15px/1.4 ui-monospace,Menlo,"Roboto Mono",monospace;white-space:pre-wrap;margin:2px 0}
 #ed div,#ed p{margin:0}
 #ed ul,#ed ol{margin:0;padding-left:26px}
@@ -437,8 +437,8 @@ svg{display:block}
 .pit.des{color:var(--red)}.pit.on .ck{color:var(--tint)}
 .pit .ck{width:18px;font-weight:700}
 /* kertas bergaris / grid & latar terang per catatan */
-#pNote.paper-lines #ed{background-image:linear-gradient(to bottom,transparent calc(100% - 1px),var(--sep) 0);background-size:100% 23.5px;background-attachment:local}
-#pNote.paper-grid #ed{background-image:linear-gradient(to bottom,transparent calc(100% - 1px),var(--sep) 0),linear-gradient(to right,transparent calc(100% - 1px),var(--sep) 0);background-size:23.5px 23.5px;background-attachment:local}
+#pNote.paper-lines #ed{background-image:linear-gradient(to bottom,transparent calc(100% - 1px),var(--sep) 0);background-size:100% calc(var(--edfs,15.5px) * 1.38);background-attachment:local}
+#pNote.paper-grid #ed{background-image:linear-gradient(to bottom,transparent calc(100% - 1px),var(--sep) 0),linear-gradient(to right,transparent calc(100% - 1px),var(--sep) 0);background-size:calc(var(--edfs,15.5px) * 1.38) calc(var(--edfs,15.5px) * 1.38);background-attachment:local}
 #pNote.lightbg{color-scheme:light}
 #pNote{color:var(--ink)}
 /* temukan di catatan */
@@ -602,7 +602,7 @@ svg{display:block}
 <script>
 {
 /* ================= penyimpanan di perangkat (IndexedDB) ================= */
-const APP_VERSION = 'v89';
+const APP_VERSION = 'v90';
 const ERRLOG = [];
 addEventListener('error', (e) => ERRLOG.push(new Date().toTimeString().slice(0, 8) + ' ' + (e.message || e.type)));
 addEventListener('unhandledrejection', (e) => ERRLOG.push(new Date().toTimeString().slice(0, 8) + ' ' + ((e.reason && (e.reason.name + ': ' + e.reason.message)) || e.reason)));
@@ -669,6 +669,8 @@ const trashed = () => Object.values(S.notes).filter((n) => n.deletedAt);
 const notesIn = (fid) => fid === 'all' ? live() : fid === 'trash' ? trashed() : live().filter((n) => n.folderId === fid);
 
 let FVIEW = { mode: 'list', pin: null };
+const EDFS = { kecil: 14, iphone: 15.5, sedang: 17, besar: 19 }, EDFSN = { kecil: 'Kecil', iphone: 'Seperti iPhone', sedang: 'Sedang', besar: 'Besar' };
+const applyEdfs = () => document.documentElement.style.setProperty('--edfs', (EDFS[FVIEW.edfs || 'iphone'] || 15.5) + 'px');
 async function saveMeta() { await DB.setMeta('folders', S.folders); await DB.setMeta('sort', S.sort); await DB.setMeta('notesName', FIXED.notes); await DB.setMeta('lock', LOCK); await DB.setMeta('notesIcon', notesIcon); await DB.setMeta('fixIcons', fixIcons); await DB.setMeta('folderOrder', folderOrder); await DB.setMeta('fixNames', { all: FIXED.all, trash: FIXED.trash }); await DB.setMeta('theme', THEME); if (!DB.ok) lsSave(); }
 async function saveNote(n) { if (DB.ok) return DB.putNote(n); return lsSave(); }
 async function dropNote(id) { delete S.notes[id]; if (DB.ok) await DB.delNote(id); else lsSave(); }
@@ -2394,6 +2396,7 @@ async function renderSettings() {
   <div class="st">Tampilan</div><div class="group">
     ${row('theme', SIC('#5856D6', FICONS.star), 'Tema & Latar', vl(THEMES[THEME.bg]?.n || 'Bawaan') + chev)}
     ${row('folders', SIC('#FF9500', FICONS.folder), 'Ikon, Nama & Urutan Folder', chev)}
+    ${row('edfs', SIC('#8E8E93', 'M4 18L9 6l5 12M5.8 14h6.4M15 18l3-7 3 7M15.9 16h4.2'), 'Ukuran Teks Catatan', vl(EDFSN[FVIEW.edfs || 'iphone']) + chev)}
     ${row('fview', SIC('#5AC8FA', 'M4 4h7v7H4zM13 4h7v7h-7zM4 13h7v7H4zM13 13h7v7h-7z'), 'Tampilan Folder', vl(FVIEW.mode === 'grid' ? 'Kotak' : 'Daftar') + chev)}
     ${row('ftop', SIC('#FF9500', 'M4 5h16v4H4zM4 11h7v8H4zM13 11h7v8h-7z'), 'Tampilan Menu Atas', vl({ one: 'Satu Menu (Lipat)', scroll: 'Geser ke Samping', auto: 'Ikuti Folder', list: 'Daftar', grid: 'Kotak' }[FVIEW.top || 'one']) + chev)}
     ${row('fpin', SIC('#8E8E93', 'M7 11V7a5 5 0 0 1 10 0v4M5 11h14v10H5z'), 'Kunci Folder di Atas', vl(FVIEW.pin ? 'sampai ' + esc(folderName(FVIEW.pin)) : 'Mati') + chev)}
@@ -2432,6 +2435,7 @@ $('#setBody').addEventListener('click', async (e) => {
   switch (k) {
     case 'theme': themePicker(); break;
     case 'fview': { const i = await sheet({ title: 'Tampilan Folder', items: [{ t: (FVIEW.mode !== 'grid' ? '✓ ' : '') + 'Daftar' }, { t: (FVIEW.mode === 'grid' ? '✓ ' : '') + 'Kotak' }] }); if (i >= 0) { FVIEW.mode = i ? 'grid' : 'list'; await DB.setMeta('fview', FVIEW); renderFolders(); } break; }
+    case 'edfs': { const ks = Object.keys(EDFS), cur = FVIEW.edfs || 'iphone'; const i = await sheet({ title: 'Ukuran teks di dalam catatan', items: ks.map((k) => ({ t: (k === cur ? '✓ ' : '') + EDFSN[k] + ' (' + EDFS[k] + ')' })) }); if (i >= 0) { FVIEW.edfs = ks[i]; await DB.setMeta('fview', FVIEW); applyEdfs(); renderSettings && renderSettings(); } break; }
     case 'ftop': { const o = ['one', 'scroll', 'auto', 'list', 'grid'], cur = FVIEW.top || 'one'; const i = await sheet({ title: 'Tampilan Menu Atas (Jadwal Jaga, Tugas, Pembacaan, Link, Buku)', items: ['Satu menu terpenting, sisanya dilipat ▾', 'Geser ke samping', 'Ikuti tombol Daftar/Kotak folder', 'Selalu Daftar', 'Selalu Kotak'].map((t, k) => ({ t: (o[k] === cur ? '✓ ' : '') + t })) }); if (i >= 0) { FVIEW.top = o[i]; await DB.setMeta('fview', FVIEW); renderFolders(); } break; }
     case 'fpin': { const ids = ['all', ...orderedIds()]; const i = await sheet({ title: 'Folder sampai mana yang dikunci (tidak ikut tergulir)?', items: [{ t: (!FVIEW.pin ? '✓ ' : '') + 'Mati — semua ikut tergulir' }, ...ids.map((id) => ({ t: (FVIEW.pin === id ? '✓ ' : '') + 'Sampai ' + folderName(id) }))] }); if (i >= 0) { FVIEW.pin = i ? ids[i - 1] : null; FVIEW.pinSet = true; await DB.setMeta('fview', FVIEW); renderFolders(); } break; }
     case 'folders': back(); S.editFolders = true; renderFolders(); toast('Ketuk Ubah untuk nama/ikon, seret ≡ untuk urutan'); break;
@@ -4977,7 +4981,7 @@ setTimeout(() => { if (!booted) alertBox({ title: 'Memuat catatan terlalu lama',
     BOOT = 'membaca folder';
     S.folders = Array.isArray(await DB.getMeta('folders')) ? await DB.getMeta('folders') : [];
     S.sort = (await DB.getMeta('sort')) || 'updated';
-    { const nn = await DB.getMeta('notesName'); if (typeof nn === 'string' && nn) FIXED.notes = nn; const lk = await DB.getMeta('lock'); if (lk && typeof lk === 'object') LOCK = { ...LOCK, ...lk }; const fi = await DB.getMeta('fixIcons'); if (fi && typeof fi === 'object') fixIcons = fi; const fo = await DB.getMeta('folderOrder'); if (Array.isArray(fo)) folderOrder = fo; const fn = await DB.getMeta('fixNames'); if (fn && fn.all) FIXED.all = fn.all; if (fn && fn.trash) FIXED.trash = fn.trash; const ni = await DB.getMeta('notesIcon'); if (ni && typeof ni === 'object') notesIcon = ni; const th = await DB.getMeta('theme'); if (th && typeof th === 'object') THEME = { ...THEME, ...th }; applyTheme(); const fvw = await DB.getMeta('fview'); if (fvw && typeof fvw === 'object') FVIEW = { ...FVIEW, ...fvw }; else { const kf = S.folders.find((f) => /kamus/i.test(f.name)); if (kf) FVIEW.pin = kf.id; } }
+    { const nn = await DB.getMeta('notesName'); if (typeof nn === 'string' && nn) FIXED.notes = nn; const lk = await DB.getMeta('lock'); if (lk && typeof lk === 'object') LOCK = { ...LOCK, ...lk }; const fi = await DB.getMeta('fixIcons'); if (fi && typeof fi === 'object') fixIcons = fi; const fo = await DB.getMeta('folderOrder'); if (Array.isArray(fo)) folderOrder = fo; const fn = await DB.getMeta('fixNames'); if (fn && fn.all) FIXED.all = fn.all; if (fn && fn.trash) FIXED.trash = fn.trash; const ni = await DB.getMeta('notesIcon'); if (ni && typeof ni === 'object') notesIcon = ni; const th = await DB.getMeta('theme'); if (th && typeof th === 'object') THEME = { ...THEME, ...th }; applyTheme(); const fvw = await DB.getMeta('fview'); if (fvw && typeof fvw === 'object') FVIEW = { ...FVIEW, ...fvw }; else { const kf = S.folders.find((f) => /kamus/i.test(f.name)); if (kf) FVIEW.pin = kf.id; } applyEdfs(); }
     BOOT = 'membaca catatan';
     for (const n of (await DB.allNotes()) || []) if (n && n.id) S.notes[n.id] = n;
     BOOT = 'jadwal'; try { await loadJaga(); } catch (e) { ERRLOG.push('jaga: ' + e.message); }
