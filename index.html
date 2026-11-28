@@ -165,6 +165,7 @@ svg{display:block}
 .jcard.jsc{display:flex;gap:10px;overflow-x:auto;overflow-y:hidden;background:none!important;border-radius:0;padding:0 0 2px;scroll-snap-type:x mandatory;scrollbar-width:none;-webkit-overflow-scrolling:touch}.jcard.jsc::-webkit-scrollbar{display:none}.jcard.jsc .srow{flex:0 0 42%;scroll-snap-align:start;flex-direction:column;align-items:flex-start;gap:6px;padding:11px 12px;border-radius:16px;min-height:104px;background:color-mix(in srgb,var(--cell) 82%,transparent)}.jcard.jsc .srow::before{display:none}.jcard.jsc .srow .chev{display:none}.jcard.jsc .srow .sic{width:32px;height:32px;border-radius:9px;flex:none}.jcard.jsc .lb{font-size:14.5px;line-height:1.2;width:100%}.jcard.jsc small{font-size:12px;line-height:1.25;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;margin-top:3px;word-break:break-word}
 .jone .jmore{display:none}.jone.open .jmore{display:block}.jone .jmore .srow::before{content:"";position:absolute;top:0;right:0;left:58px;border-top:.5px solid var(--sep)}.jone .jtog{min-height:38px;padding:6px 16px;justify-content:center}.jone .jtog .lb{flex:none;font-weight:600;font-size:14px;color:var(--tint)}.jone .jtog .jchev{width:16px;height:16px;stroke:var(--tint);stroke-width:2.4;fill:none;transition:transform .2s}.jone.open .jtog .jchev{transform:rotate(180deg)}
 .jroll{position:relative;padding:0!important}.jrl{height:76px;overflow-y:auto;overflow-x:hidden;scroll-snap-type:y mandatory;scrollbar-width:none;overscroll-behavior:contain;border-radius:inherit}.jrl::-webkit-scrollbar{display:none}.jri2{height:76px;scroll-snap-align:start;scroll-snap-stop:always;display:flex}.jri2 .srow{height:100%;min-height:0;padding-right:30px}.jri2 .srow::before{display:none}.jroll small{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}.jdots{position:absolute;right:10px;top:50%;transform:translateY(-50%);display:flex;flex-direction:column;gap:4px;pointer-events:none}.jdots i{width:5px;height:5px;border-radius:3px;background:var(--ter);transition:height .2s}.jdots i.on{height:12px;background:var(--tint)}.jroll .chev{margin-right:6px}
+.subn{display:block;font-size:12px;color:var(--sec);font-weight:400;margin-top:1px}.fgrid .subn{font-size:11px}.subf .row{display:flex;align-items:center;gap:12px}
 .skme{background:linear-gradient(135deg,#5856D6,#AF52DE)!important}.skg{padding:4px 0 6px}.skh{display:flex;flex-direction:column;padding:10px 16px 6px}.skh b{font-size:16px}.skh small{color:var(--sec);font-size:12.5px}.skp{display:flex;justify-content:space-between;gap:10px;padding:4px 16px 4px 28px;font-size:15px}.skp i{font-style:normal;color:var(--sec);font-size:12.5px;white-space:nowrap}.skp.me{color:var(--tint);font-weight:700}.sks{margin-top:4px}
 .tjg{display:grid;grid-template-columns:auto 1fr;gap:3px 12px;padding-left:30px;font-size:15px;line-height:1.3}.tjg span{color:var(--sec)}.tjg b{font-weight:600}.tjg b.me{color:var(--tint)}
 .tseg{display:flex;gap:6px;margin:0 0 8px 30px}.tseg button{padding:4px 12px;border-radius:14px;border:1px solid var(--sep);font-size:13px;color:var(--ink)}.tseg button.on{background:color-mix(in srgb,var(--tint) 18%,transparent);border-color:var(--tint);color:var(--tint);font-weight:600}
@@ -532,7 +533,7 @@ svg{display:block}
 
 <section class="page off" id="pList">
  <header class="nav"><div class="navrow">
-  <button class="nb back" data-back><svg class="ic" viewBox="0 0 13 22"><path d="M11 2L2 11l9 9"/></svg>Folder</button>
+  <button class="nb back" data-back><svg class="ic" viewBox="0 0 13 22"><path d="M11 2L2 11l9 9"/></svg><span id="lBackT">Folder</span></button>
   <div class="navtitle" id="lTitleS">Catatan</div>
   <button class="nb bold" id="bSelDone" style="display:none">Selesai</button>
   <button class="nb" id="bListMore" aria-label="Lainnya"><svg class="ic" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><circle cx="8" cy="12" r=".6" fill="currentColor"/><circle cx="12" cy="12" r=".6" fill="currentColor"/><circle cx="16" cy="12" r=".6" fill="currentColor"/></svg></button>
@@ -603,7 +604,7 @@ svg{display:block}
 <script>
 {
 /* ================= penyimpanan di perangkat (IndexedDB) ================= */
-const APP_VERSION = 'v92';
+const APP_VERSION = 'v93';
 const ERRLOG = [];
 addEventListener('error', (e) => ERRLOG.push(new Date().toTimeString().slice(0, 8) + ' ' + (e.message || e.type)));
 addEventListener('unhandledrejection', (e) => ERRLOG.push(new Date().toTimeString().slice(0, 8) + ' ' + ((e.reason && (e.reason.name + ': ' + e.reason.message)) || e.reason)));
@@ -665,6 +666,11 @@ const S = {
 const FIXED = { all: 'Semua Catatan', notes: 'Catatan', trash: 'Baru Dihapus' };
 let LOCK = { pin: '', salt: '', cred: '', app: false }; let unlocked = false;
 const folderName = (id) => FIXED[id] || (S.folders.find((f) => f.id === id) || {}).name || 'Catatan';
+// folder bertingkat: f.parent = id folder induk
+const subFolders = (id) => S.folders.filter((f) => f.parent === id && f.parent !== f.id);
+const descIds = (id, seen = new Set()) => { for (const c of subFolders(id)) if (!seen.has(c.id)) { seen.add(c.id); descIds(c.id, seen); } return seen; };
+const treeCount = (id) => { if (id === 'all' || id === 'trash') return notesIn(id).length; const ids = new Set([id, ...descIds(id)]); return live().filter((n) => ids.has(n.folderId)).length; };
+const isChild = (f) => !!(f && f.parent && S.folders.some((x) => x.id === f.parent));
 const live = () => Object.values(S.notes).filter((n) => !n.deletedAt);
 const trashed = () => Object.values(S.notes).filter((n) => n.deletedAt);
 const notesIn = (fid) => fid === 'all' ? live() : fid === 'trash' ? trashed() : live().filter((n) => n.folderId === fid);
@@ -769,11 +775,11 @@ function orderedIds() {
 function renderFolders() {
   const ids = orderedIds();
   const rows = [];
-  const row = (id, name, icon, cls = '') => `<button class="row ${cls} ${S.folder === id && wide() ? 'sel' : ''}" data-f="${esc(id)}"><span class="minus">−</span><span class="fslot">${icon}</span><span class="nm">${esc(name)}</span><span class="ct">${notesIn(id).length}</span><span class="ren">Ubah</span>${I.chev}<span class="drag" aria-label="Seret">≡</span></button>`;
+  const row = (id, name, icon, cls = '') => `<button class="row ${cls} ${S.folder === id && wide() ? 'sel' : ''}" data-f="${esc(id)}"><span class="minus">−</span><span class="fslot">${icon}</span><span class="nm">${esc(name)}${subFolders(id).length ? `<small class="subn">${subFolders(id).length} folder di dalam</small>` : ''}</span><span class="ct">${treeCount(id)}</span><span class="ren">Ubah</span>${I.chev}<span class="drag" aria-label="Seret">≡</span></button>`;
   if (S.folders.length) rows.push(row('all', FIXED.all, folderIconHTML(fixIcons.all)));
   for (const id of ids) {
     if (id === 'notes') rows.push(row('notes', FIXED.notes, folderIconHTML(notesIcon), 'mv'));
-    else { const f = S.folders.find((x) => x.id === id); rows.push(row(f.id, f.name, folderIconHTML(f.icon), 'mv custom')); }
+    else { const f = S.folders.find((x) => x.id === id); if (isChild(f)) continue; rows.push(row(f.id, f.name, folderIconHTML(f.icon), 'mv custom')); }
   }
   if (trashed().length || S.editFolders) rows.push(row('trash', FIXED.trash, folderIconHTML(fixIcons.trash || { sym: 'trash' })));
   const grid = FVIEW.mode === 'grid' && !S.editFolders;
@@ -849,13 +855,18 @@ function renderList() {
   const all = notesIn(S.folder);
   const list = all.filter((n) => matches(n, S.qL));
   let html = renderNoteGroups(list, S.folder === 'all');
+  const subs = S.folder !== 'all' && S.folder !== 'trash' ? subFolders(S.folder) : [];
+  const subHTML = subs.length && !S.qL ? `<div class="sh">Folder</div><div class="group subf">${subs.map((f) => `<button class="row" data-subf="${esc(f.id)}"><span class="fslot">${folderIconHTML(f.icon)}</span><span class="nm">${esc(f.name)}${subFolders(f.id).length ? `<small class="subn">${subFolders(f.id).length} folder di dalam</small>` : ''}</span><span class="ct">${treeCount(f.id)}</span>${I.chev}</button>`).join('')}</div>` : '';
+  try { $('#lBackT').textContent = (S.fhist || []).length ? folderName(S.fhist[S.fhist.length - 1]) : 'Folder'; } catch {}
   if (!html) html = `<div class="empty">${S.qL ? 'Tidak Ada Hasil' : S.folder === 'trash' ? 'Tidak ada catatan yang baru dihapus.' : 'Tidak Ada Catatan'}</div>`;
   if (S.folder === 'trash' && all.length) html = `<p class="np" style="margin:0 20px;white-space:normal">Catatan dihapus permanen setelah 30 hari.</p>` + html;
-  $('#notes').innerHTML = html;
+  if (subHTML && !list.length && !S.qL) html = '';
+  $('#notes').innerHTML = subHTML + (subHTML && html ? '<div class="sh">Catatan</div>' : '') + html;
   const c = all.length;
   $('#lCount').textContent = c ? c + ' Catatan' : 'Tidak Ada Catatan';
   $('#pList .compose').style.visibility = S.folder === 'trash' ? 'hidden' : '';
 }
+$('#notes').addEventListener('click', (e) => { const b = e.target.closest('[data-subf]'); if (b) { e.stopPropagation(); openSub(b.dataset.subf); } }, true);
 function renderSearchAll() {
   const q = S.qF.trim();
   $('#folders').style.display = q ? 'none' : ''; $('#foldersPin').style.display = q ? 'none' : '';
@@ -886,6 +897,11 @@ function push(page) {
 }
 function back(fromPop) {
   if (S.stack.length < 2) return;
+  if (S.stack[S.stack.length - 1] === 'list' && (S.fhist || []).length) {
+    const prev = S.fhist.pop(); openFolder(prev);
+    if (!fromPop) { ignorePop = true; try { history.back(); } catch { ignorePop = false; } setTimeout(() => ignorePop = false, 600); }
+    return;
+  }
   const top = S.stack.pop();
   if (top === 'note') closeNote();
   applyStack();
@@ -974,6 +990,7 @@ for (const id of ['sFolders', 'sList']) {
 
 /* ================= folder ================= */
 function openFolder(id) {
+  if (S.stack[S.stack.length - 1] === 'folders') S.fhist = [];
   S.folder = id; S.qL = ''; $('#qL input').value = ''; $('#qL').classList.remove('has');
   renderList(); renderFolders(); $('#sList').scrollTop = 0; $('#pList .nav').classList.remove('solid');
   if (S.stack[S.stack.length - 1] === 'folders') push('list');
@@ -989,7 +1006,8 @@ $('#fBox').addEventListener('click', async (e) => {
   if (S.editFolders) {
     if (f && e.target.closest('.minus')) return deleteFolder(f);
     const name = folderName(id);
-    const i = await sheet({ title: name, items: [{ t: 'Ganti Nama' }, { t: 'Ganti Ikon' }, ...(id !== 'trash' ? [{ t: FVIEW.pin === id ? 'Lepas Pembatas di Bawah Folder Ini' : 'Pasang Pembatas di Bawah Folder Ini' }] : [])] });
+    const i = await sheet({ title: name, items: [{ t: 'Ganti Nama' }, { t: 'Ganti Ikon' }, ...(id !== 'trash' ? [{ t: FVIEW.pin === id ? 'Lepas Pembatas di Bawah Folder Ini' : 'Pasang Pembatas di Bawah Folder Ini' }] : []), ...(f ? [{ t: '📁 Pindahkan ke Folder Lain…' }] : [])] });
+    if (f && i === (id !== 'trash' ? 3 : 2)) return moveFolder(f);
     if (i === 0) {
       const { btn, value } = await alertBox({ title: 'Ganti Nama Folder', msg: f ? '' : 'Folder bawaan (tidak bisa dihapus).', input: name, buttons: [{ t: 'Batal' }, { t: 'Simpan', b: 1 }] });
       if (btn === 1 && value.trim()) { if (f) f.name = value.trim(); else FIXED[id] = value.trim(); await saveMeta(); renderAll(); }
@@ -1000,11 +1018,21 @@ $('#fBox').addEventListener('click', async (e) => {
   }
   openFolder(id);
 });
+function openSub(id) { S.fhist = S.fhist || []; S.fhist.push(S.folder); openFolder(id); try { history.pushState({ d: S.stack.length, sub: 1 }, ''); } catch {} }
+async function moveFolder(f) {
+  const bad = new Set([f.id, ...descIds(f.id)]);
+  const opts = S.folders.filter((x) => !bad.has(x.id));
+  const i = await sheet({ title: 'Pindahkan “' + f.name + '” ke…', items: [{ t: (f.parent ? '' : '✓ ') + '— Paling atas (bukan di dalam folder lain)' }, ...opts.map((x) => ({ t: (f.parent === x.id ? '✓ ' : '') + x.name + (x.parent ? '  (di ' + folderName(x.parent) + ')' : '') }))] });
+  if (i < 0) return;
+  if (i === 0) delete f.parent; else f.parent = opts[i - 1].id;
+  await saveMeta(); renderAll(); toast(i === 0 ? '“' + f.name + '” dipindah ke atas' : '“' + f.name + '” dimasukkan ke ' + opts[i - 1].name);
+}
 async function deleteFolder(f) {
   const n = notesIn(f.id).length;
   const { btn } = await alertBox({ title: `Hapus “${f.name}”?`, msg: n ? `${n} catatan di folder ini akan dipindah ke Baru Dihapus.` : 'Folder ini kosong.', buttons: [{ t: 'Batal' }, { t: 'Hapus', des: 1 }] });
   if (btn !== 1) return;
   for (const x of notesIn(f.id)) { x.deletedAt = Date.now(); x.folderId = 'notes'; x.from = f.name; await saveNote(x); }
+  for (const c of subFolders(f.id)) { if (f.parent) c.parent = f.parent; else delete c.parent; }
   S.folders = S.folders.filter((x) => x !== f); await saveMeta();
   if (S.folder === f.id) S.folder = 'notes';
   renderAll();
