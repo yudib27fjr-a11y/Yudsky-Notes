@@ -568,7 +568,7 @@ svg{display:block}
 <script>
 {
 /* ================= penyimpanan di perangkat (IndexedDB) ================= */
-const APP_VERSION = 'v68';
+const APP_VERSION = 'v69';
 const ERRLOG = [];
 addEventListener('error', (e) => ERRLOG.push(new Date().toTimeString().slice(0, 8) + ' ' + (e.message || e.type)));
 addEventListener('unhandledrejection', (e) => ERRLOG.push(new Date().toTimeString().slice(0, 8) + ' ' + ((e.reason && (e.reason.name + ': ' + e.reason.message)) || e.reason)));
@@ -3254,11 +3254,14 @@ function lapTeam(date, part) {
     if (sh.swap) { const [c0, p0] = colPart(sh.swap.fromType || sh.type); if (sh.swap.from === date && p0 === part && T[c0]) T[c0] = T[c0].split(/,\s*/).map((x) => (x === me ? sh.swap.with : x)).join(', '); }
     if (sh.date === date && p1 === part && me && (!T[c1] || !T[c1].split(/,\s*/).includes(me))) T[c1] = me;
   }
+  const P = (JAGA.pedi || {})[date];
+  if (P) { const v = P[part] || P[''] || (part ? '' : Object.values(P)[0]); if (v) T['Pedi'] = v; }
   Object.assign(T, (JAGA.teamEdit || {})[date + '|' + part] || {});
   return T;
 }
 function lapOrder(T) {
   const order = (JAGA.colOrder && JAGA.colOrder.length ? JAGA.colOrder : Object.keys(T)).filter((n) => !/^(hari|tanggal|tgl\.?|no\.?)$/i.test(n));
+  if (!order.includes('Pedi') && T['Pedi']) order.push('Pedi');
   const pi = order.indexOf('Pedi'), ci = order.indexOf('CVCU PJT');
   if (pi > -1 && ci > -1) { order.splice(pi, 1); order.splice(order.indexOf('CVCU PJT') + 1, 0, 'Pedi'); }
   return order;
@@ -3348,6 +3351,99 @@ async function laporanTim(date, part) {
   });
 }
 
+/* ================= Jadwal Pediatri (tempel teks WhatsApp / PDF) ================= */
+const BLN3 = ['jan', 'feb', 'mar', 'apr', 'mei', 'jun', 'jul', 'agu', 'sep', 'okt', 'nov', 'des'];
+const monIdx = (w) => { w = String(w).toLowerCase().slice(0, 3); if (w === 'agt' || w === 'aug') return 7; if (w === 'oct') return 9; if (w === 'dec') return 11; if (w === 'may') return 4; return BLN3.indexOf(w); };
+// cocokkan nama/panggilan/inisial ke inisial di daftar nama jadwal PPDS
+function matchPerson(t) {
+  const raw = String(t).trim().replace(/^[-–•*_~\s]+|[-–•*_~:;,.\s]+$/g, ''); if (!raw) return '';
+  const L = JAGA.legend || {}, up = raw.toUpperCase();
+  if (L[up]) return up;
+  const n = raw.toLowerCase().replace(/^(dr\.?\s*)+/, '').trim();
+  for (const [ini, nk] of Object.entries(JAGA.nick || {})) if (nk.toLowerCase() === n) return ini;
+  for (const ini of Object.keys(L)) if (defNick(L[ini]).toLowerCase() === n) return ini;
+  const hits = Object.keys(L).filter((ini) => L[ini].toLowerCase().replace(/^(dr\.?\s*)+/, '').split(/\s+/).some((w) => w.replace(/[^a-z]/g, '') === n.replace(/[^a-z]/g, '')));
+  if (hits.length === 1) return hits[0];
+  return raw;
+}
+// baca teks bebas: satu baris = satu tanggal (boleh beberapa nama)
+function parsePediText(text) {
+  const now = new Date(); let curMon = -1, curYear = now.getFullYear();
+  const out = [];
+  const monRe = new RegExp('\\b(' + BULAN.join('|') + '|jan|feb|mar|apr|jun|jul|agu|agt|sep|okt|nov|des)\\b', 'i');
+  for (let line of String(text).split(/\r?\n/)) {
+    line = line.replace(/[*_~]/g, '').trim(); if (!line) continue;
+    const ym = line.match(/\b(20\d{2})\b/); if (ym) curYear = +ym[1];
+    let d = null, m = -1, y = curYear, rest = line;
+    let mm = line.match(/\b(\d{1,2})\s*[\/\-.]\s*(\d{1,2})(?:\s*[\/\-.]\s*(\d{2,4}))?\b/);
+    if (mm && +mm[2] >= 1 && +mm[2] <= 12) { d = +mm[1]; m = +mm[2] - 1; if (mm[3]) y = +mm[3] < 100 ? 2000 + +mm[3] : +mm[3]; rest = rest.replace(mm[0], ' '); }
+    else if ((mm = line.match(new RegExp('\\b(\\d{1,2})\\s+(' + BULAN.join('|') + '|jan|feb|mar|apr|jun|jul|agu|agt|sep|okt|nov|des)\\.?(?:\\s+(20\\d{2}))?', 'i')))) { d = +mm[1]; m = monIdx(mm[2]); if (mm[3]) y = +mm[3]; rest = rest.replace(mm[0], ' '); curMon = m; }
+    else {
+      const mo = line.match(monRe); if (mo && !/\d{1,2}/.test(line.replace(/20\d{2}/, ''))) { curMon = monIdx(mo[1]); continue; } // judul bulan
+      const dn = line.match(/^(?:\d+[.)]\s*)?(?:(?:senin|selasa|rabu|kamis|jum'?at|sabtu|minggu|ahad),?\s*)?(\d{1,2})\b/i);
+      if (dn && curMon >= 0) { d = +dn[1]; m = curMon; rest = rest.replace(dn[0], ' '); }
+    }
+    if (d == null || m < 0 || d < 1 || d > 31) continue;
+    if (m >= 0) curMon = m;
+    const both = rest.match(/\bpagi\b(.*?)\bmalam\b(.*)$/i);
+    if (both) {
+      const clean = (t) => t.replace(/^[\s:,\-–=|>\/]+/, '').replace(/[\s:,\-–=|\/]+$/, '').trim();
+      const date = y + '-' + pad2(m + 1) + '-' + pad2(d);
+      for (const [pp, seg] of [['Pagi', both[1]], ['Malam', both[2]]]) { const ns = clean(seg).split(/\s*(?:\/|&|,|\+|\bdan\b|;)\s*/i).map((x) => x.trim()).filter((x) => x && /[a-z]/i.test(x)); if (ns.length) out.push({ date, part: pp, who: ns.map(matchPerson) }); }
+      continue;
+    }
+    const part = /\bmalam\b/i.test(line) ? 'Malam' : /\bpagi\b/i.test(line) ? 'Pagi' : '';
+    rest = rest.replace(/^\s*\d+[.)]\s*/, ' ').replace(/\b(senin|selasa|rabu|kamis|jum'?at|sabtu|minggu|ahad)\b/gi, ' ').replace(/\b(pagi|malam|siang|sore|jaga|pediatri|pedi|ppds|tgl|tanggal)\b/gi, ' ')
+      .replace(/^[\s:,\-–=|>]+/, '').replace(/[\s:,\-–=|]+$/, '').trim();
+    const names = rest.split(/\s*(?:\/|&|,|\+|\bdan\b|;)\s*/i).map((x) => x.trim()).filter((x) => x && /[a-z]/i.test(x));
+    if (!names.length) continue;
+    out.push({ date: y + '-' + pad2(m + 1) + '-' + pad2(d), part, who: names.map(matchPerson) });
+  }
+  return out;
+}
+async function pdfText(file) {
+  const items = await pdfItems(file); const rows = [];
+  for (const it of items.sort((a, b) => a.p - b.p || a.y - b.y || a.x - b.x)) { const r = rows.find((r) => r.p === it.p && Math.abs(r.y - it.y) < it.h * .6); if (r) r.t.push(it); else rows.push({ p: it.p, y: it.y, t: [it] }); }
+  return rows.map((r) => r.t.sort((a, b) => a.x - b.x).map((i) => i.t).join(' ')).join('\n');
+}
+async function pediReview(list, src) {
+  if (!list.length) { alertBox({ title: 'Tidak ada jadwal terbaca', msg: 'Pastikan setiap baris berisi tanggal dan nama, mis.\n“Senin, 30 Nov: Firah”\n“30/11 Pagi Firah, Malam Oki”\n“1 Desember 2026 – dr. Firah”', buttons: [{ t: 'OK', b: 1 }] }); return false; }
+  const r = await alertBox({ title: list.length + ' hari pediatri terbaca', msg: (src ? src + '\n\n' : '') + list.slice(0, 12).map((e) => oD(e.date, { weekday: 'short', day: 'numeric', month: 'short' }) + (e.part ? ' ' + e.part : '') + ': ' + e.who.map(personLabel).join(', ')).join('\n') + (list.length > 12 ? '\n…' : ''), buttons: [{ t: 'Batal' }, { t: 'Simpan', b: 1 }] });
+  if (r.btn !== 1) return false;
+  JAGA.pedi = JAGA.pedi || {};
+  for (const e of list) { JAGA.pedi[e.date] = { ...(JAGA.pedi[e.date] || {}), [e.part]: e.who.join(', ') }; }
+  await saveJaga(); renderJaga(); toast('Jadwal pediatri disimpan'); return true;
+}
+async function pediMenu() {
+  const n = Object.keys(JAGA.pedi || {}).length;
+  const i = await sheet({ title: 'Jadwal Pediatri' + (n ? ' — ' + n + ' hari tersimpan' : ''), items: [{ t: 'Tempel Teks dari WhatsApp' }, { t: 'Unggah PDF' }, ...(n ? [{ t: 'Lihat / Ubah' }, { t: 'Hapus Semua', des: 1 }] : [])] });
+  if (i === 0) {
+    let clip = ''; try { clip = await navigator.clipboard.readText(); } catch {}
+    const ov = overlay(`<div class="jrv"><div class="jrh"><button data-x>Batal</button><b>Tempel Jadwal Pediatri</b><button data-ok class="b">Baca</button></div><div class="jrs">
+      <p class="jri">Salin pesan jadwal pediatri dari WhatsApp, lalu tempel di bawah. Satu baris per tanggal, mis. <b>“Senin, 30 Nov: Firah”</b> atau <b>“30/11 Pagi Firah, Malam Oki”</b>.</p>
+      <textarea class="lapt pdt" placeholder="Tempel di sini…" style="min-height:260px">${esc(/\d/.test(clip) && /[a-z]/i.test(clip) ? clip : '')}</textarea></div></div>`);
+    setTimeout(() => $('.pdt', ov).focus(), 250);
+    ov.addEventListener('click', async (e) => {
+      if (e.target.closest('[data-x]')) return ov.close();
+      if (e.target.closest('[data-ok]')) { const t = $('.pdt', ov).value; const l = parsePediText(t); if (await pediReview(l, '')) ov.close(); }
+    });
+  }
+  if (i === 1) {
+    const f = await pickFiles('application/pdf'); if (!f.length) return;
+    try { const t = await pdfText(f[0]); await pediReview(parsePediText(t), f[0].name); } catch (e) { alertBox({ title: 'PDF tidak bisa dibaca', msg: e.message, buttons: [{ t: 'OK', b: 1 }] }); }
+  }
+  if (i === 2) {
+    const keys = Object.keys(JAGA.pedi).sort().filter((d) => d >= ymd(new Date(Date.now() - 3 * DAY)));
+    const rows = keys.flatMap((d) => Object.entries(JAGA.pedi[d]).map(([p, v]) => ({ d, p, v })));
+    const j = await sheet({ title: 'Ketuk untuk mengganti', items: rows.map((r) => ({ t: oD(r.d, { weekday: 'short', day: 'numeric', month: 'short' }) + (r.p ? ' ' + r.p : '') + ' — ' + r.v.split(/,\s*/).map(personLabel).join(', ') })) });
+    if (j < 0) return;
+    const r = rows[j], who = await personPicker('Pediatri ' + oD(r.d, { day: 'numeric', month: 'short' }) + (r.p ? ' ' + r.p : ''), r.v.split(/,\s*/)[0]);
+    if (who == null) return;
+    JAGA.pedi[r.d][r.p] = who; await saveJaga(); renderJaga(); toast('Disimpan');
+  }
+  if (i === 3) { const r = await alertBox({ title: 'Hapus semua jadwal pediatri?', buttons: [{ t: 'Batal' }, { t: 'Hapus', des: 1 }] }); if (r.btn === 1) { JAGA.pedi = {}; await saveJaga(); renderJaga(); } }
+}
+
 /* ================= Jadwal Jaga ================= */
 let JAGA = { name: '', alias: '', shifts: [], srcs: [], remind: { pre: 120, eve: true, on: false }, hours: { biasa: ['16:00', '07:00'], libur: ['07:00', '07:00'], pagi: ['07:00', '19:00'], malam: ['19:00', '07:00'] }, other: { dpjp: [], rsuh: [], pci: [], poli: [] } };
 const pad2 = (n) => String(n).padStart(2, '0');
@@ -3387,6 +3483,7 @@ function renderJaga() {
    ${oTodayHTML()}
    <div class="group">
     <button class="srow" data-jk="lapor">${SIC('#25D366', 'M4 20l1.3-4A8 8 0 1 1 8 19.3zM8 10h8M8 13h5')}<span class="lb">Laporan Tim Jaga</span>${I.chev}</button>
+    <button class="srow" data-jk="pedi">${SIC('#FF2D55', 'M12 21s-7-4.5-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 11c0 5.5-7 10-7 10z')}<span class="lb">Jadwal Pediatri</span><span class="vl">${Object.keys(JAGA.pedi || {}).length ? Object.keys(JAGA.pedi).length + ' hari' : 'Tempel WA / PDF'}</span>${I.chev}</button>
     <button class="srow" data-jk="upload">${SIC('#34C759', 'M12 16V4M7 9l5-5 5 5M4 20h16')}<span class="lb">Unggah Jadwal (Foto / PDF)</span>${I.chev}</button>
     <button class="srow" data-jk="name">${SIC('#007AFF', 'M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM4.5 20a7.5 7.5 0 0 1 15 0')}<span class="lb">Nama Saya di Jadwal</span><span class="vl">${esc(JAGA.name || 'Belum diisi')}</span>${I.chev}</button>
     <button class="srow" data-jk="hours">${SIC('#8E8E93', 'M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zM12 7v5l3 2')}<span class="lb">Jam Jaga Bawaan</span><span class="vl">${esc((JAGA.hours.biasa || [''])[0].replace(':', '.') + ' / ' + (JAGA.hours.libur || ['07:00'])[0].replace(':', '.'))}</span>${I.chev}</button>
@@ -3625,6 +3722,7 @@ $('#jagaBody').addEventListener('click', async (e) => {
   }
   if (k === 'cal') jagaToCalendar();
   if (k === 'lapor') laporanTim();
+  if (k === 'pedi') pediMenu();
   if (k === 'hours') {
     const keys = [['biasa', 'Hari kerja (Senin–Jumat)'], ['libur', 'Sabtu/Minggu tanpa keterangan Pagi/Malam'], ['pagi', 'Jaga Pagi'], ['malam', 'Jaga Malam']];
     const i = await sheet({ title: 'Jam Jaga Bawaan — dipakai bila jadwal tidak menulis jam', items: keys.map(([k2, l]) => ({ t: l + ': ' + JAGA.hours[k2].join('–') })) });
