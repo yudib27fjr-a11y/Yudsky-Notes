@@ -602,7 +602,7 @@ svg{display:block}
 <script>
 {
 /* ================= penyimpanan di perangkat (IndexedDB) ================= */
-const APP_VERSION = 'v90';
+const APP_VERSION = 'v91';
 const ERRLOG = [];
 addEventListener('error', (e) => ERRLOG.push(new Date().toTimeString().slice(0, 8) + ' ' + (e.message || e.type)));
 addEventListener('unhandledrejection', (e) => ERRLOG.push(new Date().toTimeString().slice(0, 8) + ' ' + ((e.reason && (e.reason.name + ': ' + e.reason.message)) || e.reason)));
@@ -895,24 +895,27 @@ $$('[data-back]').forEach((b) => b.addEventListener('click', () => back()));
 
 // geser dari tepi kiri untuk kembali
 {
-  let sx = null, sy = 0, el = null;
+  let sx = null, sy = 0, el = null, horiz = false;
+  const reset = () => { if (el) { el.classList.remove('noanim'); el.style.transform = ''; } sx = null; el = null; horiz = false; };
   document.addEventListener('touchstart', (e) => {
     const t = e.touches[0];
-    if (wide() || S.stack.length < 2 || t.clientX > 24) return;
-    sx = t.clientX; sy = t.clientY; el = $(PAGES[S.stack[S.stack.length - 1]]); el.classList.add('noanim');
+    if (wide() || S.stack.length < 2 || t.clientX > 24 || e.touches.length > 1) return;
+    sx = t.clientX; sy = t.clientY; el = $(PAGES[S.stack[S.stack.length - 1]]); horiz = false;
   }, { passive: true });
   document.addEventListener('touchmove', (e) => {
-    if (sx === null) return;
-    const dx = Math.max(0, e.touches[0].clientX - sx);
-    el.style.transform = `translateX(${dx}px)`;
+    if (sx === null || !el) return;
+    const dx = e.touches[0].clientX - sx, dy = e.touches[0].clientY - sy;
+    if (!horiz) { if (Math.abs(dy) > 10 && Math.abs(dy) > Math.abs(dx)) return reset(); if (dx < 10) return; horiz = true; el.classList.add('noanim'); }
+    el.style.transform = `translateX(${Math.max(0, dx)}px)`;
   }, { passive: true });
   document.addEventListener('touchend', (e) => {
     if (sx === null) return;
-    const dx = e.changedTouches[0].clientX - sx;
-    el.classList.remove('noanim'); el.style.transform = '';
-    sx = null;
-    if (dx > innerWidth * 0.33) back();
+    const dx = e.changedTouches[0].clientX - sx, go = horiz && dx > innerWidth * 0.33;
+    reset(); if (go) back();
   });
+  document.addEventListener('touchcancel', reset);           // gestur "kembali" sistem Android membatalkan sentuhan
+  addEventListener('popstate', () => { reset(); Object.values(PAGES).forEach((q) => { const p = $(q); if (p) { p.style.transform = ''; p.classList.remove('noanim'); } }); });
+  document.addEventListener('visibilitychange', reset);
 }
 
 // judul besar → judul kecil saat digulir
