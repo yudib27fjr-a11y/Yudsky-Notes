@@ -139,6 +139,7 @@ svg{display:block}
 .navbrand{position:absolute;left:50%;transform:translateX(-50%);display:flex;align-items:center;gap:7px;font-size:17px;color:var(--ink);font-weight:500;white-space:nowrap;pointer-events:none}.navbrand img{width:26px;height:26px;border-radius:7px;box-shadow:0 1px 3px rgba(0,0,0,.25)}.navbrand b{color:var(--tint);font-weight:700}
 #pFolders .fstick{padding-top:6px}
 /* tim jaga residen di Hari Ini */
+.skme{background:linear-gradient(135deg,#5856D6,#AF52DE)!important}.skg{padding:4px 0 6px}.skh{display:flex;flex-direction:column;padding:10px 16px 6px}.skh b{font-size:16px}.skh small{color:var(--sec);font-size:12.5px}.skp{display:flex;justify-content:space-between;gap:10px;padding:4px 16px 4px 28px;font-size:15px}.skp i{font-style:normal;color:var(--sec);font-size:12.5px;white-space:nowrap}.skp.me{color:var(--tint);font-weight:700}.sks{margin-top:4px}
 .tjg{display:grid;grid-template-columns:auto 1fr;gap:3px 12px;padding-left:30px;font-size:15px;line-height:1.3}.tjg span{color:var(--sec)}.tjg b{font-weight:600}.tjg b.me{color:var(--tint)}
 .tseg{display:flex;gap:6px;margin:0 0 8px 30px}.tseg button{padding:4px 12px;border-radius:14px;border:1px solid var(--sep);font-size:13px;color:var(--ink)}.tseg button.on{background:color-mix(in srgb,var(--tint) 18%,transparent);border-color:var(--tint);color:var(--tint);font-weight:600}
 .tlap{margin:10px 0 0 30px;color:var(--tint);font-size:14px;font-weight:600}
@@ -568,7 +569,7 @@ svg{display:block}
 <script>
 {
 /* ================= penyimpanan di perangkat (IndexedDB) ================= */
-const APP_VERSION = 'v69';
+const APP_VERSION = 'v70';
 const ERRLOG = [];
 addEventListener('error', (e) => ERRLOG.push(new Date().toTimeString().slice(0, 8) + ' ' + (e.message || e.type)));
 addEventListener('unhandledrejection', (e) => ERRLOG.push(new Date().toTimeString().slice(0, 8) + ' ' + ((e.reason && (e.reason.name + ': ' + e.reason.message)) || e.reason)));
@@ -2966,7 +2967,7 @@ function poliParts(note) {
 let TPART = null;
 function oTodayHTML() {
   const today = ymd(new Date()), tmr = ymd(new Date(Date.now() + DAY));
-  const cats = OCATS.filter((c) => oList(c.k).length); if (!cats.length && !Object.keys(JAGA.team || {}).some((x) => x.startsWith(today + '|'))) return '';
+  const cats = OCATS.filter((c) => oList(c.k).length); if (!cats.length && !Object.keys(JAGA.team || {}).some((x) => x.startsWith(today + '|')) && !(JAGA.siklus || []).length) return '';
   const names = (k, d) => oFor(k, d).map((e) => e.name);
   const nm = (k, d) => { const a = names(k, d); return a.length ? a.map(esc).join(' / ') : '<span class="onone0">—</span>'; };
   const hasRS = oList('dpjp').length || oList('pci').length;
@@ -2997,7 +2998,8 @@ function oTodayHTML() {
       <div class="tjg">${order.map((c) => { const v = T[c] ? T[c].split(/,\s*/) : []; return `<span>${esc(LAPLABEL[c] || c)}</span><b class="${v.includes(me) ? 'me' : ''}">${v.length ? v.map((x) => esc(nickOf(x))).join(', ') : '-'}</b>`; }).join('')}</div>
       <div class="tlap" data-lapor="${esc(pt)}">Buat Laporan Tim Jaga ›</div></div>`;
   };
-  const html = teamCard() + (hasRS ? dpjpCard() : '') + cats.map(row).join('');
+  const myStase = (() => { const m = staseOf(JAGA.name || 'Yudi Wahyudi'); if (!m) return ''; const c = curSiklus(); return `<div class="otd" data-siklus="1"><div class="oth">${SIC('#5856D6', 'M4 5h16M4 12h16M4 19h10M18 16l3 3-3 3')}<b>Stase Saya</b></div><div class="onm big">${esc(m.g.stase)}</div><div class="otm">${esc(m.g.tahap || '')}${c && c.to ? ' · s.d. ' + esc(oD(c.to, { day: 'numeric', month: 'short' })) : ''}${m.g.dpjp ? ' · DPJP ' + esc(m.g.dpjp) : ''}</div></div>`; })();
+  const html = myStase + teamCard() + (hasRS ? dpjpCard() : '') + cats.map(row).join('');
   return `<div class="sh">Hari Ini <small class="shd">${esc(new Date().toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long' }))}</small></div><div class="group otoday">${html}</div>`;
 }
 function oGroupHTML() {
@@ -3234,7 +3236,7 @@ function personPicker(title, cur) {
       const rank = (p) => !nq ? 5 : p.ini.toLowerCase() === nq ? 0 : p.ini.toLowerCase().startsWith(nq) ? 1 : norm(p.nick).startsWith(nq) ? 2 : norm(p.nick).includes(nq) ? 3 : norm(p.full).split(/\s+/).some((w) => w.startsWith(nq)) ? 4 : norm(p.full).includes(nq) ? 6 : 9;
       const hits = people.map((p) => [rank(p), p]).filter(([r]) => r < 9).sort((a, b) => a[0] - b[0] || a[1].nick.localeCompare(b[1].nick, 'id')).map(([, p]) => p).slice(0, 60);
       list.innerHTML = (q ? `<button class="ppr" data-free><span class="ppi">✎</span><span class="ppn"><b>Pakai “${esc(q)}”</b><small>tulis apa adanya</small></span></button>` : '')
-        + hits.map((p) => `<button class="ppr ${p.ini === cur ? 'on' : ''}" data-ini="${esc(p.ini)}"><span class="ppi">${esc(p.ini)}</span><span class="ppn"><b>${esc(p.nick)}</b><small>${esc(p.full)}</small></span></button>`).join('')
+        + hits.map((p) => { const st = staseOf(p.full); return `<button class="ppr ${p.ini === cur ? 'on' : ''}" data-ini="${esc(p.ini)}"><span class="ppi">${esc(p.ini)}</span><span class="ppn"><b>${esc(p.nick)}</b><small>${esc(p.full)}${st ? ' · ' + esc(st.g.stase) : ''}</small></span></button>`; }).join('')
         + (!people.length ? '<p class="jri">Daftar nama belum ada — unggah PDF jadwal PPDS dulu. Sementara, ketik nama lalu pilih “Pakai”.</p>' : '');
     };
     draw(); inp.addEventListener('input', draw); setTimeout(() => inp.focus(), 250);
@@ -3444,6 +3446,144 @@ async function pediMenu() {
   if (i === 3) { const r = await alertBox({ title: 'Hapus semua jadwal pediatri?', buttons: [{ t: 'Batal' }, { t: 'Hapus', des: 1 }] }); if (r.btn === 1) { JAGA.pedi = {}; await saveJaga(); renderJaga(); } }
 }
 
+/* ================= Siklus Stase (divisi) ================= */
+const normNm = (t) => String(t || '').toLowerCase().replace(/\(.*?\)/g, ' ').replace(/\b(prof|dr|drg|sp|m\.?kes)\b\.?/g, ' ').replace(/[^a-z\s]/g, ' ').split(/\s+/).filter((w) => w.length > 1);
+function sameName(a, b) {
+  const A = normNm(a), B = normNm(b); if (!A.length || !B.length) return false;
+  const [s, l] = A.length <= B.length ? [A, B] : [B, A];
+  return s.every((w) => l.includes(w)) && s.join('').length >= 5;
+}
+function curSiklus(date) { const d = date || ymd(new Date()); const L = JAGA.siklus || []; return L.find((c) => (!c.from || d >= c.from) && (!c.to || d <= c.to)) || L[L.length - 1] || null; }
+function staseOf(name, date) {
+  const c = curSiklus(date); if (!c || !name) return null; const d = date || ymd(new Date());
+  for (const g of c.groups) for (const p of g.peserta) if (sameName(p.name, name) && (!p.from || (d >= p.from && d <= p.to))) return { g, p };
+  for (const g of c.groups) for (const p of g.peserta) if (sameName(p.name, name)) return { g, p };
+  return null;
+}
+function parsePeriode(t) {
+  const m = String(t).match(/(\d{1,2})\s*([a-z]+)?\s*[–\-]\s*(\d{1,2})\s+([a-z]+)\s+(20\d{2})/i); if (!m) return null;
+  const m2 = monIdx(m[4]), m1 = m[2] ? monIdx(m[2]) : m2, y = +m[5];
+  if (m1 < 0 || m2 < 0) return null;
+  return { from: (m1 > m2 ? y - 1 : y) + '-' + pad2(m1 + 1) + '-' + pad2(+m[1]), to: y + '-' + pad2(m2 + 1) + '-' + pad2(+m[3]) };
+}
+// PDF teks: tabel "Stase | Peserta", "Nama | Lokasi penempatan", "Bidang / DPJP | Periode | Peserta"
+async function siklusFromPdf(file) {
+  const items = (await pdfItems(file)).filter((i) => (i.y % 100000) < 780).sort((a, b) => a.y - b.y || a.x - b.x);
+  if (items.length < 20) return null;
+  const all = items.map((i) => i.t).join(' ');
+  const pm = all.match(/Periode\s+(\d{1,2}\s+[A-Za-z]+\s*[–\-]\s*\d{1,2}\s+[A-Za-z]+\s+20\d{2})/);
+  const per = pm ? parsePeriode(pm[1]) : null;
+  const groups = []; let tahap = '', mode = '', C = {}, blk = null, rowY = -1, hdrY = -1;
+  const sameRow = (it, re) => items.find((o) => o !== it && Math.abs(o.y - it.y) < 3 && re.test(o.t));
+  const cleanP = (t) => { const nt = (t.match(/\(([^)]*)\)\s*$/) || [])[1] || ''; return { name: t.replace(/^\d+\.\s*/, '').replace(/\s*\([^)]*\)\s*$/, '').trim(), note: nt.trim() }; };
+  for (const it of items) {
+    const t = it.t;
+    if (Math.abs(it.y - hdrY) < 3) continue; // sisa baris judul kolom
+    const th = t.match(/^\d+\.\s*(Tahap\s+[IVX]+\s*\([^)]*\))/i); if (th) { tahap = th[1]; mode = ''; continue; }
+    if (/^stase$/i.test(t) && sameRow(it, /^peserta$/i)) { mode = 'st'; C = { sx: it.x, px: sameRow(it, /^peserta$/i).x }; hdrY = it.y; blk = null; continue; }
+    if (/^nama$/i.test(t) && sameRow(it, /lokasi/i)) { mode = 'km'; hdrY = it.y; C = { nx: it.x, lx: sameRow(it, /lokasi/i).x }; blk = { tahap, stase: 'Kerja Mandiri', dpjp: '', peserta: [] }; groups.push(blk); continue; }
+    if (/^bidang/i.test(t) && sameRow(it, /^periode$/i)) { mode = 'uj'; hdrY = it.y; C = { bx: it.x, rx: sameRow(it, /^periode$/i).x, px: sameRow(it, /^peserta$/i)?.x || 340 }; blk = null; continue; }
+    if (/^\d+(\.\d+)?\.?\s+[A-Z]/.test(t) && it.x < 80 && !/^\d+\.\s*dr/i.test(t)) { if (mode) mode = ''; if (/ujian/i.test(t)) tahap = t.replace(/^\d+\.\s*/, ''); continue; }
+    if (mode === 'st') {
+      if (it.x < C.sx - 3 && /^\d+$/.test(t)) { blk = { tahap, stase: '', dpjp: '', peserta: [] }; groups.push(blk); continue; }
+      if (it.x < C.sx - 3) { blk = null; continue; } // teks di luar tabel (catatan kaki, "No.")
+      if (!blk) continue;
+      if (it.x < C.px - 3) { blk.stase = (blk.stase + ' ' + t).trim(); continue; }
+      if (/^\d+\.\s*/.test(t)) blk.peserta.push(cleanP(t)); else if (blk.peserta.length) { const l = blk.peserta[blk.peserta.length - 1]; Object.assign(l, cleanP(l.name + ' ' + t)); }
+    } else if (mode === 'km') {
+      if (/^\d+$/.test(t)) { rowY = it.y; continue; }
+      if (Math.abs(it.y - rowY) < 3) { if (it.x < C.lx - 3) blk.peserta.push({ name: t.trim(), note: '' }); else if (blk.peserta.length) blk.peserta[blk.peserta.length - 1].note = t.trim(); }
+    } else if (mode === 'uj') {
+      if (it.x < C.rx - 3) { if (/^dpjp/i.test(t) || (blk && blk.dpjp && !blk.peserta.length && Math.abs(it.y - blk._y) < 40 && !/^[A-Z][a-z]+\s*(&|$)/.test(t))) { if (blk) blk.dpjp = (blk.dpjp + ' ' + t.replace(/^dpjp:\s*/i, '')).trim(); } else if (blk && blk.dpjp && it.y - blk._y < 40 && /^[A-Z][a-zA-Z.,()]+/.test(t) && /,|\(/.test(t)) { blk.dpjp += ' ' + t; } else { blk = { tahap: 'Persiapan Ujian', stase: 'Persiapan Ujian — ' + t, dpjp: '', peserta: [], _y: it.y, _per: null }; groups.push(blk); } continue; }
+      if (!blk) continue;
+      if (it.x < C.px - 3) { blk._per = parsePeriode(t); blk._perT = t; continue; }
+      if (/^\d+\.\s*/.test(t)) { const p = cleanP(t); if (blk._per) Object.assign(p, blk._per, { note: blk._perT }); blk.peserta.push(p); }
+    }
+  }
+  groups.forEach((g) => { delete g._y; delete g._per; delete g._perT; g.stase = g.stase.replace(/\s+/g, ' '); });
+  const gs = groups.filter((g) => g.stase && g.peserta.length);
+  if (!gs.length) return null;
+  return { label: pm ? 'Periode ' + pm[1].replace(/\s+/g, ' ') : file.name, from: per ? per.from : '', to: per ? per.to : '', groups: gs };
+}
+// PPTX: ambil teks slide (unzip pakai DecompressionStream)
+async function pptxText(file) {
+  const buf = new Uint8Array(await file.arrayBuffer()), dv = new DataView(buf.buffer);
+  let eocd = -1; for (let i = buf.length - 22; i >= 0 && i > buf.length - 66000; i--) if (dv.getUint32(i, true) === 0x06054b50) { eocd = i; break; }
+  if (eocd < 0) throw new Error('File PPT tidak dikenali (pakai .pptx)');
+  let p = dv.getUint32(eocd + 16, true); const n = dv.getUint16(eocd + 10, true), out = [];
+  for (let k = 0; k < n; k++) {
+    const meth = dv.getUint16(p + 10, true), csz = dv.getUint32(p + 20, true), nl = dv.getUint16(p + 28, true), el = dv.getUint16(p + 30, true), cl = dv.getUint16(p + 32, true), lo = dv.getUint32(p + 42, true);
+    const name = new TextDecoder().decode(buf.subarray(p + 46, p + 46 + nl)); p += 46 + nl + el + cl;
+    const m = name.match(/^ppt\/slides\/slide(\d+)\.xml$/); if (!m) continue;
+    const ls = lo + 30 + dv.getUint16(lo + 26, true) + dv.getUint16(lo + 28, true), raw = buf.subarray(ls, ls + csz);
+    let xml;
+    if (meth === 0) xml = new TextDecoder().decode(raw);
+    else xml = await new Response(new Blob([raw]).stream().pipeThrough(new DecompressionStream('deflate-raw'))).text();
+    const paras = xml.split(/<\/a:p>/).map((pp) => (pp.match(/<a:t>([^<]*)<\/a:t>/g) || []).map((x) => x.replace(/<\/?a:t>/g, '')).join('')).filter(Boolean);
+    out.push([+m[1], 'Slide ' + m[1] + ':\n' + paras.join('\n')]);
+  }
+  return out.sort((a, b) => a[0] - b[0]).map((x) => x[1]).join('\n\n').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&apos;/g, "'");
+}
+const SSCHEMA = { type: 'OBJECT', properties: { label: { type: 'STRING' }, from: { type: 'STRING' }, to: { type: 'STRING' }, groups: { type: 'ARRAY', items: { type: 'OBJECT', properties: { tahap: { type: 'STRING' }, stase: { type: 'STRING' }, dpjp: { type: 'STRING' }, peserta: { type: 'ARRAY', items: { type: 'OBJECT', properties: { name: { type: 'STRING' }, note: { type: 'STRING' }, from: { type: 'STRING' }, to: { type: 'STRING' } }, required: ['name'] } } }, required: ['stase', 'peserta'] } } }, required: ['groups'] };
+const SPROMPT = `Ini jadwal siklus stase/divisi residen (PPDS) kardiologi. Ambil SEMUA penempatan stase: untuk setiap stase/divisi, siapa pesertanya.
+- label: judul/periode singkat (mis. "Periode 15 November – 31 Desember 2026"). from/to: tanggal mulai & selesai periode (YYYY-MM-DD).
+- groups: satu entri per stase per tahap. tahap mis. "Tahap I (Junior)". stase: nama stase/divisi lengkap. dpjp: DPJP/supervisor stase bila tertulis.
+- peserta: name = nama lengkap dengan "dr." seperti tertulis; note = keterangan dalam kurung (mis. "2", "Restase") atau lokasi kerja mandiri; from/to bila peserta punya periode sendiri (YYYY-MM-DD).
+Jawab dalam bahasa Indonesia.`;
+async function siklusUpload(files) {
+  const f = files[0]; if (!f) return;
+  const isPdf = /pdf$/i.test(f.type) || /\.pdf$/i.test(f.name), isPpt = /\.pptx?$/i.test(f.name) || /presentation/i.test(f.type);
+  let res = null;
+  try {
+    if (isPdf) res = await siklusFromPdf(f);
+    if (!res) {
+      if (AIPROV === 'gemini' ? !(await ensureGemKey()) : !(await ensureClaudeKey())) return;
+      const bz = busy('Membaca jadwal stase…');
+      try {
+        if (isPpt) {
+          if (/\.ppt$/i.test(f.name)) throw new Error('Format .ppt lama belum didukung. Simpan ulang sebagai .pptx atau PDF.');
+          const txt = await pptxText(f); bz.set('Membaca dengan Gemini…');
+          res = AIPROV === 'gemini' ? await gemJSON([{ text: txt + '\n\n---\n' + SPROMPT }], SSCHEMA, bz) : await claudeJSON([{ type: 'text', text: txt + '\n\n---\n' + SPROMPT }], SSCHEMA);
+        } else res = await aiReadFiles(files, SPROMPT, SSCHEMA, bz);
+      } finally { bz.close(); }
+    }
+  } catch (e) { if (e.message !== 'Dibatalkan') alertBox({ title: 'Gagal membaca jadwal stase', msg: e.message, buttons: [{ t: 'OK', b: 1 }] }); return; }
+  if (!res || !(res.groups || []).length) return alertBox({ title: 'Tidak ada stase terbaca', msg: 'Coba file lain (PDF teks paling cepat & akurat).', buttons: [{ t: 'OK', b: 1 }] });
+  const nP = res.groups.reduce((t, g) => t + g.peserta.length, 0), mine = (() => { for (const g of res.groups) for (const p of g.peserta) if (sameName(p.name, JAGA.name || 'Yudi Wahyudi')) return g.stase; return ''; })();
+  const r = await alertBox({ title: 'Jadwal stase terbaca', msg: (res.label || '') + '\n' + res.groups.length + ' stase · ' + nP + ' peserta' + (mine ? '\n\nStase Anda: ' + mine : '') + '\n\n' + res.groups.slice(0, 10).map((g) => '• ' + g.stase + ' (' + g.peserta.length + ')').join('\n') + (res.groups.length > 10 ? '\n…' : ''), buttons: [{ t: 'Batal' }, { t: 'Simpan', b: 1 }] });
+  if (r.btn !== 1) return;
+  const c = { id: 's' + uid(), label: res.label || f.name, from: /^\d{4}-\d\d-\d\d$/.test(res.from || '') ? res.from : '', to: /^\d{4}-\d\d-\d\d$/.test(res.to || '') ? res.to : '', groups: res.groups.map((g) => ({ tahap: g.tahap || '', stase: g.stase, dpjp: g.dpjp || '', peserta: g.peserta.map((p) => ({ name: p.name, note: p.note || '', ...(p.from && p.to ? { from: p.from, to: p.to } : {}) })) })) };
+  JAGA.siklus = (JAGA.siklus || []).filter((x) => !(x.from && x.from === c.from && x.to === c.to)).concat(c).sort((a, b) => (a.from || '').localeCompare(b.from || ''));
+  await saveJaga(); renderJaga(); toast('Jadwal stase disimpan'); openSiklus(c.id);
+}
+function openSiklus(id) {
+  let c = (JAGA.siklus || []).find((x) => x.id === id) || curSiklus(), q = '';
+  const ov = overlay(`<div class="jrv"><div class="jrh"><button data-x>Tutup</button><b>Siklus Stase</b><button data-up class="b">Unggah</button></div><div class="jrs"></div></div>`);
+  const me = JAGA.name || 'Yudi Wahyudi';
+  const draw = () => {
+    if (!c) { $('.jrs', ov).innerHTML = `<p class="jri">Belum ada jadwal stase. Ketuk <b>Unggah</b> lalu pilih PDF, PPT (.pptx), atau foto jadwal siklus stase.</p>`; return; }
+    const mine = (() => { for (const g of c.groups) for (const p of g.peserta) if (sameName(p.name, me)) return { g, p }; return null; })();
+    const nq = q.toLowerCase();
+    const gs = c.groups.map((g) => ({ g, ps: !nq || g.stase.toLowerCase().includes(nq) || (g.tahap || '').toLowerCase().includes(nq) ? g.peserta : g.peserta.filter((p) => p.name.toLowerCase().includes(nq) || (p.note || '').toLowerCase().includes(nq)) })).filter((x) => x.ps.length);
+    const byT = {}; for (const x of gs) (byT[x.g.tahap || 'Lainnya'] = byT[x.g.tahap || 'Lainnya'] || []).push(x);
+    $('.jrs', ov).innerHTML = `
+      ${(JAGA.siklus || []).length > 1 ? `<div class="lseg">${JAGA.siklus.map((x) => `<button data-sk="${x.id}" class="${x.id === c.id ? 'on' : ''}">${esc(x.from ? oD(x.from, { day: 'numeric', month: 'short' }) + '–' + oD(x.to || x.from, { day: 'numeric', month: 'short' }) : x.label)}</button>`).join('')}</div>` : ''}
+      <div class="lttl"><b>${esc(c.label)}</b>${c.from && !/20\d\d/.test(c.label) ? `<small>${esc(oD(c.from, { day: 'numeric', month: 'long' }))} – ${esc(oD(c.to || c.from, { day: 'numeric', month: 'long', year: 'numeric' }))}</small>` : ''}</div>
+      ${mine ? `<div class="jnext skme"><small>Stase saya</small><b>${esc(mine.g.stase)}</b><span>${esc(mine.g.tahap || '')}${mine.p.note ? ' · ' + esc(mine.p.note) : ''}${mine.g.dpjp ? ' · DPJP ' + esc(mine.g.dpjp) : ''}</span></div>` : ''}
+      <input class="pps sks" placeholder="Cari nama atau stase…" value="${esc(q)}">
+      ${Object.entries(byT).map(([t, l]) => `<div class="sh">${esc(t)}</div>${l.map(({ g, ps }) => `<div class="group skg"><div class="skh"><b>${esc(g.stase)}</b><small>${g.peserta.length} orang${g.dpjp ? ' · DPJP ' + esc(g.dpjp) : ''}</small></div>${ps.map((p) => `<div class="skp ${sameName(p.name, me) ? 'me' : ''}"><span>${esc(p.name)}</span>${p.note ? `<i>${esc(p.note)}</i>` : ''}</div>`).join('')}</div>`).join('')}`).join('') || '<p class="jri">Tidak ditemukan.</p>'}
+      <button class="jclear" data-del>Hapus Jadwal Stase Ini</button>`;
+    const s = $('.sks', ov); s.addEventListener('input', () => { q = s.value; const pos = s.selectionStart; draw(); const s2 = $('.sks', ov); s2.focus(); s2.setSelectionRange(pos, pos); });
+  };
+  draw();
+  ov.addEventListener('click', async (e) => {
+    if (e.target.closest('[data-x]')) { ov.close(); renderJaga(); return; }
+    const sk = e.target.closest('[data-sk]'); if (sk) { c = JAGA.siklus.find((x) => x.id === sk.dataset.sk); draw(); return; }
+    if (e.target.closest('[data-up]')) { const f = await pickFiles('application/pdf,image/*,.pptx,.ppt,application/vnd.openxmlformats-officedocument.presentationml.presentation'); if (f.length) { ov.close(); siklusUpload(f); } return; }
+    if (e.target.closest('[data-del]')) { const r = await alertBox({ title: 'Hapus jadwal stase ini?', msg: c.label, buttons: [{ t: 'Batal' }, { t: 'Hapus', des: 1 }] }); if (r.btn === 1) { JAGA.siklus = JAGA.siklus.filter((x) => x !== c); await saveJaga(); c = curSiklus(); draw(); } }
+  });
+}
+
 /* ================= Jadwal Jaga ================= */
 let JAGA = { name: '', alias: '', shifts: [], srcs: [], remind: { pre: 120, eve: true, on: false }, hours: { biasa: ['16:00', '07:00'], libur: ['07:00', '07:00'], pagi: ['07:00', '19:00'], malam: ['19:00', '07:00'] }, other: { dpjp: [], rsuh: [], pci: [], poli: [] } };
 const pad2 = (n) => String(n).padStart(2, '0');
@@ -3483,6 +3623,7 @@ function renderJaga() {
    ${oTodayHTML()}
    <div class="group">
     <button class="srow" data-jk="lapor">${SIC('#25D366', 'M4 20l1.3-4A8 8 0 1 1 8 19.3zM8 10h8M8 13h5')}<span class="lb">Laporan Tim Jaga</span>${I.chev}</button>
+    <button class="srow" data-jk="siklus">${SIC('#5856D6', 'M4 5h16M4 12h16M4 19h10M18 16l3 3-3 3')}<span class="lb">Siklus Stase / Divisi</span><span class="vl">${(() => { const m = staseOf(JAGA.name || 'Yudi Wahyudi'); return m ? esc(m.g.stase.length > 18 ? m.g.stase.slice(0, 17) + '…' : m.g.stase) : (JAGA.siklus || []).length ? 'Lihat' : 'PDF / PPT / Foto'; })()}</span>${I.chev}</button>
     <button class="srow" data-jk="pedi">${SIC('#FF2D55', 'M12 21s-7-4.5-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 11c0 5.5-7 10-7 10z')}<span class="lb">Jadwal Pediatri</span><span class="vl">${Object.keys(JAGA.pedi || {}).length ? Object.keys(JAGA.pedi).length + ' hari' : 'Tempel WA / PDF'}</span>${I.chev}</button>
     <button class="srow" data-jk="upload">${SIC('#34C759', 'M12 16V4M7 9l5-5 5 5M4 20h16')}<span class="lb">Unggah Jadwal (Foto / PDF)</span>${I.chev}</button>
     <button class="srow" data-jk="name">${SIC('#007AFF', 'M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM4.5 20a7.5 7.5 0 0 1 15 0')}<span class="lb">Nama Saya di Jadwal</span><span class="vl">${esc(JAGA.name || 'Belum diisi')}</span>${I.chev}</button>
@@ -3690,6 +3831,7 @@ $('#jagaBody').addEventListener('click', async (e) => {
     if (i === 3) { JAGA.shifts = JAGA.shifts.filter((x) => x !== s); await saveJaga(); renderJaga(); renderFolders(); toast('Dihapus'); }
     return;
   }
+  if (e.target.closest('[data-siklus]')) return openSiklus();
   const tp = e.target.closest('[data-tpart]'); if (tp) { TPART = tp.dataset.tpart; renderJaga(); return; }
   const lp = e.target.closest('[data-lapor]'); if (lp) return laporanTim(ymd(new Date()), lp.dataset.lapor);
   const oc = e.target.closest('[data-ocat]'); if (oc) { const inTmr = !!oc.closest('.odb.tmr'); return openOCat(oc.dataset.ocat, inTmr ? ymd(new Date(Date.now() + DAY)) : undefined); }
@@ -3723,6 +3865,7 @@ $('#jagaBody').addEventListener('click', async (e) => {
   if (k === 'cal') jagaToCalendar();
   if (k === 'lapor') laporanTim();
   if (k === 'pedi') pediMenu();
+  if (k === 'siklus') { if ((JAGA.siklus || []).length) openSiklus(); else { const f = await pickFiles('application/pdf,image/*,.pptx,.ppt,application/vnd.openxmlformats-officedocument.presentationml.presentation'); if (f.length) siklusUpload(f); } }
   if (k === 'hours') {
     const keys = [['biasa', 'Hari kerja (Senin–Jumat)'], ['libur', 'Sabtu/Minggu tanpa keterangan Pagi/Malam'], ['pagi', 'Jaga Pagi'], ['malam', 'Jaga Malam']];
     const i = await sheet({ title: 'Jam Jaga Bawaan — dipakai bila jadwal tidak menulis jam', items: keys.map(([k2, l]) => ({ t: l + ': ' + JAGA.hours[k2].join('–') })) });
