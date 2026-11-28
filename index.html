@@ -154,6 +154,7 @@ svg{display:block}
 .sldl li{padding-left:2px}.sldl li span{font-weight:500}.sldl li i{font-style:normal;margin-left:8px;font-size:12px;padding:1px 7px;border-radius:8px;background:rgba(255,255,255,.12);color:rgba(255,255,255,.8)}.sldl li.me span{color:#FFD60A;font-weight:700}
 .sldnav{display:flex;justify-content:space-between;padding:8px 16px 0}.sldnav button{width:56px;height:44px;border-radius:14px;background:rgba(255,255,255,.12);color:#fff;font-size:26px}
 @media (orientation:landscape){.sldl.two{grid-template-columns:1fr 1fr}}
+.pie{display:flex;gap:12px;width:100%;text-align:left;padding:10px 16px;align-items:flex-start;position:relative}.pie+.pie::before{content:"";position:absolute;top:0;left:16px;right:0;border-top:.5px solid var(--sep)}.pie .jd{flex:none}.pjt{display:flex;flex-direction:column;gap:2px;min-width:0;flex:1;text-align:left;align-items:flex-start}.pie .jd{width:44px}.pjt b{font-size:15px;font-weight:600;line-height:1.3}.pjt small{color:var(--sec);font-size:12.5px}.pjt em{font-style:normal;color:#30B0C7;font-size:12.5px;font-weight:600}.pie.me{background:rgba(48,176,199,.12)}.pichips{display:flex;flex-wrap:wrap;gap:6px;padding:4px 16px 8px}.pichips span{background:var(--card,rgba(127,127,127,.15));border-radius:10px;padding:6px 10px;font-size:12.5px;color:var(--sec);display:flex;flex-direction:column}.pichips b{color:var(--text,inherit);font-size:14px}.pitog{display:block;margin:-4px 20px 8px;font-size:14px;color:var(--tint);font-weight:500}.pir{display:flex;flex-wrap:wrap;gap:2px 8px;padding:4px 0}.pir b{font-size:16px}.pir span{color:#30B0C7;font-size:13px;font-weight:600;align-self:center}.pir small{flex-basis:100%;color:var(--sec);font-size:12.5px;line-height:1.3}
 .skme{background:linear-gradient(135deg,#5856D6,#AF52DE)!important}.skg{padding:4px 0 6px}.skh{display:flex;flex-direction:column;padding:10px 16px 6px}.skh b{font-size:16px}.skh small{color:var(--sec);font-size:12.5px}.skp{display:flex;justify-content:space-between;gap:10px;padding:4px 16px 4px 28px;font-size:15px}.skp i{font-style:normal;color:var(--sec);font-size:12.5px;white-space:nowrap}.skp.me{color:var(--tint);font-weight:700}.sks{margin-top:4px}
 .tjg{display:grid;grid-template-columns:auto 1fr;gap:3px 12px;padding-left:30px;font-size:15px;line-height:1.3}.tjg span{color:var(--sec)}.tjg b{font-weight:600}.tjg b.me{color:var(--tint)}
 .tseg{display:flex;gap:6px;margin:0 0 8px 30px}.tseg button{padding:4px 12px;border-radius:14px;border:1px solid var(--sep);font-size:13px;color:var(--ink)}.tseg button.on{background:color-mix(in srgb,var(--tint) 18%,transparent);border-color:var(--tint);color:var(--tint);font-weight:600}
@@ -584,7 +585,7 @@ svg{display:block}
 <script>
 {
 /* ================= penyimpanan di perangkat (IndexedDB) ================= */
-const APP_VERSION = 'v71';
+const APP_VERSION = 'v72';
 const ERRLOG = [];
 addEventListener('error', (e) => ERRLOG.push(new Date().toTimeString().slice(0, 8) + ' ' + (e.message || e.type)));
 addEventListener('unhandledrejection', (e) => ERRLOG.push(new Date().toTimeString().slice(0, 8) + ' ' + ((e.reason && (e.reason.name + ': ' + e.reason.message)) || e.reason)));
@@ -2982,7 +2983,7 @@ function poliParts(note) {
 let TPART = null;
 function oTodayHTML() {
   const today = ymd(new Date()), tmr = ymd(new Date(Date.now() + DAY));
-  const cats = OCATS.filter((c) => oList(c.k).length); if (!cats.length && !Object.keys(JAGA.team || {}).some((x) => x.startsWith(today + '|')) && !(JAGA.siklus || []).length) return '';
+  const cats = OCATS.filter((c) => oList(c.k).length); if (!cats.length && !Object.keys(JAGA.team || {}).some((x) => x.startsWith(today + '|')) && !(JAGA.siklus || []).length && !jkTodayCard()) return '';
   const names = (k, d) => oFor(k, d).map((e) => e.name);
   const nm = (k, d) => { const a = names(k, d); return a.length ? a.map(esc).join(' / ') : '<span class="onone0">—</span>'; };
   const hasRS = oList('dpjp').length || oList('pci').length;
@@ -3014,7 +3015,7 @@ function oTodayHTML() {
       <div class="tlap" data-lapor="${esc(pt)}">Buat Laporan Tim Jaga ›</div></div>`;
   };
   const myStase = (() => { const m = staseOf(JAGA.name || 'Yudi Wahyudi'); if (!m) return ''; const c = curSiklus(); return `<div class="otd" data-siklus="1"><div class="oth">${SIC('#5856D6', 'M4 5h16M4 12h16M4 19h10M18 16l3 3-3 3')}<b>Stase Saya</b></div><div class="onm big">${esc(m.g.stase)}</div><div class="otm">${esc(m.g.tahap || '')}${c && c.to ? ' · s.d. ' + esc(oD(c.to, { day: 'numeric', month: 'short' })) : ''}${m.g.dpjp ? ' · DPJP ' + esc(m.g.dpjp) : ''}</div></div>`; })();
-  const html = myStase + teamCard() + (hasRS ? dpjpCard() : '') + cats.map(row).join('');
+  const html = myStase + jkTodayCard() + teamCard() + (hasRS ? dpjpCard() : '') + cats.map(row).join('');
   return `<div class="sh">Hari Ini <small class="shd">${esc(new Date().toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long' }))}</small></div><div class="group otoday">${html}</div>`;
 }
 function oGroupHTML() {
@@ -3645,6 +3646,174 @@ function jagaCardHTML() {
   const hot = nx && /Sedang|Hari ini|Besok/.test(jWhen(nx));
   return `<div class="group jcard"><button class="srow" id="openJaga">${SIC('#FF3B30', FICONS.calendar)}<span class="lb">Jadwal Jaga<small class="${hot ? 'hot' : ''}">${sub}</small></span>${I.chev}</button></div>`;
 }
+/* ================= Jarkom Pembacaan Ilmiah ================= */
+const PICAL = 'fa98002ce9a43964c1a35643c982308487454997198bd1ff01e98d6424d38b2f@group.calendar.google.com';
+const JK = () => (JAGA.jarkom = JAGA.jarkom || { list: [], me: '', cal: PICAL, ev: [], fetched: 0, ovr: {}, remTime: '08:00', on: true, rem: [] });
+const JKSTOP = new Set(['muhammad', 'muh', 'moh', 'mochammad', 'ahmad', 'andi', 'nurul', 'putra', 'putri', 'pratama', 'rahman', 'nur', 'sri', 'dwi', 'tri', 'eka', 'jaya', 'aulia', 'wahyu', 'kemala']);
+function jkMeNames() { const J = JK(); return [J.me, (JAGA.nick || {})[JAGA.myInit], JAGA.alias, ...normNm(JAGA.name || 'Yudi Wahyudi')].filter(Boolean).map((x) => String(x).toLowerCase().trim()); }
+function jkMine() { const me = jkMeNames(); return (JK().list || []).filter((r) => me.includes(String(r.pj || '').toLowerCase().trim())); }
+function parseJarkomText(t) {
+  const out = [];
+  for (const raw of String(t).split(/\n/)) {
+    const l = raw.replace(/\s+/g, ' ').trim();
+    const m = l.match(/^(\d{1,3})\.?\s+(dr\.?\s*.+?)\s+(non[\s-]*muslim|muslim)\s+(\S+)\s+(\S+)(?:\s+((?:jan|jul)\w*\s*'?\d{2,4}))?$/i);
+    if (m) out.push({ no: +m[1], name: m[2].replace(/^dr\.?\s*/i, 'dr. ').trim(), agama: /non/i.test(m[3]) ? 'Non Muslim' : 'Muslim', nick: m[4], pj: m[5].charAt(0).toUpperCase() + m[5].slice(1), angk: m[6] || '' });
+  }
+  return out;
+}
+function jkWords(t) { return String(t || '').toLowerCase().normalize('NFKD').replace(/[^a-z\s]/g, ' ').split(/\s+/).filter(Boolean); }
+// cocokkan acara kalender dengan senior jarkom saya
+function jkMatch(ev) {
+  const J = JK(), o = J.ovr[ev.id];
+  const W = new Set(jkWords(ev.title + ' ' + (ev.desc || '')));
+  const hit = jkMine().find((r) => {
+    if (r.nick && r.nick.length >= 3 && W.has(r.nick.toLowerCase())) return true;
+    const toks = normNm(r.name).filter((w) => w.length >= 4 && !JKSTOP.has(w));
+    return toks.length && toks.filter((w) => W.has(w)).length >= Math.min(2, toks.length);
+  });
+  if (o === false) return null;
+  if (o && !hit) return { name: typeof o === 'string' ? o : '(ditandai manual)', nick: '' };
+  return hit || null;
+}
+function jkRemAt(ev) { const J = JK(); const [h, m] = (J.remTime || '08:00').split(':').map(Number); const d = new Date(ev.date + 'T12:00'); d.setDate(d.getDate() - 3); d.setHours(h || 0, m || 0, 0, 0); return d; }
+function jkUpcoming(all) { const t = ymd(new Date()); return (JK().ev || []).filter((e) => e.date >= t).sort((a, b) => (a.date + (a.time || '')).localeCompare(b.date + (b.time || ''))).map((e) => ({ ...e, who: jkMatch(e) })).filter((e) => all || e.who); }
+function jkRebuild() {
+  const J = JK();
+  J.rem = J.on === false ? [] : jkUpcoming().map((e) => ({ id: 'pi:' + e.id, at: jkRemAt(e).getTime(), st: new Date(e.date + 'T' + (e.time || '07:00')).getTime(), title: '📚 H-3 Pembacaan Ilmiah — ' + (e.who.nick || e.who.name), body: oD(e.date, { weekday: 'long', day: 'numeric', month: 'long' }) + (e.time ? ' · ' + e.time.replace(':', '.') : '') + '\n' + e.title + '\n(Jarkom: ' + e.who.name + ')' }));
+}
+async function jkSave() { jkRebuild(); await saveJaga(); try { const reg = await navigator.serviceWorker?.ready; if (reg && reg.periodicSync && JK().rem.length) await reg.periodicSync.register('jaga', { minInterval: 3 * 3600e3 }).catch(() => {}); } catch {} }
+async function jarkomCheck() {
+  const J = JAGA.jarkom; if (!J || J.on === false || !(J.rem || []).length) return;
+  const sent = (await DB.getMeta('jagaNotif')) || {}, now = Date.now(); let ch = false;
+  for (const r of J.rem) if (now >= r.at && now < r.st && !sent[r.id]) {
+    sent[r.id] = now; ch = true; toast(r.title);
+    try { const reg = await navigator.serviceWorker?.ready; if (reg && Notification.permission === 'granted') reg.showNotification(r.title, { body: r.body, tag: r.id, icon: 'icon-192.png', data: { url: './?jarkom=1' } }); } catch {}
+  }
+  if (ch) await DB.setMeta('jagaNotif', sent);
+}
+// ---- kalender (ICS) ----
+function calIdOf(t) { t = String(t || '').trim(); try { const u = new URL(t); const s = u.searchParams.get('src') || u.searchParams.get('cid'); if (s) return decodeURIComponent(s); const m = u.pathname.match(/ical\/([^/]+)\//); if (m) return decodeURIComponent(m[1]); } catch {} return /@/.test(t) ? t : ''; }
+const icsURL = (id) => 'https://calendar.google.com/calendar/ical/' + encodeURIComponent(id) + '/public/basic.ics';
+function parseICS(txt) {
+  const L = String(txt).replace(/\r\n[ \t]/g, '').replace(/\n[ \t]/g, '').split(/\r?\n/), out = [];
+  const un = (v) => String(v || '').replace(/\\n/gi, '\n').replace(/\\([,;\\])/g, '$1').trim();
+  const dt = (k, v) => {
+    const m = v.match(/^(\d{4})(\d\d)(\d\d)(?:T(\d\d)(\d\d)(\d\d)?(Z)?)?/); if (!m) return null;
+    if (!m[4]) return { date: m[1] + '-' + m[2] + '-' + m[3], time: '' };
+    let d = m[7] ? new Date(Date.UTC(+m[1], m[2] - 1, +m[3], +m[4], +m[5])) : new Date(+m[1], m[2] - 1, +m[3], +m[4], +m[5]);
+    const tz = (k.match(/TZID=([^;:]+)/) || [])[1];
+    if (!m[7] && tz) { try { const asUTC = Date.UTC(+m[1], m[2] - 1, +m[3], +m[4], +m[5]); const p = new Intl.DateTimeFormat('en-US', { timeZone: tz, hourCycle: 'h23', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }).formatToParts(new Date(asUTC)); const g = (x) => +p.find((q) => q.type === x).value; d = new Date(asUTC - (Date.UTC(g('year'), g('month') - 1, g('day'), g('hour'), g('minute')) - asUTC)); } catch {} }
+    return { date: ymd(d), time: pad2(d.getHours()) + ':' + pad2(d.getMinutes()) };
+  };
+  let e = null;
+  for (const l of L) {
+    if (l === 'BEGIN:VEVENT') { e = {}; continue; }
+    if (l === 'END:VEVENT') { if (e && e.s && !/cancel/i.test(e.status || '')) out.push({ id: (e.uid || uid()) + '|' + e.s.date, date: e.s.date, time: e.s.time, title: un(e.sum) || '(tanpa judul)', desc: un(e.desc).slice(0, 600), loc: un(e.loc) }); e = null; continue; }
+    if (!e) continue;
+    const i = l.indexOf(':'); if (i < 0) continue; const k = l.slice(0, i), v = l.slice(i + 1), K = k.split(';')[0].toUpperCase();
+    if (K === 'DTSTART') e.s = dt(k, v); else if (K === 'SUMMARY') e.sum = v; else if (K === 'DESCRIPTION') e.desc = v.replace(/<[^>]+>/g, ' '); else if (K === 'LOCATION') e.loc = v; else if (K === 'UID') e.uid = v; else if (K === 'STATUS') e.status = v; else if (K === 'RECURRENCE-ID') e.uid = (e.uid || '') + v;
+  }
+  return out;
+}
+async function fetchICS(id) {
+  const u = icsURL(id);
+  const tries = [u, 'https://api.allorigins.win/raw?url=' + encodeURIComponent(u), 'https://corsproxy.io/?url=' + encodeURIComponent(u), 'https://api.codetabs.com/v1/proxy?quest=' + encodeURIComponent(u)];
+  for (const t of tries) {
+    try { const ac = new AbortController(); const to = setTimeout(() => ac.abort(), 15000); const r = await fetch(t, { signal: ac.signal, cache: 'no-store' }); clearTimeout(to); if (!r.ok) continue; const x = await r.text(); if (/BEGIN:VCALENDAR/.test(x)) return x; } catch {}
+  }
+  throw new Error('Kalender tidak bisa diambil otomatis (diblokir/ tidak ada internet).');
+}
+function jkSetEvents(list) {
+  const J = JK(), lo = ymd(new Date(Date.now() - 30 * DAY)), hi = ymd(new Date(Date.now() + 400 * DAY));
+  J.ev = list.filter((e) => e.date >= lo && e.date <= hi).sort((a, b) => a.date.localeCompare(b.date));
+  J.fetched = Date.now();
+}
+async function jkRefresh(quiet) {
+  const J = JK(); if (!J.cal) return false;
+  try { const x = await fetchICS(J.cal); jkSetEvents(parseICS(x)); await jkSave(); if (!quiet) toast('Kalender diperbarui · ' + jkUpcoming(true).length + ' acara mendatang'); return true; }
+  catch (e) { if (!quiet) alertBox({ title: 'Kalender belum bisa diambil', msg: e.message + '\n\nCara lain:\n• Ketuk “Unduh .ics” lalu pilih file yang terunduh lewat “Impor File .ics”, atau\n• Screenshot tampilan Agenda kalender lalu “Baca dari Screenshot”.', buttons: [{ t: 'OK', b: 1 }] }); return false; }
+}
+const PISCHEMA = { type: 'object', properties: { events: { type: 'array', items: { type: 'object', properties: { date: { type: 'string' }, time: { type: 'string' }, title: { type: 'string' } }, required: ['date', 'title'] } } }, required: ['events'] };
+async function jkFromShots(files) {
+  if (AIPROV === 'gemini' ? !(await ensureGemKey()) : !(await ensureClaudeKey())) return;
+  const bz = busy('Membaca kalender…'); let res;
+  try { res = await aiReadFiles(files, 'Ini screenshot kalender "Pembacaan Ilmiah Kardiologi FK UNHAS". Tahun sekarang ' + new Date().getFullYear() + '. Ambil SEMUA acara: date (YYYY-MM-DD), time (HH:MM, 24 jam, kosong jika sepanjang hari), title (judul lengkap persis, termasuk nama dokter/residen penyaji).', PISCHEMA, bz); }
+  catch (e) { if (e.message !== 'Dibatalkan') alertBox({ title: 'Gagal membaca', msg: e.message, buttons: [{ t: 'OK', b: 1 }] }); return; } finally { bz.close(); }
+  const ev = (res && res.events || []).filter((e) => /^\d{4}-\d\d-\d\d$/.test(e.date)).map((e) => ({ id: 'img' + e.date + '|' + jkWords(e.title).join('').slice(0, 30), date: e.date, time: /^\d\d:\d\d$/.test(e.time || '') ? e.time : '', title: e.title, desc: '' }));
+  if (!ev.length) return toast('Tidak ada acara terbaca');
+  const J = JK(); const keep = (J.ev || []).filter((x) => !ev.some((y) => y.id === x.id)); jkSetEvents(keep.concat(ev)); await jkSave(); toast(ev.length + ' acara ditambahkan');
+}
+async function jkUploadList(f) {
+  let rows = [];
+  try { rows = parseJarkomText(await pdfText(f)); } catch (e) { return alertBox({ title: 'PDF tidak bisa dibaca', msg: e.message, buttons: [{ t: 'OK', b: 1 }] }); }
+  if (!rows.length) return alertBox({ title: 'Daftar jarkom tidak terbaca', msg: 'Format yang dikenali: No · Nama · Agama · Panggilan · PJ Jarkom.', buttons: [{ t: 'OK', b: 1 }] });
+  const J = JK(); J.list = rows; const mine = jkMine();
+  const r = await alertBox({ title: rows.length + ' senior terbaca', msg: mine.length ? 'Jarkom Anda (' + mine.length + '):\n' + mine.map((x) => '• ' + x.name + ' (' + x.nick + ')').join('\n') : 'Nama PJ Anda belum cocok. Atur di menu “Nama PJ Saya”.', buttons: [{ t: 'OK', b: 1 }] });
+  await jkSave(); return r;
+}
+function openJarkom() {
+  const J = JK(); let all = false;
+  const ov = overlay(`<div class="jrv"><div class="jrh"><button data-x>Tutup</button><b>Jarkom Pembacaan Ilmiah</b><button data-m class="b">Atur</button></div><div class="jrs"></div></div>`);
+  const draw = () => {
+    const mine = jkMine(), up = jkUpcoming(all);
+    const evRow = (e) => { const rem = jkRemAt(e); return `<button class="jrow pie ${e.who ? 'me' : ''}" data-ev="${esc(e.id)}"><span class="jd"><b>${new Date(e.date + 'T12:00').getDate()}</b><i>${esc(oD(e.date, { month: 'short' }))}</i></span><span class="jt pjt"><b>${esc(e.title)}</b><small>${esc(oD(e.date, { weekday: 'long' }))}${e.time ? ' · ' + e.time.replace(':', '.') : ''}${e.loc ? ' · ' + esc(e.loc) : ''}</small>${e.who ? `<em>Jarkom saya: ${esc(e.who.name)}${e.who.nick ? ' (' + esc(e.who.nick) + ')' : ''} · 🔔 ${esc(rem.toLocaleDateString('id-ID', { weekday: 'short', day: 'numeric', month: 'short' }))} ${esc((J.remTime || '08:00').replace(':', '.'))}</em>` : ''}</span></button>`; };
+    $('.jrs', ov).innerHTML = `
+      <div class="sh">Senior jarkom saya ${mine.length ? '(' + mine.length + ')' : ''}</div>
+      ${mine.length ? `<div class="pichips">${mine.map((r) => `<span><b>${esc(r.nick)}</b>${esc(r.name.replace(/^dr\.\s*/, ''))}</span>`).join('')}</div>` : `<p class="jri">${(J.list || []).length ? 'Nama PJ Anda belum cocok dengan daftar. Ketuk <b>Atur › Nama PJ Saya</b>.' : 'Ketuk <b>Atur › Unggah Daftar Jarkom (PDF)</b>.'}</p>`}
+      <div class="sh">${all ? 'Semua pembacaan' : 'Pembacaan jarkom saya'}</div><button class="pitog" data-all>${all ? '‹ Hanya jarkom saya' : 'Lihat semua pembacaan ›'}</button>
+      ${up.length ? `<div class="group">${up.map(evRow).join('')}</div>` : `<p class="jri">${(J.ev || []).length ? (all ? 'Tidak ada acara mendatang.' : 'Belum ada jadwal pembacaan untuk senior jarkom Anda. Ketuk <b>Lihat semua</b> lalu ketuk acara untuk menandai manual bila nama tidak terbaca.') : 'Kalender belum diambil. Ketuk <b>Atur › Perbarui dari Kalender</b>.'}</p>`}
+      <div class="sf">Pengingat H-3 jam ${esc((J.remTime || '08:00').replace(':', '.'))}${J.on === false ? ' (mati)' : ''}. Kalender: ${J.fetched ? 'diperbarui ' + esc(new Date(J.fetched).toLocaleString('id-ID', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })) : 'belum diambil'}. Ketuk acara untuk menandai / membatalkan sebagai jarkom saya.</div>`;
+  };
+  draw();
+  ov.addEventListener('click', async (e) => {
+    if (e.target.closest('[data-x]')) { ov.close(); renderJaga(); return; }
+    if (e.target.closest('[data-all]')) { all = !all; return draw(); }
+    const evb = e.target.closest('[data-ev]');
+    if (evb) {
+      const ev = (J.ev || []).find((x) => x.id === evb.dataset.ev); if (!ev) return;
+      const cur = jkMatch(ev), mine = jkMine();
+      if (cur) { const r = await alertBox({ title: 'Bukan jarkom saya?', msg: ev.title, buttons: [{ t: 'Batal' }, { t: 'Hapus dari jarkom', des: 1 }] }); if (r.btn === 1) { J.ovr[ev.id] = false; await jkSave(); draw(); } return; }
+      const i = await sheet({ title: 'Tandai sebagai jarkom saya — siapa penyajinya?', items: mine.map((r) => ({ t: r.nick + ' — ' + r.name })).concat([{ t: 'Lainnya (tulis nama)' }]) });
+      if (i < 0) return;
+      let nm = i < mine.length ? mine[i].name : (await alertBox({ title: 'Nama penyaji', input: '', buttons: [{ t: 'Batal' }, { t: 'Simpan', b: 1 }] }));
+      if (typeof nm !== 'string') { if (nm.btn !== 1 || !nm.value.trim()) return; nm = nm.value.trim(); }
+      J.ovr[ev.id] = nm; await jkSave(); draw(); toast('Ditandai · diingatkan H-3'); return;
+    }
+    if (e.target.closest('[data-m]')) {
+      const i = await sheet({ title: 'Jarkom Pembacaan Ilmiah', items: [{ t: 'Perbarui dari Kalender' }, { t: 'Unggah Daftar Jarkom (PDF)' }, { t: 'Nama PJ Saya: ' + (jkMeNames()[0] || '-') }, { t: 'Jam Pengingat H-3: ' + (J.remTime || '08:00') + (J.on === false ? ' (mati)' : '') }, { t: 'Masukkan Pengingat ke Kalender HP' }, { t: 'Baca dari Screenshot Kalender' }, { t: 'Impor File .ics' }, { t: 'Unduh .ics (buka di browser)' }, { t: 'Ganti Link Kalender' }] });
+      if (i === 0) { const bz = busy('Mengambil kalender…'); try { await jkRefresh(); } finally { bz.close(); } }
+      if (i === 1) { const f = await pickFiles('application/pdf'); if (f.length) await jkUploadList(f[0]); }
+      if (i === 2) { const r = await alertBox({ title: 'Nama PJ Saya', msg: 'Nama panggilan Anda di kolom “PJ Jarkom”.', input: J.me || (JAGA.nick || {})[JAGA.myInit] || 'Yudi', buttons: [{ t: 'Batal' }, { t: 'Simpan', b: 1 }] }); if (r.btn === 1) { J.me = r.value.trim(); await jkSave(); } }
+      if (i === 3) { const r = await alertBox({ title: 'Jam Pengingat H-3', msg: 'Jam notifikasi 3 hari sebelum pembacaan (mis. 08:00). Kosongkan untuk mematikan.', input: J.on === false ? '' : (J.remTime || '08:00'), buttons: [{ t: 'Batal' }, { t: 'Simpan', b: 1 }] }); if (r.btn === 1) { const m = r.value.trim().match(/^(\d{1,2})[:.](\d{2})$/); if (!r.value.trim()) J.on = false; else if (m) { J.on = true; J.remTime = pad2(m[1]) + ':' + m[2]; try { if ('Notification' in window && Notification.permission === 'default') await Notification.requestPermission(); } catch {} } else return toast('Format jam salah, contoh 08:00'); await jkSave(); } }
+      if (i === 4) jkToCalendar();
+      if (i === 5) { const f = await pickFiles('image/*'); if (f.length) await jkFromShots(f); }
+      if (i === 6) { const f = await pickFiles('.ics,text/calendar'); if (f.length) { const ev = parseICS(await f[0].text()); if (!ev.length) return toast('File .ics kosong'); jkSetEvents(ev); await jkSave(); toast(ev.length + ' acara diimpor'); } }
+      if (i === 7) window.open(icsURL(J.cal || PICAL), '_blank', 'noopener');
+      if (i === 8) { const r = await alertBox({ title: 'Link Kalender Google', msg: 'Tempel link kalender publik (embed/berbagi) atau ID kalender.', input: J.cal || PICAL, buttons: [{ t: 'Batal' }, { t: 'Simpan', b: 1 }] }); if (r.btn === 1) { const id = calIdOf(r.value); if (!id) return toast('Link tidak dikenali'); J.cal = id; await jkSave(); const bz = busy('Mengambil kalender…'); try { await jkRefresh(); } finally { bz.close(); } } }
+      draw();
+    }
+  });
+  if (J.cal && Date.now() - (J.fetched || 0) > 6 * 3600e3) jkRefresh(true).then((ok) => ok && draw());
+}
+async function jkToCalendar() {
+  const up = jkUpcoming(); if (!up.length) return toast('Belum ada pembacaan jarkom Anda');
+  const J = JK(), z = (d) => d.toISOString().replace(/[-:]/g, '').replace(/\.\d{3}/, ''), escI = (t) => String(t || '').replace(/[\;,]/g, (c) => '\\' + c).replace(/\n/g, '\\n');
+  const L = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//Yudsky Notes//Jarkom//ID', 'CALSCALE:GREGORIAN', 'METHOD:PUBLISH'];
+  for (const e of up) {
+    const st = new Date(e.date + 'T' + (e.time || '07:30')), en = new Date(st.getTime() + 2 * 3600e3), mins = Math.round((st - jkRemAt(e)) / 6e4);
+    L.push('BEGIN:VEVENT', 'UID:jk-' + jkWords(e.id).join('').slice(0, 40) + e.date + '@yudsky-notes', 'DTSTAMP:' + z(new Date()), 'DTSTART:' + z(st), 'DTEND:' + z(en), 'SUMMARY:' + escI('Jarkom: ' + (e.who.nick || e.who.name) + ' — Pembacaan Ilmiah'), 'DESCRIPTION:' + escI(e.title + '\nPenyaji: ' + e.who.name), 'BEGIN:VALARM', 'ACTION:DISPLAY', 'DESCRIPTION:H-3 Pembacaan Ilmiah', 'TRIGGER:-PT' + mins + 'M', 'END:VALARM', 'END:VEVENT');
+  }
+  L.push('END:VCALENDAR');
+  const file = new File([L.join('\r\n')], 'jarkom-pembacaan.ics', { type: 'text/calendar' });
+  try { if (navigator.canShare && navigator.canShare({ files: [file] })) { await navigator.share({ files: [file], title: 'Jarkom Pembacaan Ilmiah' }); return; } } catch (e) { if (e.name === 'AbortError') return; }
+  const a = document.createElement('a'); a.href = URL.createObjectURL(file); a.download = file.name; document.body.appendChild(a); a.click(); a.remove(); toast('Buka file jarkom-pembacaan.ics untuk memasukkan ke kalender');
+}
+function jkTodayCard() {
+  const J = JAGA.jarkom; if (!J || !(J.ev || []).length) return '';
+  const lim = ymd(new Date(Date.now() + 21 * DAY)), l = jkUpcoming().filter((e) => e.date <= lim).slice(0, 3); if (!l.length) return '';
+  const t = new Date(); t.setHours(0, 0, 0, 0);
+  return `<div class="otd" data-jarkom="1"><div class="oth">${SIC('#30B0C7', 'M4 19V5a2 2 0 0 1 2-2h12v16H6a2 2 0 0 0-2 2zM8 7h6')}<b>Jarkom Pembacaan Ilmiah</b></div>${l.map((e) => { const n = Math.round((new Date(e.date + 'T00:00') - t) / DAY); return `<div class="pir"><b>${esc(e.who.nick || e.who.name)}</b><span>${esc(oD(e.date, { weekday: 'short', day: 'numeric', month: 'short' }))}${e.time ? ' ' + e.time.replace(':', '.') : ''} · ${n === 0 ? 'hari ini' : n === 1 ? 'besok' : 'H-' + n}</span><small>${esc(e.title)}</small></div>`; }).join('')}</div>`;
+}
 function renderJaga() {
   const up = jUpcoming(), past = jSorted().filter((s) => jEnd(s) <= new Date()).reverse();
   const nx = up[0];
@@ -3658,6 +3827,7 @@ function renderJaga() {
    <div class="group">
     <button class="srow" data-jk="lapor">${SIC('#25D366', 'M4 20l1.3-4A8 8 0 1 1 8 19.3zM8 10h8M8 13h5')}<span class="lb">Laporan Tim Jaga</span>${I.chev}</button>
     <button class="srow" data-jk="siklus">${SIC('#5856D6', 'M4 5h16M4 12h16M4 19h10M18 16l3 3-3 3')}<span class="lb">Siklus Stase / Divisi</span><span class="vl">${(() => { const m = staseOf(JAGA.name || 'Yudi Wahyudi'); return m ? esc(m.g.stase.length > 18 ? m.g.stase.slice(0, 17) + '…' : m.g.stase) : (JAGA.siklus || []).length ? 'Lihat' : 'PDF / PPT / Foto'; })()}</span>${I.chev}</button>
+    <button class="srow" data-jk="jarkom">${SIC('#30B0C7', 'M4 19V5a2 2 0 0 1 2-2h12v16H6a2 2 0 0 0-2 2zM8 7h6')}<span class="lb">Jarkom Pembacaan Ilmiah</span><span class="vl">${(() => { const n = JAGA.jarkom ? jkUpcoming().length : 0; return n ? n + ' jadwal' : (JAGA.jarkom && JAGA.jarkom.list.length) ? jkMine().length + ' senior' : 'PDF + Kalender'; })()}</span>${I.chev}</button>
     <button class="srow" data-jk="pedi">${SIC('#FF2D55', 'M12 21s-7-4.5-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 11c0 5.5-7 10-7 10z')}<span class="lb">Jadwal Pediatri</span><span class="vl">${Object.keys(JAGA.pedi || {}).length ? Object.keys(JAGA.pedi).length + ' hari' : 'Tempel WA / PDF'}</span>${I.chev}</button>
     <button class="srow" data-jk="upload">${SIC('#34C759', 'M12 16V4M7 9l5-5 5 5M4 20h16')}<span class="lb">Unggah Jadwal (Foto / PDF)</span>${I.chev}</button>
     <button class="srow" data-jk="name">${SIC('#007AFF', 'M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM4.5 20a7.5 7.5 0 0 1 15 0')}<span class="lb">Nama Saya di Jadwal</span><span class="vl">${esc(JAGA.name || 'Belum diisi')}</span>${I.chev}</button>
@@ -3767,6 +3937,7 @@ async function enableRemind() {
 }
 // cek pengingat (saat aplikasi dibuka / kembali dibuka)
 async function jagaCheck() {
+  await jarkomCheck().catch(() => {});
   if (!JAGA.remind.on || !JAGA.shifts.length) return;
   const sent = (await DB.getMeta('jagaNotif')) || {}, now = Date.now(); let changed = false;
   for (const s of jUpcoming()) {
@@ -3866,6 +4037,7 @@ $('#jagaBody').addEventListener('click', async (e) => {
     return;
   }
   if (e.target.closest('[data-siklus]')) return openSiklus();
+  if (e.target.closest('[data-jarkom]')) return openJarkom();
   const tp = e.target.closest('[data-tpart]'); if (tp) { TPART = tp.dataset.tpart; renderJaga(); return; }
   const lp = e.target.closest('[data-lapor]'); if (lp) return laporanTim(ymd(new Date()), lp.dataset.lapor);
   const oc = e.target.closest('[data-ocat]'); if (oc) { const inTmr = !!oc.closest('.odb.tmr'); return openOCat(oc.dataset.ocat, inTmr ? ymd(new Date(Date.now() + DAY)) : undefined); }
@@ -3899,6 +4071,7 @@ $('#jagaBody').addEventListener('click', async (e) => {
   if (k === 'cal') jagaToCalendar();
   if (k === 'lapor') laporanTim();
   if (k === 'pedi') pediMenu();
+  if (k === 'jarkom') openJarkom();
   if (k === 'siklus') { if ((JAGA.siklus || []).length) openSiklus(); else { const f = await pickFiles('application/pdf,image/*,.pptx,.ppt,application/vnd.openxmlformats-officedocument.presentationml.presentation'); if (f.length) siklusUpload(f); } }
   if (k === 'hours') {
     const keys = [['biasa', 'Hari kerja (Senin–Jumat)'], ['libur', 'Sabtu/Minggu tanpa keterangan Pagi/Malam'], ['pagi', 'Jaga Pagi'], ['malam', 'Jaga Malam']];
@@ -3980,7 +4153,9 @@ setTimeout(() => { if (!booted) alertBox({ title: 'Memuat catatan terlalu lama',
   if (wide()) openFolder('notes');
   setTimeout(() => checkUpdate(false), 1500);
   setTimeout(() => jagaCheck().catch(() => {}), 2000);
+  setTimeout(() => { const J = JAGA.jarkom; if (J && J.cal && (J.list || []).length && Date.now() - (J.fetched || 0) > 12 * 3600e3) jkRefresh(true).then((ok) => ok && S.stack.includes('jaga') && renderJaga()); }, 4000);
   try { const q = new URLSearchParams(location.search).get('jadwal'); if (q) { history.replaceState(null, '', location.pathname); setTimeout(() => importJadwalLink(q), 400); } } catch {}
+  try { if (new URLSearchParams(location.search).has('jarkom')) { history.replaceState(null, '', location.pathname); setTimeout(() => { openJaga(); setTimeout(openJarkom, 300); }, 200); } } catch {}
   try { if (new URLSearchParams(location.search).has('jaga')) { history.replaceState(null, '', location.pathname); setTimeout(openJaga, 200); } } catch {}
   setTimeout(() => receiveShared().catch((e) => ERRLOG.push('bagikan: ' + e.message)), 300);
   setTimeout(async () => { try { const e = await navigator.storage.estimate(); if (e.quota && e.usage / e.quota > 0.92) storageFullWarn(); } catch {} }, 2500);
