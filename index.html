@@ -594,7 +594,7 @@ svg{display:block}
 <script>
 {
 /* ================= penyimpanan di perangkat (IndexedDB) ================= */
-const APP_VERSION = 'v74';
+const APP_VERSION = 'v75';
 const ERRLOG = [];
 addEventListener('error', (e) => ERRLOG.push(new Date().toTimeString().slice(0, 8) + ' ' + (e.message || e.type)));
 addEventListener('unhandledrejection', (e) => ERRLOG.push(new Date().toTimeString().slice(0, 8) + ' ' + ((e.reason && (e.reason.name + ': ' + e.reason.message)) || e.reason)));
@@ -3726,8 +3726,8 @@ async function jarkomCheck() {
   if (ch) await DB.setMeta('jagaNotif', sent);
 }
 // ---- kalender (ICS) ----
-function calIdOf(t) { t = String(t || '').trim(); try { const u = new URL(t); const s = u.searchParams.get('src') || u.searchParams.get('cid'); if (s) return decodeURIComponent(s); const m = u.pathname.match(/ical\/([^/]+)\//); if (m) return decodeURIComponent(m[1]); } catch {} return /@/.test(t) ? t : ''; }
-const icsURL = (id) => 'https://calendar.google.com/calendar/ical/' + encodeURIComponent(id) + '/public/basic.ics';
+function calIdOf(t) { t = String(t || '').trim(); if (/\.ics(\?|$)/i.test(t) || /\/ical\//.test(t)) return t.replace(/^webcal:/i, 'https:'); try { const u = new URL(t); const s = u.searchParams.get('src') || u.searchParams.get('cid'); if (s) return decodeURIComponent(s); const m = u.pathname.match(/ical\/([^/]+)\//); if (m) return decodeURIComponent(m[1]); } catch {} return /@/.test(t) ? t : ''; }
+const icsURL = (id) => /^https?:/.test(id) ? id : 'https://calendar.google.com/calendar/ical/' + encodeURIComponent(id) + '/public/basic.ics';
 function parseICS(txt) {
   const L = String(txt).replace(/\r\n[ \t]/g, '').replace(/\n[ \t]/g, '').split(/\r?\n/), out = [];
   const un = (v) => String(v || '').replace(/\\n/gi, '\n').replace(/\\([,;\\])/g, '$1').trim();
@@ -3749,22 +3749,56 @@ function parseICS(txt) {
   }
   return out;
 }
-async function fetchICS(id) {
-  const u = icsURL(id);
-  const tries = [u, 'https://api.allorigins.win/raw?url=' + encodeURIComponent(u), 'https://corsproxy.io/?url=' + encodeURIComponent(u), 'https://api.codetabs.com/v1/proxy?quest=' + encodeURIComponent(u)];
-  for (const t of tries) {
-    try { const ac = new AbortController(); const to = setTimeout(() => ac.abort(), 15000); const r = await fetch(t, { signal: ac.signal, cache: 'no-store' }); clearTimeout(to); if (!r.ok) continue; const x = await r.text(); if (/BEGIN:VCALENDAR/.test(x)) return x; } catch {}
-  }
-  throw new Error('Kalender tidak bisa diambil otomatis (diblokir/ tidak ada internet).');
+async function fetchCalEvents(id, bz) {
+  const u = icsURL(id), why = []; let notPublic = 0;
+  const tget = async (url, opt = {}, ms = 15000) => { const ac = new AbortController(); const to = setTimeout(() => ac.abort(), ms); try { return await fetch(url, { ...opt, signal: ac.signal, cache: 'no-store' }); } finally { clearTimeout(to); } };
+  const icsTry = async (name, url, pick) => {
+    try { const r = await tget(url); if (r.status === 404) notPublic++; if (!r.ok) { why.push(name + ': HTTP ' + r.status); return null; } let x = await r.text(); if (pick) x = pick(x); if (/BEGIN:VCALENDAR/.test(x || '')) { const ev = parseICS(x); return ev; } why.push(name + ': bukan kalender'); } catch (e) { why.push(name + ': ' + (e.name === 'AbortError' ? 'waktu habis' : 'diblokir')); }
+    return null;
+  };
+  const steps = [
+    ['langsung', () => icsTry('langsung', u)],
+    ['Google API', async () => {
+      if (/^https?:/.test(id)) return null;
+      if (!GEMKEY) { why.push('Google API: belum ada kunci'); return null; }
+      try {
+        const t0 = new Date(Date.now() - 30 * DAY).toISOString();
+        const r = await tget('https://www.googleapis.com/calendar/v3/calendars/' + encodeURIComponent(id) + '/events?singleEvents=true&orderBy=startTime&maxResults=2500&timeMin=' + encodeURIComponent(t0) + '&key=' + encodeURIComponent(GEMKEY));
+        const j = await r.json().catch(() => ({}));
+        if (!r.ok) { if (r.status === 404) notPublic++; why.push('Google API: ' + r.status + ' ' + ((j.error && j.error.message) || '').slice(0, 90)); return null; }
+        return (j.items || []).filter((e) => e.status !== 'cancelled' && e.start).map((e) => { const dt = e.start.dateTime ? new Date(e.start.dateTime) : null; return { id: e.id + '|' + (dt ? ymd(dt) : e.start.date), date: dt ? ymd(dt) : e.start.date, time: dt ? pad2(dt.getHours()) + ':' + pad2(dt.getMinutes()) : '', title: e.summary || '(tanpa judul)', desc: String(e.description || '').replace(/<[^>]+>/g, ' ').slice(0, 600), loc: e.location || '' }; });
+      } catch (e) { why.push('Google API: ' + (e.name === 'AbortError' ? 'waktu habis' : 'gagal')); return null; }
+    }],
+    ['perantara 1', () => icsTry('perantara 1', 'https://api.allorigins.win/raw?url=' + encodeURIComponent(u))],
+    ['perantara 2', () => icsTry('perantara 2', 'https://api.allorigins.win/get?url=' + encodeURIComponent(u), (x) => { try { return JSON.parse(x).contents; } catch { return ''; } })],
+    ['perantara 3', () => icsTry('perantara 3', 'https://api.codetabs.com/v1/proxy?quest=' + encodeURIComponent(u))],
+    ['perantara 4', () => icsTry('perantara 4', 'https://r.jina.ai/' + u)],
+    ['perantara 5', () => icsTry('perantara 5', 'https://corsproxy.io/?url=' + encodeURIComponent(u))],
+    ['Gemini', async () => {
+      if (!GEMKEY) { why.push('Gemini: belum ada kunci'); return null; }
+      try {
+        const models = await gemModels();
+        const body = JSON.stringify({ contents: [{ role: 'user', parts: [{ text: 'Buka URL kalender iCal ini dengan alat url_context: ' + u + '\nKembalikan HANYA JSON {"events":[{"date":"YYYY-MM-DD","time":"HH:MM","title":"..."}]} berisi semua acara mulai ' + ymd(new Date(Date.now() - 30 * DAY)) + ', waktu dalam zona Asia/Makassar, judul persis (SUMMARY).' }] }], tools: [{ url_context: {} }], generationConfig: { temperature: 0 } });
+        const r = await tget(`${GEMBASE}/v1beta/models/${models[0]}:generateContent?key=${encodeURIComponent(GEMKEY)}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body }, 90000);
+        const j = await r.json().catch(() => ({})); if (!r.ok) { why.push('Gemini: ' + r.status); return null; }
+        const txt = ((j.candidates && j.candidates[0] && j.candidates[0].content && j.candidates[0].content.parts) || []).map((p) => p.text || '').join('');
+        const m = txt.match(/\{[\s\S]*\}/); const d = m ? JSON.parse(m[0]) : null;
+        const ev = (d && d.events || []).filter((e) => /^\d{4}-\d\d-\d\d$/.test(e.date) && e.title).map((e) => ({ id: 'gm' + e.date + '|' + jkWords(e.title).join('').slice(0, 30), date: e.date, time: /^\d\d:\d\d$/.test(e.time || '') ? e.time : '', title: e.title, desc: '' }));
+        if (!ev.length) { why.push('Gemini: tidak bisa membuka kalender'); return null; } return ev;
+      } catch (e) { why.push('Gemini: gagal'); return null; }
+    }],
+  ];
+  for (const [name, fn] of steps) { bz && bz.set && bz.set('Mengambil kalender (' + name + ')…'); const ev = await fn(); if (ev) { JK().via = name; return ev; } }
+  throw new Error((notPublic ? 'Google menjawab “tidak ditemukan”: kemungkinan kalender ini TIDAK publik. Minta pengelola kalender membuka Setelan kalender → “Alamat rahasia dalam format iCal”, lalu tempel alamat itu di Atur › Ganti Link Kalender.\n\n' : 'Kalender tidak bisa diambil otomatis dari HP ini.\n\n') + 'Rincian: ' + why.join(' · '));
 }
 function jkSetEvents(list) {
   const J = JK(), lo = ymd(new Date(Date.now() - 30 * DAY)), hi = ymd(new Date(Date.now() + 400 * DAY));
   J.ev = list.filter((e) => e.date >= lo && e.date <= hi).sort((a, b) => a.date.localeCompare(b.date));
   J.fetched = Date.now();
 }
-async function jkRefresh(quiet) {
+async function jkRefresh(quiet, bz) {
   const J = JK(); if (!J.cal) return false;
-  try { const x = await fetchICS(J.cal); jkSetEvents(parseICS(x)); await jkSave(); if (!quiet) toast('Kalender diperbarui · ' + jkUpcoming(true).length + ' acara mendatang'); return true; }
+  try { jkSetEvents(await fetchCalEvents(J.cal, bz)); await jkSave(); if (!quiet) toast('Kalender diperbarui · ' + jkUpcoming(true).length + ' acara mendatang'); return true; }
   catch (e) { if (!quiet) alertBox({ title: 'Kalender belum bisa diambil', msg: e.message + '\n\nCara lain:\n• Ketuk “Unduh .ics” lalu pilih file yang terunduh lewat “Impor File .ics”, atau\n• Screenshot tampilan Agenda kalender lalu “Baca dari Screenshot”.', buttons: [{ t: 'OK', b: 1 }] }); return false; }
 }
 const PISCHEMA = { type: 'object', properties: { events: { type: 'array', items: { type: 'object', properties: { date: { type: 'string' }, time: { type: 'string' }, title: { type: 'string' } }, required: ['date', 'title'] } } }, required: ['events'] };
@@ -3816,7 +3850,7 @@ function openJarkom() {
     }
     if (e.target.closest('[data-m]')) {
       const i = await sheet({ title: 'Jarkom Pembacaan Ilmiah', items: [{ t: 'Perbarui dari Kalender' }, { t: 'Unggah Daftar Jarkom (PDF)' }, { t: 'Nama PJ Saya: ' + (jkMeNames()[0] || '-') }, { t: 'Jam Pengingat H-3: ' + (J.remTime || '08:00') + (J.on === false ? ' (mati)' : '') }, { t: 'Masukkan Pengingat ke Kalender HP' }, { t: 'Baca dari Screenshot Kalender' }, { t: 'Impor File .ics' }, { t: 'Unduh .ics (buka di browser)' }, { t: 'Ganti Link Kalender' }] });
-      if (i === 0) { const bz = busy('Mengambil kalender…'); try { await jkRefresh(); } finally { bz.close(); } }
+      if (i === 0) { const bz = busy('Mengambil kalender…'); try { await jkRefresh(false, bz); } finally { bz.close(); } }
       if (i === 1) { const f = await pickFiles('application/pdf'); if (f.length) await jkUploadList(f[0]); }
       if (i === 2) { const r = await alertBox({ title: 'Nama PJ Saya', msg: 'Nama panggilan Anda di kolom “PJ Jarkom”.', input: J.me || (JAGA.nick || {})[JAGA.myInit] || 'Yudi', buttons: [{ t: 'Batal' }, { t: 'Simpan', b: 1 }] }); if (r.btn === 1) { J.me = r.value.trim(); await jkSave(); } }
       if (i === 3) { const r = await alertBox({ title: 'Jam Pengingat H-3', msg: 'Jam notifikasi 3 hari sebelum pembacaan (mis. 08:00). Kosongkan untuk mematikan.', input: J.on === false ? '' : (J.remTime || '08:00'), buttons: [{ t: 'Batal' }, { t: 'Simpan', b: 1 }] }); if (r.btn === 1) { const m = r.value.trim().match(/^(\d{1,2})[:.](\d{2})$/); if (!r.value.trim()) J.on = false; else if (m) { J.on = true; J.remTime = pad2(m[1]) + ':' + m[2]; try { if ('Notification' in window && Notification.permission === 'default') await Notification.requestPermission(); } catch {} } else return toast('Format jam salah, contoh 08:00'); await jkSave(); } }
@@ -3824,7 +3858,7 @@ function openJarkom() {
       if (i === 5) { const f = await pickFiles('image/*'); if (f.length) await jkFromShots(f); }
       if (i === 6) { const f = await pickFiles('.ics,text/calendar'); if (f.length) { const ev = parseICS(await f[0].text()); if (!ev.length) return toast('File .ics kosong'); jkSetEvents(ev); await jkSave(); toast(ev.length + ' acara diimpor'); } }
       if (i === 7) window.open(icsURL(J.cal || PICAL), '_blank', 'noopener');
-      if (i === 8) { const r = await alertBox({ title: 'Link Kalender Google', msg: 'Tempel link kalender publik (embed/berbagi) atau ID kalender.', input: J.cal || PICAL, buttons: [{ t: 'Batal' }, { t: 'Simpan', b: 1 }] }); if (r.btn === 1) { const id = calIdOf(r.value); if (!id) return toast('Link tidak dikenali'); J.cal = id; await jkSave(); const bz = busy('Mengambil kalender…'); try { await jkRefresh(); } finally { bz.close(); } } }
+      if (i === 8) { const r = await alertBox({ title: 'Link Kalender Google', msg: 'Tempel link kalender publik (embed/berbagi) atau ID kalender.', input: J.cal || PICAL, buttons: [{ t: 'Batal' }, { t: 'Simpan', b: 1 }] }); if (r.btn === 1) { const id = calIdOf(r.value); if (!id) return toast('Link tidak dikenali'); J.cal = id; await jkSave(); const bz = busy('Mengambil kalender…'); try { await jkRefresh(false, bz); } finally { bz.close(); } } }
       draw();
     }
   });
