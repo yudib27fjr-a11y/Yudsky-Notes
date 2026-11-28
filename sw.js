@@ -2,7 +2,7 @@
 // Aturan: coba ambil versi terbaru dari internet maksimal 2,5 detik.
 // Kalau internet lambat/mati, langsung pakai salinan tersimpan (aplikasi tidak pernah macet di logo),
 // sambil memperbarui salinan di belakang layar.
-const CACHE = 'yudsky-notes-v78';
+const CACHE = 'yudsky-notes-v79';
 const SHARE = 'yudsky-share';   // kotak masuk sementara untuk isi yang dibagikan dari aplikasi lain
 const FILES = ['./', './index.html', './manifest.webmanifest', './icon-192.png', './icon-512.png'];
 const WAIT = 2500;
@@ -72,7 +72,7 @@ async function jagaCheckSW() {
   if (!J) return;
   const sent = (await idbMeta('readonly', (s) => s.get('jagaNotif'))) || {}, now = Date.now(); let ch = false;
   const JR = J.jarkom;
-  if (JR && JR.on !== false && Array.isArray(JR.rem)) for (const r of JR.rem) if (now >= r.at && now < r.st && !sent[r.id]) { sent[r.id] = now; ch = true; await self.registration.showNotification(r.title, { body: r.body, tag: r.id, icon: 'icon-192.png', data: { url: './?jarkom=1' } }); }
+  if (JR && Array.isArray(JR.rem)) for (const r of JR.rem) if (now >= r.at && now < r.st && !sent[r.id]) { sent[r.id] = now; ch = true; await self.registration.showNotification(r.title, { body: r.body, tag: r.id, icon: 'icon-192.png', data: { url: './?jarkom=1' } }); }
   if (!J.remind || !J.remind.on || !Array.isArray(J.shifts)) { if (ch) await idbMeta('readwrite', (s) => s.put(sent, 'jagaNotif')); return; }
   const H = J.hours || {}; const DT = (t, date) => { const wd = date ? new Date(date + 'T12:00').getDay() : 1; return /malam|night/i.test(t) ? (H.malam || ['19:00', '07:00']) : /pagi/i.test(t) ? (H.pagi || ['07:00', '19:00']) : /24/.test(t) ? ['07:00', '07:00'] : (wd === 0 || wd === 6) ? (H.libur || ['07:00', '07:00']) : (H.biasa || ['16:00', '07:00']); };
   for (const s of J.shifts) {
