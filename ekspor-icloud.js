@@ -41,6 +41,30 @@ if (!pickF) throw new Error('Dibatalkan');
 const useAll = pickF.indexOf(ALL) >= 0;
 const chosen = useAll ? [{ i: -1, nm: '', c: allCount }] : fList.filter((f) => pickF.indexOf(f.label) >= 0);
 
+// ---------- 1b. semua catatan atau pilih catatan tertentu ----------
+let onlyIds = null;
+if (!useAll) {
+  const H = ['Semua catatan di folder terpilih', 'Pilih catatan tertentu saja (mis. yang tadi gagal)'];
+  const pickH = app.chooseFromList(H, { withTitle: TITLE, withPrompt: 'Ekspor semua catatan, atau hanya beberapa?', defaultItems: [H[0]], okButtonName: 'Lanjut', cancelButtonName: 'Batal' });
+  if (!pickH) throw new Error('Dibatalkan');
+  if (pickH[0] === H[1]) {
+    const opts = [], map = {};
+    for (const f of chosen) {
+      const ns = fObjs[f.i].notes;
+      let names = [], ids = [], mods = [];
+      try { names = ns.name(); ids = ns.id(); mods = ns.modificationDate(); } catch (e) {}
+      for (let j = 0; j < ids.length; j++) {
+        const d = mods[j] ? mods[j].toISOString().slice(0, 10) : '';
+        const lab = (j + 1) + '. ' + String(names[j] || 'Tanpa judul').slice(0, 60) + '  [' + d + ']' + (chosen.length > 1 ? '  — ' + f.nm : '');
+        opts.push(lab); map[lab] = ids[j];
+      }
+    }
+    const pickN = app.chooseFromList(opts, { withTitle: TITLE, withPrompt: 'Pilih catatan (tahan ⌘ untuk beberapa):', multipleSelectionsAllowed: true, okButtonName: 'Lanjut', cancelButtonName: 'Batal' });
+    if (!pickN || !pickN.length) throw new Error('Dibatalkan');
+    onlyIds = pickN.map((x) => map[x]);
+  }
+}
+
 // ---------- 2. isi ----------
 const MODES = ['Teks + foto + file kecil (lewati video & file > 15 MB) — disarankan', 'Lengkap: semua lampiran termasuk video (paling besar)', 'Teks saja, tanpa foto & lampiran (paling hemat)'];
 const pickM = app.chooseFromList(MODES, { withTitle: TITLE, withPrompt: 'Apa saja yang diekspor?', defaultItems: [MODES[free0 >= 0 && free0 < 3 ? 2 : 0]], okButtonName: 'Lanjut', cancelButtonName: 'Batal' });
@@ -65,14 +89,15 @@ let cur = { notes: [], files: [] }, size = 0, part = 0, totalMB = 0;
 let total = 0, locked = 0, attOk = 0, attFail = 0, attSkip = 0, stopped = '';
 const folderNames = {};
 // hapus file hasil lama supaya tidak tercampur
-try { const old = FM.contentsOfDirectoryAtPathError(dir, null).js.map((x) => x.js); old.filter((x) => /^yudsky-icloud-\d+\.json$/.test(x)).forEach((x) => rm(dir + '/' + x)); } catch (e) {}
+// nama file unik per ekspor supaya hasil sebelumnya tidak tertimpa
+const RUN = (() => { const d = new Date(), p = (x) => String(x).padStart(2, '0'); return d.getFullYear() + p(d.getMonth() + 1) + p(d.getDate()) + '-' + p(d.getHours()) + p(d.getMinutes()); })();
 function flush(last) {
   if (!cur.notes.length && !cur.files.length) return;
   part++;
   const out = JSON.stringify({ app: 'icloud-export', v: 1, at: Date.now(), part, of: last ? part : 0, folders: Object.keys(folderNames), notes: cur.notes, files: cur.files });
   totalMB += out.length / 1048576;
-  $.NSString.alloc.initWithUTF8String(out).writeToFileAtomicallyEncodingError(dir + '/yudsky-icloud-' + part + '.json', true, $.NSUTF8StringEncoding, null);
-  console.log('  ✓ yudsky-icloud-' + part + '.json (' + (out.length / 1048576).toFixed(1) + ' MB)');
+  $.NSString.alloc.initWithUTF8String(out).writeToFileAtomicallyEncodingError(dir + '/yudsky-icloud-' + RUN + '-' + part + '.json', true, $.NSUTF8StringEncoding, null);
+  console.log('  ✓ yudsky-icloud-' + RUN + '-' + part + '.json (' + (out.length / 1048576).toFixed(1) + ' MB)');
   cur = { notes: [], files: [] }; size = 0;
 }
 // lampiran ditulis lebih dulu; bila bagian penuh, bagian ditutup (catatan besar boleh terbagi ke beberapa file)
@@ -85,6 +110,7 @@ for (const f of chosen) {
   try { ns = f.i < 0 ? Notes.notes() : fObjs[f.i].notes(); } catch (e) { continue; }
   for (let i = 0; i < ns.length; i++) {
     const n = ns[i];
+    if (onlyIds) { let nid = ''; try { nid = n.id(); } catch (e) {} if (onlyIds.indexOf(nid) < 0) continue; }
     try {
       let fname = f.nm;
       if (f.i < 0) { fname = 'Catatan'; try { fname = n.container().name(); } catch (e) {} if (SKIP_FOLDERS.indexOf(fname) >= 0) continue; }
