@@ -604,7 +604,7 @@ svg{display:block}
 <script>
 {
 /* ================= penyimpanan di perangkat (IndexedDB) ================= */
-const APP_VERSION = 'v93';
+const APP_VERSION = 'v94';
 const ERRLOG = [];
 addEventListener('error', (e) => ERRLOG.push(new Date().toTimeString().slice(0, 8) + ' ' + (e.message || e.type)));
 addEventListener('unhandledrejection', (e) => ERRLOG.push(new Date().toTimeString().slice(0, 8) + ' ' + ((e.reason && (e.reason.name + ': ' + e.reason.message)) || e.reason)));
@@ -2431,6 +2431,7 @@ async function renderSettings() {
     ${row('folders', SIC('#FF9500', FICONS.folder), 'Ikon, Nama & Urutan Folder', chev)}
     ${row('edfs', SIC('#8E8E93', 'M4 18L9 6l5 12M5.8 14h6.4M15 18l3-7 3 7M15.9 16h4.2'), 'Ukuran Teks Catatan', vl(EDFSN[FVIEW.edfs || 'iphone']) + chev)}
     ${row('fview', SIC('#5AC8FA', 'M4 4h7v7H4zM13 4h7v7h-7zM4 13h7v7H4zM13 13h7v7h-7z'), 'Tampilan Folder', vl(FVIEW.mode === 'grid' ? 'Kotak' : 'Daftar') + chev)}
+    ${row('froll', SIC('#34C759', 'M20 12a8 8 0 1 1-2.4-5.7M20 4v4.5h-4.5'), 'Menu Atas Berputar Otomatis', vl((FVIEW.roll === undefined ? 5 : +FVIEW.roll) ? 'Tiap ' + (FVIEW.roll === undefined ? 5 : +FVIEW.roll) + ' detik' : 'Mati') + chev)}
     ${row('ftop', SIC('#FF9500', 'M4 5h16v4H4zM4 11h7v8H4zM13 11h7v8h-7z'), 'Tampilan Menu Atas', vl({ one: 'Satu Menu (Berputar)', scroll: 'Geser ke Samping', auto: 'Ikuti Folder', list: 'Daftar', grid: 'Kotak' }[FVIEW.top || 'one']) + chev)}
     ${row('fpin', SIC('#8E8E93', 'M7 11V7a5 5 0 0 1 10 0v4M5 11h14v10H5z'), 'Kunci Folder di Atas', vl(FVIEW.pin ? 'sampai ' + esc(folderName(FVIEW.pin)) : 'Mati') + chev)}
     ${row('sort', SIC('#8E8E93', 'M4 6h16M7 12h10M10 18h4'), 'Urutkan Catatan', vl(sortL) + chev)}
@@ -2469,6 +2470,7 @@ $('#setBody').addEventListener('click', async (e) => {
     case 'theme': themePicker(); break;
     case 'fview': { const i = await sheet({ title: 'Tampilan Folder', items: [{ t: (FVIEW.mode !== 'grid' ? '✓ ' : '') + 'Daftar' }, { t: (FVIEW.mode === 'grid' ? '✓ ' : '') + 'Kotak' }] }); if (i >= 0) { FVIEW.mode = i ? 'grid' : 'list'; await DB.setMeta('fview', FVIEW); renderFolders(); } break; }
     case 'edfs': { const ks = Object.keys(EDFS), cur = FVIEW.edfs || 'iphone'; const i = await sheet({ title: 'Ukuran teks di dalam catatan', items: ks.map((k) => ({ t: (k === cur ? '✓ ' : '') + EDFSN[k] + ' (' + EDFS[k] + ')' })) }); if (i >= 0) { FVIEW.edfs = ks[i]; await DB.setMeta('fview', FVIEW); applyEdfs(); renderSettings && renderSettings(); } break; }
+    case 'froll': { const o = [0, 3, 5, 10], cur = FVIEW.roll === undefined ? 5 : +FVIEW.roll; const i = await sheet({ title: 'Menu atas berputar otomatis? (geser manual tetap bisa)', items: o.map((x) => ({ t: (x === cur ? '✓ ' : '') + (x ? 'Ya, tiap ' + x + ' detik' : 'Mati — hanya geser manual') })) }); if (i >= 0) { FVIEW.roll = o[i]; await DB.setMeta('fview', FVIEW); renderFolders(); renderSettings(); } break; }
     case 'ftop': { const o = ['one', 'scroll', 'auto', 'list', 'grid'], cur = FVIEW.top || 'one'; const i = await sheet({ title: 'Tampilan Menu Atas (Jadwal Jaga, Tugas, Pembacaan, Link, Buku)', items: ['Satu menu, geser atas/bawah & berputar otomatis', 'Geser ke samping', 'Ikuti tombol Daftar/Kotak folder', 'Selalu Daftar', 'Selalu Kotak'].map((t, k) => ({ t: (o[k] === cur ? '✓ ' : '') + t })) }); if (i >= 0) { FVIEW.top = o[i]; await DB.setMeta('fview', FVIEW); renderFolders(); } break; }
     case 'fpin': { const ids = ['all', ...orderedIds()]; const i = await sheet({ title: 'Folder sampai mana yang dikunci (tidak ikut tergulir)?', items: [{ t: (!FVIEW.pin ? '✓ ' : '') + 'Mati — semua ikut tergulir' }, ...ids.map((id) => ({ t: (FVIEW.pin === id ? '✓ ' : '') + 'Sampai ' + folderName(id) }))] }); if (i >= 0) { FVIEW.pin = i ? ids[i - 1] : null; FVIEW.pinSet = true; await DB.setMeta('fview', FVIEW); renderFolders(); } break; }
     case 'folders': back(); S.editFolders = true; renderFolders(); toast('Ketuk Ubah untuk nama/ikon, seret ≡ untuk urutan'); break;
@@ -3994,7 +3996,8 @@ function initRoll() {
   }, { passive: true });
   const hold = () => { busy = Date.now() + 8000; };
   sc.addEventListener('touchstart', hold, { passive: true }); sc.addEventListener('wheel', hold, { passive: true });
-  ROLLT = setInterval(() => { if (document.hidden || Date.now() < busy || !document.body.contains(sc) || S.stack[S.stack.length - 1] !== 'folders') return; go(Math.round(sc.scrollTop / H()) + 1, true); }, 5000);
+  const sec = FVIEW.roll === undefined ? 5 : +FVIEW.roll; if (!sec) return;
+  ROLLT = setInterval(() => { if (document.hidden || Date.now() < busy || !document.body.contains(sc) || S.stack[S.stack.length - 1] !== 'folders') return; go(Math.round(sc.scrollTop / H()) + 1, true); }, sec * 1000);
 }
 function jagaCardHTML() {
   const nx = jUpcoming()[0];
