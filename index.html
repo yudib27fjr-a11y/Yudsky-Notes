@@ -563,7 +563,7 @@ svg{display:block}
 <script>
 {
 /* ================= penyimpanan di perangkat (IndexedDB) ================= */
-const APP_VERSION = 'v66';
+const APP_VERSION = 'v67';
 const ERRLOG = [];
 addEventListener('error', (e) => ERRLOG.push(new Date().toTimeString().slice(0, 8) + ' ' + (e.message || e.type)));
 addEventListener('unhandledrejection', (e) => ERRLOG.push(new Date().toTimeString().slice(0, 8) + ' ' + ((e.reason && (e.reason.name + ': ' + e.reason.message)) || e.reason)));
@@ -3172,13 +3172,16 @@ Jawab dalam bahasa Indonesia.`;
 }
 async function oConfirmMulti(k, loc) {
   // tentukan kategori tiap kolom: PCI -> pci, poli -> poli, sisanya -> kategori yang sedang dibuka
-  const tgt = (h) => /pci|kateter|cath/i.test(h) ? 'pci' : /poli/i.test(h) ? 'poli' : /rsuh|unhas/i.test(h) ? 'rsuh' : k;
+  const tgt = (h) => /pci|kateter|cath|tindakan/i.test(h) ? 'pci' : /poli/i.test(h) ? 'poli' : /rsuh|unhas/i.test(h) ? 'rsuh' : /utama|dpjp|jaga|konsulen/i.test(h) ? (k === 'rsuh' ? 'rsuh' : 'dpjp') : k;
   const plan = loc.multi.map((col) => ({ col, cat: OCATS.find((x) => x.k === tgt(col.h)) }));
   const r = await alertBox({ title: 'Jadwal terbaca', msg: loc.info + '\n\n' + plan.map((p) => '• ' + p.col.h + ' → ' + p.cat.n + ' (' + p.col.e.length + ' hari)').join('\n') + '\n\nTanggal yang sama akan diganti dengan data baru.', buttons: [{ t: 'Batal' }, { t: 'Simpan', b: 1 }] });
   if (r.btn !== 1) return false;
-  for (const p of plan) {
-    const ds = new Set(p.col.e.map((e) => e.date));
-    JAGA.other[p.cat.k] = oList(p.cat.k).filter((e) => !(e.date && !e.end && ds.has(e.date))).concat(p.col.e);
+  // gabungkan dulu per kategori, supaya dua kolom ke kategori yang sama tidak saling menimpa
+  const byCat = {};
+  for (const p of plan) (byCat[p.cat.k] = byCat[p.cat.k] || []).push(...p.col.e);
+  for (const [ck, list] of Object.entries(byCat)) {
+    const ds = new Set(list.map((e) => e.date));
+    JAGA.other[ck] = oList(ck).filter((e) => !(e.date && !e.end && ds.has(e.date))).concat(list);
   }
   await oSave(); toast('Jadwal disimpan'); return true;
 }
