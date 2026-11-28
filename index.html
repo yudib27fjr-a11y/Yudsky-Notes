@@ -155,6 +155,7 @@ svg{display:block}
 .sldnav{display:flex;justify-content:space-between;padding:8px 16px 0}.sldnav button{width:56px;height:44px;border-radius:14px;background:rgba(255,255,255,.12);color:#fff;font-size:26px}
 @media (orientation:landscape){.sldl.two{grid-template-columns:1fr 1fr}}
 .pie{display:flex;gap:12px;width:100%;text-align:left;padding:10px 16px;align-items:flex-start;position:relative}.pie+.pie::before{content:"";position:absolute;top:0;left:16px;right:0;border-top:.5px solid var(--sep)}.pie .jd{flex:none}.pjt{display:flex;flex-direction:column;gap:2px;min-width:0;flex:1;text-align:left;align-items:flex-start}.pie .jd{width:44px}.pjt b{font-size:15px;font-weight:600;line-height:1.3}.pjt small{color:var(--sec);font-size:12.5px}.jks{border:0!important;outline:0;border-radius:10px;padding:9px 12px;background:var(--fill)!important;color:var(--ink);font-size:16px}.pjp{font-size:13px;color:var(--ink);line-height:1.3}.pjp i{font-style:normal;color:var(--sec)}.pjp u{text-decoration:none;color:#FF9500}.pjt em{font-style:normal;color:#30B0C7;font-size:12.5px;font-weight:600}.pie.me{background:rgba(48,176,199,.12)}.pichips{display:flex;flex-wrap:wrap;gap:6px;padding:4px 16px 8px}.pichips span{background:var(--card,rgba(127,127,127,.15));border-radius:10px;padding:6px 10px;font-size:12.5px;color:var(--sec);display:flex;flex-direction:column}.pichips b{color:var(--text,inherit);font-size:14px}.pitog{display:block;margin:-4px 20px 8px;font-size:14px;color:var(--tint);font-weight:500}.pir{display:flex;flex-wrap:wrap;gap:2px 8px;padding:4px 0}.pir b{font-size:16px}.pir span{color:#30B0C7;font-size:13px;font-weight:600;align-self:center}.pir small{flex-basis:100%;color:var(--sec);font-size:12.5px;line-height:1.3}
+.lks{display:block;width:calc(100% - 32px);margin:4px 16px 4px;border:0;outline:0;border-radius:10px;padding:9px 12px;background:var(--fill);color:var(--ink);font-size:16px}.lsh{display:flex;justify-content:space-between;align-items:center}.lgm,.lmore{color:var(--tint);font-size:20px;line-height:1;padding:6px 10px;font-weight:700}.lrow{display:flex;align-items:center;position:relative}.lrow+.lrow::before,.group .ladd::before{content:"";position:absolute;top:0;left:58px;right:0;border-top:.5px solid var(--sep)}.lopen{flex:1;display:flex;align-items:center;gap:12px;padding:10px 0 10px 16px;color:var(--ink);text-decoration:none;min-width:0}.lt{display:flex;flex-direction:column;min-width:0}.lt b{font-weight:500;font-size:16.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.lt small{color:var(--sec);font-size:12.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.ladd{position:relative;color:var(--tint)}.ladd .lb{color:var(--tint)}.lplus{width:29px;text-align:center;font-size:24px;font-weight:300;color:var(--tint)}.lnone{color:var(--sec);font-size:14px;padding:10px 16px;margin:0}
 .skme{background:linear-gradient(135deg,#5856D6,#AF52DE)!important}.skg{padding:4px 0 6px}.skh{display:flex;flex-direction:column;padding:10px 16px 6px}.skh b{font-size:16px}.skh small{color:var(--sec);font-size:12.5px}.skp{display:flex;justify-content:space-between;gap:10px;padding:4px 16px 4px 28px;font-size:15px}.skp i{font-style:normal;color:var(--sec);font-size:12.5px;white-space:nowrap}.skp.me{color:var(--tint);font-weight:700}.sks{margin-top:4px}
 .tjg{display:grid;grid-template-columns:auto 1fr;gap:3px 12px;padding-left:30px;font-size:15px;line-height:1.3}.tjg span{color:var(--sec)}.tjg b{font-weight:600}.tjg b.me{color:var(--tint)}
 .tseg{display:flex;gap:6px;margin:0 0 8px 30px}.tseg button{padding:4px 12px;border-radius:14px;border:1px solid var(--sep);font-size:13px;color:var(--ink)}.tseg button.on{background:color-mix(in srgb,var(--tint) 18%,transparent);border-color:var(--tint);color:var(--tint);font-weight:600}
@@ -512,6 +513,14 @@ svg{display:block}
  <div class="scroll" id="sJaga"><h1 class="ltitle">Jadwal Jaga</h1><div id="jagaBody"></div></div>
 </section>
 
+<section class="page off" id="pLinks">
+ <header class="nav"><div class="navrow">
+  <button class="nb back" data-back><svg class="ic" viewBox="0 0 13 22"><path d="M11 2L2 11l9 9"/></svg>Folder</button>
+  <div class="navtitle">Link Penting</div><button class="nb" id="bLinkAdd" aria-label="Tambah link" style="font-size:28px;font-weight:300;width:44px">+</button>
+ </div></header>
+ <div class="scroll" id="sLinks"><h1 class="ltitle">Link Penting</h1><div id="linkBody"></div></div>
+</section>
+
 <section class="page off" id="pList">
  <header class="nav"><div class="navrow">
   <button class="nb back" data-back><svg class="ic" viewBox="0 0 13 22"><path d="M11 2L2 11l9 9"/></svg>Folder</button>
@@ -585,7 +594,7 @@ svg{display:block}
 <script>
 {
 /* ================= penyimpanan di perangkat (IndexedDB) ================= */
-const APP_VERSION = 'v73';
+const APP_VERSION = 'v74';
 const ERRLOG = [];
 addEventListener('error', (e) => ERRLOG.push(new Date().toTimeString().slice(0, 8) + ' ' + (e.message || e.type)));
 addEventListener('unhandledrejection', (e) => ERRLOG.push(new Date().toTimeString().slice(0, 8) + ' ' + ((e.reason && (e.reason.name + ': ' + e.reason.message)) || e.reason)));
@@ -845,7 +854,7 @@ function renderSearchAll() {
 function renderAll() { renderFolders(); renderSearchAll(); renderList(); }
 
 /* ================= navigasi ================= */
-const PAGES = { folders: '#pFolders', list: '#pList', note: '#pNote', settings: '#pSet', jaga: '#pJaga' };
+const PAGES = { folders: '#pFolders', list: '#pList', note: '#pNote', settings: '#pSet', jaga: '#pJaga', links: '#pLinks' };
 function applyStack(anim = true) {
   const st = S.stack;
   for (const [k, sel] of Object.entries(PAGES)) {
@@ -2185,7 +2194,7 @@ async function diagnose() {
   if (ERRLOG.length) out.push('Error: ' + ERRLOG.slice(-4).join(' | '));
   alertBox({ title: 'Cek Penyimpanan', msg: out.join('\n'), buttons: [{ t: 'Salin' }, { t: 'OK', b: 1 }] }).then(({ btn }) => { if (btn === 0) navigator.clipboard?.writeText(out.join('\n')).then(() => toast('Disalin'), () => {}); });
 }
-const backup = (files) => JSON.stringify({ app: 'catatan-ios', v: 2, at: Date.now(), folders: S.folders, notes: Object.values(S.notes), files: files || [] });
+const backup = (files) => JSON.stringify({ app: 'catatan-ios', v: 2, at: Date.now(), folders: S.folders, notes: Object.values(S.notes), links: LINKS, files: files || [] });
 const toDataURL = (blob) => new Promise((r) => { const fr = new FileReader(); fr.onload = () => r(fr.result); fr.onerror = () => r(null); fr.readAsDataURL(blob); });
 async function exportFile() {
   try {
@@ -2228,6 +2237,7 @@ async function importData(txt) {
     try { const blob = await (await fetch(f.data)).blob(); await DB.putFile({ id: String(f.id), name: String(f.name || 'File'), type: String(f.type || blob.type), size: blob.size, blob, at: Date.now() }); } catch {}
   }
   for (const f of d.folders || []) if (f && f.id && !S.folders.some((x) => x.id === f.id)) S.folders.push({ id: String(f.id), name: String(f.name || 'Folder') });
+  if (d.links && Array.isArray(d.links.groups)) { if (!LINKS) LINKS = { groups: [] }; for (const g of d.links.groups) { let t = LINKS.groups.find((x) => x.name === g.name); if (!t) { t = { id: 'g' + uid(), name: String(g.name || 'Link'), items: [] }; LINKS.groups.push(t); } for (const l of g.items || []) if (l && l.u && /^https?:/i.test(l.u) && !t.items.some((x) => x.u === l.u)) t.items.push({ id: 'l' + uid(), t: String(l.t || l.u), u: String(l.u) }); } await saveLinks(); }
   for (const n of d.notes) {
     if (!n || !n.id) continue;
     const old = S.notes[n.id];
@@ -3644,7 +3654,7 @@ function jagaCardHTML() {
   const nx = jUpcoming()[0];
   const sub = nx ? `${jWhen(nx) || jDate(nx, { weekday: 'short', day: 'numeric', month: 'short' })} · ${esc(nx.type)} ${jTime(nx)}` : (JAGA.shifts.length ? 'Tidak ada jaga mendatang' : 'Unggah foto / PDF jadwal');
   const hot = nx && /Sedang|Hari ini|Besok/.test(jWhen(nx));
-  return `<div class="group jcard"><button class="srow" id="openJaga">${SIC('#FF3B30', FICONS.calendar)}<span class="lb">Jadwal Jaga<small class="${hot ? 'hot' : ''}">${sub}</small></span>${I.chev}</button></div>`;
+  return `<div class="group jcard"><button class="srow" id="openJaga">${SIC('#FF3B30', FICONS.calendar)}<span class="lb">Jadwal Jaga<small class="${hot ? 'hot' : ''}">${sub}</small></span>${I.chev}</button>${linkRowHTML()}</div>`;
 }
 /* ================= Jarkom Pembacaan Ilmiah ================= */
 const PICAL = 'fa98002ce9a43964c1a35643c982308487454997198bd1ff01e98d6424d38b2f@group.calendar.google.com';
@@ -4126,7 +4136,111 @@ $('#jagaBody').addEventListener('click', async (e) => {
   if (k === 'clear') { const { btn } = await alertBox({ title: 'Hapus semua jadwal jaga?', buttons: [{ t: 'Batal' }, { t: 'Hapus', des: 1 }] }); if (btn === 1) { JAGA.shifts = []; await saveJaga(); renderJaga(); renderFolders(); } }
 });
 ['#fJagaImg', '#fJagaCam', '#fJagaPdf'].forEach((s) => $(s).addEventListener('change', (e) => { const fs = [...e.target.files]; e.target.value = ''; if (fs.length) jagaUpload(fs); }));
-$('#fBox').addEventListener('click', (e) => { if (e.target.closest('#openJaga')) { e.stopPropagation(); openJaga(); } }, true);
+$('#fBox').addEventListener('click', (e) => { if (e.target.closest('#openJaga')) { e.stopPropagation(); openJaga(); } if (e.target.closest('#openLinks')) { e.stopPropagation(); openLinks(); } }, true);
+/* ================= Link Penting ================= */
+let LINKS = null;
+const LINK_SEED = () => ({ groups: [
+  { id: 'g1', name: 'Formulir Pasien', items: [
+    { id: 'l1', t: 'Informed Consent', u: 'https://docs.google.com/document/d/1WBTM3ds2jg-pnf9VxnYj5AincGohcdxAgueERzw9msw/edit?tab=t.0' },
+    { id: 'l2', t: 'Marking Site', u: 'https://docs.google.com/document/d/1bSkrER0xevx3DiMyx-qxungZN2P4HegzxseutpDfp7E/edit?tab=t.0' },
+    { id: 'l3', t: 'Transfusi', u: 'https://docs.google.com/document/d/1HRZgNSau9YynkuJzsrJQUWhBAu27gbC_mTJ7AN6clig/edit?tab=t.0' } ] },
+  { id: 'g2', name: 'Hasil Conference', items: [
+    { id: 'l4', t: 'Data Pasien BTKV', u: 'https://docs.google.com/spreadsheets/d/1vVTqlcCbe860H2hlRHgRXsbXjR_VlIdevhfcJbJ_Goo/edit?gid=89951221#gid=89951221' } ] },
+  { id: 'g3', name: 'Google Keep Yudsky', items: [
+    { id: 'l5', t: 'Google Keep', u: 'https://keep.google.com/u/0/' } ] },
+  { id: 'g4', name: 'Kalkulator Medis', items: [
+    { id: 'l6', t: 'Mean Arterial Pressure (MAP)', u: 'https://www.mdcalc.com/calc/74/mean-arterial-pressure-map' } ] } ] });
+async function loadLinks() { const l = await DB.getMeta('links'); LINKS = l && Array.isArray(l.groups) ? l : LINK_SEED(); if (!l) await saveLinks(); }
+async function saveLinks() { await DB.setMeta('links', LINKS); }
+const linkCount = () => (LINKS ? LINKS.groups.reduce((t, g) => t + g.items.length, 0) : 0);
+function linkKind(u) {
+  const h = (() => { try { return new URL(u).hostname.replace(/^www\./, ''); } catch { return ''; } })();
+  if (/docs\.google\.com\/spreadsheets/.test(u)) return ['#0F9D58', 'M5 3h10l4 4v14H5zM8 11h8M8 14h8M8 17h8M11 11v6', 'Google Sheets'];
+  if (/docs\.google\.com\/presentation/.test(u)) return ['#F4B400', 'M5 3h10l4 4v14H5zM8 11h8v5H8z', 'Google Slides'];
+  if (/docs\.google\.com\/forms/.test(u)) return ['#7248B9', 'M5 3h10l4 4v14H5zM8 11h1M11 11h5M8 14h1M11 14h5M8 17h1M11 17h5', 'Google Forms'];
+  if (/docs\.google\.com/.test(u)) return ['#4285F4', 'M5 3h10l4 4v14H5zM8 11h8M8 14h8M8 17h5', 'Google Docs'];
+  if (/keep\.google/.test(u)) return ['#FBBC04', 'M9 18h6M10 21h4M12 3a6 6 0 0 0-3.5 10.9V16h7v-2.1A6 6 0 0 0 12 3z', 'Google Keep'];
+  if (/drive\.google/.test(u)) return ['#1FA463', 'M8 4h8l5 9-4 7H7l-4-7z', 'Google Drive'];
+  if (/mdcalc|calc/i.test(u)) return ['#E8453C', 'M6 3h12v18H6zM9 7h6M9 11h1M12 11h1M15 11h0M9 14h1M12 14h1M9 17h1M12 17h1M15 14v4', h];
+  if (/youtu/.test(u)) return ['#FF0000', 'M4 7h16v10H4zM10 9.5v5l4.5-2.5z', 'YouTube'];
+  if (/whatsapp|wa\.me/.test(u)) return ['#25D366', 'M4 20l1.3-4A8 8 0 1 1 8 19.3z', 'WhatsApp'];
+  return ['#8E8E93', 'M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zM3 12h18M12 3c2.5 2.6 3.8 5.6 3.8 9s-1.3 6.4-3.8 9c-2.5-2.6-3.8-5.6-3.8-9S9.5 5.6 12 3z', h];
+}
+function linkRowHTML() {
+  const n = linkCount();
+  return `<button class="srow" id="openLinks">${SIC('#007AFF', 'M10 14a4.5 4.5 0 0 0 6.4 0l3-3a4.5 4.5 0 0 0-6.4-6.4l-1.2 1.2M14 10a4.5 4.5 0 0 0-6.4 0l-3 3a4.5 4.5 0 0 0 6.4 6.4l1.2-1.2')}<span class="lb">Link Penting<small>${n ? n + ' link · ' + LINKS.groups.length + ' sub' : 'Simpan link penting'}</small></span>${I.chev}</button>`;
+}
+let LQ = '';
+function renderLinks() {
+  if (!LINKS) LINKS = LINK_SEED();
+  const q = LQ.toLowerCase();
+  const gs = LINKS.groups.map((g) => ({ g, its: g.items.filter((l) => !q || (g.name + ' ' + l.t + ' ' + l.u).toLowerCase().includes(q)) })).filter((x) => !q || x.its.length);
+  $('#linkBody').innerHTML = `
+    <input class="lks" type="search" placeholder="Cari link…" value="${esc(LQ)}">
+    ${gs.map(({ g, its }) => `<div class="sh lsh" data-g="${esc(g.id)}"><span>${esc(g.name)}</span><button class="lgm" data-gm="${esc(g.id)}" aria-label="Atur sub">⋯</button></div>
+      <div class="group">${its.map((l) => { const [c, p, src] = linkKind(l.u); return `<div class="lrow"><a class="lopen" href="${esc(l.u)}" target="_blank" rel="noopener">${SIC(c, p)}<span class="lt"><b>${esc(l.t)}</b><small>${esc(src)}</small></span></a><button class="lmore" data-lm="${esc(l.id)}" aria-label="Atur link">⋯</button></div>`; }).join('') || '<p class="lnone">Belum ada link</p>'}
+      ${q ? '' : `<button class="srow ladd" data-ladd="${esc(g.id)}"><span class="lplus">+</span><span class="lb">Tambah link ke ${esc(g.name)}</span></button>`}</div>`).join('')}
+    ${q && !gs.length ? '<p class="lnone" style="text-align:center;padding:30px">Tidak ditemukan</p>' : ''}
+    ${q ? '' : `<div class="group"><button class="srow" data-newg="1">${SIC('#FF9500', FICONS.folder)}<span class="lb">Sub Baru</span>${I.chev}</button></div>
+    <div class="sf">Ketuk link untuk membuka. Ketuk ⋯ untuk ubah, pindah, salin, bagikan, atau hapus.</div>`}`;
+  const inp = $('.lks', $('#linkBody'));
+  inp.addEventListener('input', () => { LQ = inp.value; const pos = inp.selectionStart; renderLinks(); const n = $('.lks', $('#linkBody')); n.focus(); try { n.setSelectionRange(pos, pos); } catch {} });
+}
+function openLinks() { LQ = ''; renderLinks(); $('#sLinks').scrollTop = 0; push('links'); }
+const findLink = (id) => { for (const g of LINKS.groups) { const i = g.items.findIndex((l) => l.id === id); if (i > -1) return { g, i, l: g.items[i] }; } return null; };
+function normURL(u) { u = String(u || '').trim(); const m = u.match(/https?:\/\/\S+/); if (m) u = m[0]; else if (/^[\w-]+(\.[\w-]+)+(\/\S*)?$/.test(u)) u = 'https://' + u; try { return new URL(u).href; } catch { return ''; } }
+async function pickGroup(title, cur) {
+  const i = await sheet({ title, items: LINKS.groups.map((g) => ({ t: (g.id === cur ? '✓ ' : '') + g.name })).concat([{ t: '+ Sub Baru' }]) });
+  if (i < 0) return null; if (i < LINKS.groups.length) return LINKS.groups[i];
+  return newGroup();
+}
+async function newGroup() {
+  const r = await alertBox({ title: 'Sub Baru', msg: 'Nama sub, mis. Formulir Pasien, Kalkulator Medis', input: '', buttons: [{ t: 'Batal' }, { t: 'Buat', b: 1 }] });
+  if (r.btn !== 1 || !r.value.trim()) return null;
+  const g = { id: 'g' + uid(), name: r.value.trim(), items: [] }; LINKS.groups.push(g); await saveLinks(); return g;
+}
+async function addLink(gid) {
+  let clip = ''; try { clip = normURL(await navigator.clipboard.readText()); } catch {}
+  const r1 = await alertBox({ title: 'Link', msg: 'Tempel alamat link', input: clip, placeholder: 'https://…', buttons: [{ t: 'Batal' }, { t: 'Lanjut', b: 1 }] });
+  if (r1.btn !== 1) return; const u = normURL(r1.value); if (!u) return toast('Link tidak valid');
+  const r2 = await alertBox({ title: 'Judul', msg: 'Nama yang tampil di daftar', input: '', placeholder: 'mis. Informed Consent', buttons: [{ t: 'Batal' }, { t: 'Simpan', b: 1 }] });
+  if (r2.btn !== 1) return;
+  let g = gid ? LINKS.groups.find((x) => x.id === gid) : null; if (!g) g = await pickGroup('Simpan ke sub mana?'); if (!g) return;
+  g.items.push({ id: 'l' + uid(), t: r2.value.trim() || linkKind(u)[2] || u, u }); await saveLinks(); renderLinks(); renderFolders(); toast('Link disimpan');
+}
+$('#linkBody').addEventListener('click', async (e) => {
+  if (e.target.closest('[data-newg]')) { if (await newGroup()) { renderLinks(); renderFolders(); } return; }
+  const ad = e.target.closest('[data-ladd]'); if (ad) return addLink(ad.dataset.ladd);
+  const gm = e.target.closest('[data-gm]');
+  if (gm) {
+    const gi = LINKS.groups.findIndex((g) => g.id === gm.dataset.gm), g = LINKS.groups[gi];
+    const i = await sheet({ title: g.name + ' · ' + g.items.length + ' link', items: [{ t: 'Tambah Link' }, { t: 'Ganti Nama Sub' }, { t: 'Naikkan' }, { t: 'Turunkan' }, { t: 'Hapus Sub', des: 1 }] });
+    if (i === 0) return addLink(g.id);
+    if (i === 1) { const r = await alertBox({ title: 'Nama Sub', input: g.name, buttons: [{ t: 'Batal' }, { t: 'Simpan', b: 1 }] }); if (r.btn === 1 && r.value.trim()) g.name = r.value.trim(); }
+    if (i === 2 && gi > 0) LINKS.groups.splice(gi - 1, 0, ...LINKS.groups.splice(gi, 1));
+    if (i === 3 && gi < LINKS.groups.length - 1) LINKS.groups.splice(gi + 1, 0, ...LINKS.groups.splice(gi, 1));
+    if (i === 4) { const r = await alertBox({ title: 'Hapus sub “' + g.name + '”?', msg: g.items.length ? g.items.length + ' link di dalamnya ikut terhapus.' : '', buttons: [{ t: 'Batal' }, { t: 'Hapus', des: 1 }] }); if (r.btn !== 1) return; LINKS.groups.splice(gi, 1); }
+    if (i >= 1) { await saveLinks(); renderLinks(); renderFolders(); }
+    return;
+  }
+  const lm = e.target.closest('[data-lm]');
+  if (lm) {
+    const f = findLink(lm.dataset.lm); if (!f) return; const { g, l } = f;
+    const i = await sheet({ title: l.t + '\n' + l.u, items: [{ t: 'Buka' }, { t: 'Salin Link' }, { t: 'Bagikan' }, { t: 'Ubah Judul' }, { t: 'Ubah Link' }, { t: 'Pindah ke Sub Lain' }, { t: 'Naikkan' }, { t: 'Turunkan' }, { t: 'Hapus', des: 1 }] });
+    if (i === 0) window.open(l.u, '_blank', 'noopener');
+    if (i === 1) { try { await navigator.clipboard.writeText(l.u); toast('Link disalin'); } catch { toast('Gagal menyalin'); } }
+    if (i === 2) { try { await navigator.share({ title: l.t, text: l.t, url: l.u }); } catch (err) { if (err.name !== 'AbortError') { try { await navigator.clipboard.writeText(l.u); toast('Link disalin'); } catch {} } } }
+    if (i === 3) { const r = await alertBox({ title: 'Judul', input: l.t, buttons: [{ t: 'Batal' }, { t: 'Simpan', b: 1 }] }); if (r.btn === 1 && r.value.trim()) l.t = r.value.trim(); }
+    if (i === 4) { const r = await alertBox({ title: 'Link', input: l.u, buttons: [{ t: 'Batal' }, { t: 'Simpan', b: 1 }] }); if (r.btn === 1) { const u = normURL(r.value); if (u) l.u = u; else return toast('Link tidak valid'); } }
+    if (i === 5) { const ng = await pickGroup('Pindah ke sub', g.id); if (ng && ng !== g) { g.items.splice(f.i, 1); ng.items.push(l); } }
+    if (i === 6 && f.i > 0) g.items.splice(f.i - 1, 0, ...g.items.splice(f.i, 1));
+    if (i === 7 && f.i < g.items.length - 1) g.items.splice(f.i + 1, 0, ...g.items.splice(f.i, 1));
+    if (i === 8) { const r = await alertBox({ title: 'Hapus link “' + l.t + '”?', buttons: [{ t: 'Batal' }, { t: 'Hapus', des: 1 }] }); if (r.btn !== 1) return; g.items.splice(f.i, 1); toast('Dihapus'); }
+    if (i >= 3) { await saveLinks(); renderLinks(); renderFolders(); }
+  }
+});
+$('#bLinkAdd').onclick = () => addLink();
+
 document.addEventListener('visibilitychange', () => { if (!document.hidden) { jagaCheck().catch(() => {}); if (S.stack.includes('jaga')) renderJaga(); } });
 setInterval(() => { if (!document.hidden) jagaCheck().catch(() => {}); }, 5 * 6e4);
 
@@ -4160,6 +4274,7 @@ setTimeout(() => { if (!booted) alertBox({ title: 'Memuat catatan terlalu lama',
     BOOT = 'membaca catatan';
     for (const n of (await DB.allNotes()) || []) if (n && n.id) S.notes[n.id] = n;
     BOOT = 'jadwal'; try { await loadJaga(); } catch (e) { ERRLOG.push('jaga: ' + e.message); }
+    try { await loadLinks(); } catch (e) { ERRLOG.push('link: ' + e.message); }
     BOOT = 'merapikan';
     // bersihkan Baru Dihapus > 30 hari
     for (const n of trashed()) if (n.deletedAt < Date.now() - 30 * DAY) await dropNote(n.id);
