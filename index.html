@@ -139,6 +139,21 @@ svg{display:block}
 .navbrand{position:absolute;left:50%;transform:translateX(-50%);display:flex;align-items:center;gap:7px;font-size:17px;color:var(--ink);font-weight:500;white-space:nowrap;pointer-events:none}.navbrand img{width:26px;height:26px;border-radius:7px;box-shadow:0 1px 3px rgba(0,0,0,.25)}.navbrand b{color:var(--tint);font-weight:700}
 #pFolders .fstick{padding-top:6px}
 /* tim jaga residen di Hari Ini */
+.skt-h{margin:14px 20px 6px;font-size:13px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--tc)}
+.skt{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin:0 16px}
+.sktile{display:flex;flex-direction:column;align-items:flex-start;gap:4px;min-height:64px;padding:10px 12px;border-radius:12px;background:var(--cell);text-align:left;color:var(--ink);box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--tc) 35%,transparent)}
+.sktile b{font-size:13.5px;line-height:1.2;font-weight:600;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}.sktile span{font-size:12px;color:var(--tc);font-weight:600}.sktile i{font-style:normal;font-size:11.5px;color:var(--sec)}
+.sktile.me{background:color-mix(in srgb,var(--tc) 22%,var(--cell));box-shadow:inset 0 0 0 2px var(--tc)}
+.sld{position:fixed;inset:0;background:#0b0b0f;display:flex;flex-direction:column;padding:calc(var(--sat) + 6px) 0 calc(var(--sab) + 10px)}
+.sldtop{display:flex;align-items:center;justify-content:space-between;padding:0 12px 6px;color:#fff}.sldtop button{width:40px;height:40px;border-radius:20px;background:rgba(255,255,255,.12);color:#fff;font-size:18px}.sldn{font-size:14px;color:rgba(255,255,255,.7)}
+.sldc{flex:1;display:flex;padding:6px 14px;min-height:0}.sldc.in .sldcard{animation:sldin .22s ease}@keyframes sldin{from{opacity:.3;transform:scale(.98)}to{opacity:1;transform:none}}
+.sldcard{flex:1;overflow:auto;border-radius:20px;padding:22px 20px;background:linear-gradient(160deg,color-mix(in srgb,var(--tc) 35%,#16161c),#16161c 55%);color:#fff;box-shadow:0 10px 30px rgba(0,0,0,.4)}
+.sldtag{display:inline-block;padding:4px 10px;border-radius:10px;background:color-mix(in srgb,var(--tc) 40%,transparent);font-size:12px;font-weight:700;letter-spacing:.03em;text-transform:uppercase}
+.sldcard h2{font-size:27px;line-height:1.15;margin:12px 0 6px}.slddp{margin:0 0 4px;color:rgba(255,255,255,.8);font-size:14px}.sldcnt{margin:0 0 12px;color:rgba(255,255,255,.6);font-size:13px}
+.sldl{margin:0;padding-left:22px;display:grid;gap:7px;font-size:16.5px}.sldl.two{grid-template-columns:1fr;font-size:15px;gap:5px}
+.sldl li{padding-left:2px}.sldl li span{font-weight:500}.sldl li i{font-style:normal;margin-left:8px;font-size:12px;padding:1px 7px;border-radius:8px;background:rgba(255,255,255,.12);color:rgba(255,255,255,.8)}.sldl li.me span{color:#FFD60A;font-weight:700}
+.sldnav{display:flex;justify-content:space-between;padding:8px 16px 0}.sldnav button{width:56px;height:44px;border-radius:14px;background:rgba(255,255,255,.12);color:#fff;font-size:26px}
+@media (orientation:landscape){.sldl.two{grid-template-columns:1fr 1fr}}
 .skme{background:linear-gradient(135deg,#5856D6,#AF52DE)!important}.skg{padding:4px 0 6px}.skh{display:flex;flex-direction:column;padding:10px 16px 6px}.skh b{font-size:16px}.skh small{color:var(--sec);font-size:12.5px}.skp{display:flex;justify-content:space-between;gap:10px;padding:4px 16px 4px 28px;font-size:15px}.skp i{font-style:normal;color:var(--sec);font-size:12.5px;white-space:nowrap}.skp.me{color:var(--tint);font-weight:700}.sks{margin-top:4px}
 .tjg{display:grid;grid-template-columns:auto 1fr;gap:3px 12px;padding-left:30px;font-size:15px;line-height:1.3}.tjg span{color:var(--sec)}.tjg b{font-weight:600}.tjg b.me{color:var(--tint)}
 .tseg{display:flex;gap:6px;margin:0 0 8px 30px}.tseg button{padding:4px 12px;border-radius:14px;border:1px solid var(--sep);font-size:13px;color:var(--ink)}.tseg button.on{background:color-mix(in srgb,var(--tint) 18%,transparent);border-color:var(--tint);color:var(--tint);font-weight:600}
@@ -569,7 +584,7 @@ svg{display:block}
 <script>
 {
 /* ================= penyimpanan di perangkat (IndexedDB) ================= */
-const APP_VERSION = 'v70';
+const APP_VERSION = 'v71';
 const ERRLOG = [];
 addEventListener('error', (e) => ERRLOG.push(new Date().toTimeString().slice(0, 8) + ' ' + (e.message || e.type)));
 addEventListener('unhandledrejection', (e) => ERRLOG.push(new Date().toTimeString().slice(0, 8) + ' ' + ((e.reason && (e.reason.name + ': ' + e.reason.message)) || e.reason)));
@@ -3556,8 +3571,26 @@ async function siklusUpload(files) {
   JAGA.siklus = (JAGA.siklus || []).filter((x) => !(x.from && x.from === c.from && x.to === c.to)).concat(c).sort((a, b) => (a.from || '').localeCompare(b.from || ''));
   await saveJaga(); renderJaga(); toast('Jadwal stase disimpan'); openSiklus(c.id);
 }
+// tampilan layar penuh seperti slide: satu divisi per layar, geser kiri/kanan
+function slideView(list, idx, me, tcol) {
+  const ov = overlay(`<div class="sld"><div class="sldtop"><button data-x aria-label="Tutup">✕</button><span class="sldn"></span><span style="width:40px"></span></div><div class="sldc"></div><div class="sldnav"><button data-d="-1">‹</button><button data-d="1">›</button></div></div>`);
+  const body = $('.sldc', ov);
+  const draw = () => {
+    const g = list[idx], n = g.peserta.length;
+    $('.sldn', ov).textContent = (idx + 1) + ' / ' + list.length;
+    body.innerHTML = `<div class="sldcard" style="--tc:${tcol(g.tahap)}"><span class="sldtag">${esc(g.tahap || 'Stase')}</span><h2>${esc(g.stase)}</h2>${g.dpjp ? `<p class="slddp">DPJP: ${esc(g.dpjp)}</p>` : ''}<p class="sldcnt">${n} peserta</p>
+      <ol class="sldl ${n > 8 ? 'two' : ''}">${g.peserta.map((p) => `<li class="${sameName(p.name, me) ? 'me' : ''}"><span>${esc(p.name)}</span>${p.note ? `<i>${esc(p.note)}</i>` : ''}</li>`).join('')}</ol></div>`;
+  };
+  const go = (d) => { idx = (idx + d + list.length) % list.length; body.classList.remove('in'); void body.offsetWidth; body.classList.add('in'); draw(); };
+  draw();
+  ov.addEventListener('click', (e) => { if (e.target.closest('[data-x]')) return ov.close(); const d = e.target.closest('[data-d]'); if (d) go(+d.dataset.d); });
+  let sx = null, sy = 0;
+  body.addEventListener('touchstart', (e) => { sx = e.touches[0].clientX; sy = e.touches[0].clientY; }, { passive: true });
+  body.addEventListener('touchend', (e) => { if (sx == null) return; const dx = e.changedTouches[0].clientX - sx, dy = e.changedTouches[0].clientY - sy; sx = null; if (Math.abs(dx) > 50 && Math.abs(dx) > Math.abs(dy) * 1.3) go(dx < 0 ? 1 : -1); }, { passive: true });
+}
 function openSiklus(id) {
-  let c = (JAGA.siklus || []).find((x) => x.id === id) || curSiklus(), q = '';
+  let c = (JAGA.siklus || []).find((x) => x.id === id) || curSiklus(), q = '', tiles = [];
+  const tcol = (t) => /chief|iii/i.test(t) ? '#FF9500' : /madya|\bii\b/i.test(t) ? '#34C759' : /junior|\bi\b/i.test(t) ? '#0A84FF' : /ujian/i.test(t) ? '#AF52DE' : '#8E8E93';
   const ov = overlay(`<div class="jrv"><div class="jrh"><button data-x>Tutup</button><b>Siklus Stase</b><button data-up class="b">Unggah</button></div><div class="jrs"></div></div>`);
   const me = JAGA.name || 'Yudi Wahyudi';
   const draw = () => {
@@ -3566,12 +3599,12 @@ function openSiklus(id) {
     const nq = q.toLowerCase();
     const gs = c.groups.map((g) => ({ g, ps: !nq || g.stase.toLowerCase().includes(nq) || (g.tahap || '').toLowerCase().includes(nq) ? g.peserta : g.peserta.filter((p) => p.name.toLowerCase().includes(nq) || (p.note || '').toLowerCase().includes(nq)) })).filter((x) => x.ps.length);
     const byT = {}; for (const x of gs) (byT[x.g.tahap || 'Lainnya'] = byT[x.g.tahap || 'Lainnya'] || []).push(x);
+    tiles = gs.map((x) => x.g);
     $('.jrs', ov).innerHTML = `
       ${(JAGA.siklus || []).length > 1 ? `<div class="lseg">${JAGA.siklus.map((x) => `<button data-sk="${x.id}" class="${x.id === c.id ? 'on' : ''}">${esc(x.from ? oD(x.from, { day: 'numeric', month: 'short' }) + '–' + oD(x.to || x.from, { day: 'numeric', month: 'short' }) : x.label)}</button>`).join('')}</div>` : ''}
       <div class="lttl"><b>${esc(c.label)}</b>${c.from && !/20\d\d/.test(c.label) ? `<small>${esc(oD(c.from, { day: 'numeric', month: 'long' }))} – ${esc(oD(c.to || c.from, { day: 'numeric', month: 'long', year: 'numeric' }))}</small>` : ''}</div>
-      ${mine ? `<div class="jnext skme"><small>Stase saya</small><b>${esc(mine.g.stase)}</b><span>${esc(mine.g.tahap || '')}${mine.p.note ? ' · ' + esc(mine.p.note) : ''}${mine.g.dpjp ? ' · DPJP ' + esc(mine.g.dpjp) : ''}</span></div>` : ''}
-      <input class="pps sks" placeholder="Cari nama atau stase…" value="${esc(q)}">
-      ${Object.entries(byT).map(([t, l]) => `<div class="sh">${esc(t)}</div>${l.map(({ g, ps }) => `<div class="group skg"><div class="skh"><b>${esc(g.stase)}</b><small>${g.peserta.length} orang${g.dpjp ? ' · DPJP ' + esc(g.dpjp) : ''}</small></div>${ps.map((p) => `<div class="skp ${sameName(p.name, me) ? 'me' : ''}"><span>${esc(p.name)}</span>${p.note ? `<i>${esc(p.note)}</i>` : ''}</div>`).join('')}</div>`).join('')}`).join('') || '<p class="jri">Tidak ditemukan.</p>'}
+      <input class="pps sks" placeholder="Cari nama atau divisi…" value="${esc(q)}">
+      ${Object.entries(byT).map(([t, l]) => `<div class="skt-h" style="--tc:${tcol(t)}">${esc(t)}</div><div class="skt">${l.map(({ g, ps }) => { const i = tiles.indexOf(g), mineG = g.peserta.some((p) => sameName(p.name, me)); return `<button class="sktile ${mineG ? 'me' : ''}" data-ti="${i}" style="--tc:${tcol(g.tahap)}"><b>${esc(g.stase)}</b><span>${g.peserta.length} org${mineG ? ' · saya' : ''}</span>${nq && ps.length < g.peserta.length ? `<i>${esc(ps.map((p) => p.name.replace(/^dr\.?\s*/i, '')).slice(0, 2).join(', '))}</i>` : ''}</button>`; }).join('')}</div>`).join('') || '<p class="jri">Tidak ditemukan.</p>'}
       <button class="jclear" data-del>Hapus Jadwal Stase Ini</button>`;
     const s = $('.sks', ov); s.addEventListener('input', () => { q = s.value; const pos = s.selectionStart; draw(); const s2 = $('.sks', ov); s2.focus(); s2.setSelectionRange(pos, pos); });
   };
@@ -3579,6 +3612,7 @@ function openSiklus(id) {
   ov.addEventListener('click', async (e) => {
     if (e.target.closest('[data-x]')) { ov.close(); renderJaga(); return; }
     const sk = e.target.closest('[data-sk]'); if (sk) { c = JAGA.siklus.find((x) => x.id === sk.dataset.sk); draw(); return; }
+    const ti = e.target.closest('[data-ti]'); if (ti) { slideView(tiles, +ti.dataset.ti, me, tcol); return; }
     if (e.target.closest('[data-up]')) { const f = await pickFiles('application/pdf,image/*,.pptx,.ppt,application/vnd.openxmlformats-officedocument.presentationml.presentation'); if (f.length) { ov.close(); siklusUpload(f); } return; }
     if (e.target.closest('[data-del]')) { const r = await alertBox({ title: 'Hapus jadwal stase ini?', msg: c.label, buttons: [{ t: 'Batal' }, { t: 'Hapus', des: 1 }] }); if (r.btn === 1) { JAGA.siklus = JAGA.siklus.filter((x) => x !== c); await saveJaga(); c = curSiklus(); draw(); } }
   });
