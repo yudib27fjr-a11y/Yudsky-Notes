@@ -164,6 +164,7 @@ svg{display:block}
 .jcard.jg{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;background:none!important;overflow:visible;border-radius:0}.jcard.jg .srow{flex-direction:column;align-items:center;justify-content:flex-start;text-align:center;gap:6px;padding:12px 6px 10px;border-radius:16px;min-height:118px;background:color-mix(in srgb,var(--cell) 82%,transparent)}.jcard.jg .srow::before{display:none}.jcard.jg .srow .chev{display:none}.jcard.jg .srow .sic{width:42px;height:42px;border-radius:11px;margin:2px 0 4px;flex:none}.jcard.jg .srow .sic svg{width:24px;height:24px}.jcard.jg .lb{align-items:center;font-size:14px;line-height:1.2;width:100%}.jcard.jg small{font-size:11.5px;line-height:1.25;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;margin-top:3px;word-break:break-word}
 .jcard.jsc{display:flex;gap:10px;overflow-x:auto;overflow-y:hidden;background:none!important;border-radius:0;padding:0 0 2px;scroll-snap-type:x mandatory;scrollbar-width:none;-webkit-overflow-scrolling:touch}.jcard.jsc::-webkit-scrollbar{display:none}.jcard.jsc .srow{flex:0 0 42%;scroll-snap-align:start;flex-direction:column;align-items:flex-start;gap:6px;padding:11px 12px;border-radius:16px;min-height:104px;background:color-mix(in srgb,var(--cell) 82%,transparent)}.jcard.jsc .srow::before{display:none}.jcard.jsc .srow .chev{display:none}.jcard.jsc .srow .sic{width:32px;height:32px;border-radius:9px;flex:none}.jcard.jsc .lb{font-size:14.5px;line-height:1.2;width:100%}.jcard.jsc small{font-size:12px;line-height:1.25;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;margin-top:3px;word-break:break-word}
 .jone .jmore{display:none}.jone.open .jmore{display:block}.jone .jmore .srow::before{content:"";position:absolute;top:0;right:0;left:58px;border-top:.5px solid var(--sep)}.jone .jtog{min-height:38px;padding:6px 16px;justify-content:center}.jone .jtog .lb{flex:none;font-weight:600;font-size:14px;color:var(--tint)}.jone .jtog .jchev{width:16px;height:16px;stroke:var(--tint);stroke-width:2.4;fill:none;transition:transform .2s}.jone.open .jtog .jchev{transform:rotate(180deg)}
+.jroll{position:relative;padding:0!important}.jrl{height:76px;overflow-y:auto;overflow-x:hidden;scroll-snap-type:y mandatory;scrollbar-width:none;overscroll-behavior:contain;border-radius:inherit}.jrl::-webkit-scrollbar{display:none}.jri2{height:76px;scroll-snap-align:start;scroll-snap-stop:always;display:flex}.jri2 .srow{height:100%;min-height:0;padding-right:30px}.jri2 .srow::before{display:none}.jroll small{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}.jdots{position:absolute;right:10px;top:50%;transform:translateY(-50%);display:flex;flex-direction:column;gap:4px;pointer-events:none}.jdots i{width:5px;height:5px;border-radius:3px;background:var(--ter);transition:height .2s}.jdots i.on{height:12px;background:var(--tint)}.jroll .chev{margin-right:6px}
 .skme{background:linear-gradient(135deg,#5856D6,#AF52DE)!important}.skg{padding:4px 0 6px}.skh{display:flex;flex-direction:column;padding:10px 16px 6px}.skh b{font-size:16px}.skh small{color:var(--sec);font-size:12.5px}.skp{display:flex;justify-content:space-between;gap:10px;padding:4px 16px 4px 28px;font-size:15px}.skp i{font-style:normal;color:var(--sec);font-size:12.5px;white-space:nowrap}.skp.me{color:var(--tint);font-weight:700}.sks{margin-top:4px}
 .tjg{display:grid;grid-template-columns:auto 1fr;gap:3px 12px;padding-left:30px;font-size:15px;line-height:1.3}.tjg span{color:var(--sec)}.tjg b{font-weight:600}.tjg b.me{color:var(--tint)}
 .tseg{display:flex;gap:6px;margin:0 0 8px 30px}.tseg button{padding:4px 12px;border-radius:14px;border:1px solid var(--sep);font-size:13px;color:var(--ink)}.tseg button.on{background:color-mix(in srgb,var(--tint) 18%,transparent);border-color:var(--tint);color:var(--tint);font-weight:600}
@@ -602,7 +603,7 @@ svg{display:block}
 <script>
 {
 /* ================= penyimpanan di perangkat (IndexedDB) ================= */
-const APP_VERSION = 'v91';
+const APP_VERSION = 'v92';
 const ERRLOG = [];
 addEventListener('error', (e) => ERRLOG.push(new Date().toTimeString().slice(0, 8) + ' ' + (e.message || e.type)));
 addEventListener('unhandledrejection', (e) => ERRLOG.push(new Date().toTimeString().slice(0, 8) + ' ' + ((e.reason && (e.reason.name + ': ' + e.reason.message)) || e.reason)));
@@ -785,6 +786,7 @@ function renderFolders() {
   const sh = `<div class="sh fsh">Di Ponsel Ini${S.editFolders ? '' : `<span class="fvt"><button data-fv="list" class="${grid ? '' : 'on'}" aria-label="Daftar"><svg class="ic" viewBox="0 0 24 24"><path d="M8 6h12M8 12h12M8 18h12M4 6h.01M4 12h.01M4 18h.01"/></svg></button><button data-fv="grid" class="${grid ? 'on' : ''}" aria-label="Kotak"><svg class="ic" viewBox="0 0 24 24"><path d="M4 4h7v7H4zM13 4h7v7h-7zM4 13h7v7H4zM13 13h7v7h-7z"/></svg></button></span>`}</div>`;
   $('#foldersPin').innerHTML = (S.editFolders ? '' : jagaCardHTML()) + sh + grp(pinned) + (pinned.length && rest.length ? `<div class="fsep ${grid ? 'g' : ''}"></div>` : '');
   $('#folders').innerHTML = grp(rest);
+  initRoll();
   $('#fBox').classList.toggle('stick', pinned.length > 0);
   $('#pFolders').classList.toggle('editing', S.editFolders);
   $('#bEdit').textContent = S.editFolders ? 'Selesai' : 'Edit';
@@ -2401,7 +2403,7 @@ async function renderSettings() {
     ${row('folders', SIC('#FF9500', FICONS.folder), 'Ikon, Nama & Urutan Folder', chev)}
     ${row('edfs', SIC('#8E8E93', 'M4 18L9 6l5 12M5.8 14h6.4M15 18l3-7 3 7M15.9 16h4.2'), 'Ukuran Teks Catatan', vl(EDFSN[FVIEW.edfs || 'iphone']) + chev)}
     ${row('fview', SIC('#5AC8FA', 'M4 4h7v7H4zM13 4h7v7h-7zM4 13h7v7H4zM13 13h7v7h-7z'), 'Tampilan Folder', vl(FVIEW.mode === 'grid' ? 'Kotak' : 'Daftar') + chev)}
-    ${row('ftop', SIC('#FF9500', 'M4 5h16v4H4zM4 11h7v8H4zM13 11h7v8h-7z'), 'Tampilan Menu Atas', vl({ one: 'Satu Menu (Lipat)', scroll: 'Geser ke Samping', auto: 'Ikuti Folder', list: 'Daftar', grid: 'Kotak' }[FVIEW.top || 'one']) + chev)}
+    ${row('ftop', SIC('#FF9500', 'M4 5h16v4H4zM4 11h7v8H4zM13 11h7v8h-7z'), 'Tampilan Menu Atas', vl({ one: 'Satu Menu (Berputar)', scroll: 'Geser ke Samping', auto: 'Ikuti Folder', list: 'Daftar', grid: 'Kotak' }[FVIEW.top || 'one']) + chev)}
     ${row('fpin', SIC('#8E8E93', 'M7 11V7a5 5 0 0 1 10 0v4M5 11h14v10H5z'), 'Kunci Folder di Atas', vl(FVIEW.pin ? 'sampai ' + esc(folderName(FVIEW.pin)) : 'Mati') + chev)}
     ${row('sort', SIC('#8E8E93', 'M4 6h16M7 12h10M10 18h4'), 'Urutkan Catatan', vl(sortL) + chev)}
   </div>
@@ -2439,7 +2441,7 @@ $('#setBody').addEventListener('click', async (e) => {
     case 'theme': themePicker(); break;
     case 'fview': { const i = await sheet({ title: 'Tampilan Folder', items: [{ t: (FVIEW.mode !== 'grid' ? '✓ ' : '') + 'Daftar' }, { t: (FVIEW.mode === 'grid' ? '✓ ' : '') + 'Kotak' }] }); if (i >= 0) { FVIEW.mode = i ? 'grid' : 'list'; await DB.setMeta('fview', FVIEW); renderFolders(); } break; }
     case 'edfs': { const ks = Object.keys(EDFS), cur = FVIEW.edfs || 'iphone'; const i = await sheet({ title: 'Ukuran teks di dalam catatan', items: ks.map((k) => ({ t: (k === cur ? '✓ ' : '') + EDFSN[k] + ' (' + EDFS[k] + ')' })) }); if (i >= 0) { FVIEW.edfs = ks[i]; await DB.setMeta('fview', FVIEW); applyEdfs(); renderSettings && renderSettings(); } break; }
-    case 'ftop': { const o = ['one', 'scroll', 'auto', 'list', 'grid'], cur = FVIEW.top || 'one'; const i = await sheet({ title: 'Tampilan Menu Atas (Jadwal Jaga, Tugas, Pembacaan, Link, Buku)', items: ['Satu menu terpenting, sisanya dilipat ▾', 'Geser ke samping', 'Ikuti tombol Daftar/Kotak folder', 'Selalu Daftar', 'Selalu Kotak'].map((t, k) => ({ t: (o[k] === cur ? '✓ ' : '') + t })) }); if (i >= 0) { FVIEW.top = o[i]; await DB.setMeta('fview', FVIEW); renderFolders(); } break; }
+    case 'ftop': { const o = ['one', 'scroll', 'auto', 'list', 'grid'], cur = FVIEW.top || 'one'; const i = await sheet({ title: 'Tampilan Menu Atas (Jadwal Jaga, Tugas, Pembacaan, Link, Buku)', items: ['Satu menu, geser atas/bawah & berputar otomatis', 'Geser ke samping', 'Ikuti tombol Daftar/Kotak folder', 'Selalu Daftar', 'Selalu Kotak'].map((t, k) => ({ t: (o[k] === cur ? '✓ ' : '') + t })) }); if (i >= 0) { FVIEW.top = o[i]; await DB.setMeta('fview', FVIEW); renderFolders(); } break; }
     case 'fpin': { const ids = ['all', ...orderedIds()]; const i = await sheet({ title: 'Folder sampai mana yang dikunci (tidak ikut tergulir)?', items: [{ t: (!FVIEW.pin ? '✓ ' : '') + 'Mati — semua ikut tergulir' }, ...ids.map((id) => ({ t: (FVIEW.pin === id ? '✓ ' : '') + 'Sampai ' + folderName(id) }))] }); if (i >= 0) { FVIEW.pin = i ? ids[i - 1] : null; FVIEW.pinSet = true; await DB.setMeta('fview', FVIEW); renderFolders(); } break; }
     case 'folders': back(); S.editFolders = true; renderFolders(); toast('Ketuk Ubah untuk nama/ikon, seret ≡ untuk urutan'); break;
     case 'sort': { const keys = ['updated', 'created', 'title']; const i = await sheet({ title: 'Urutkan Catatan', items: keys.map((x) => ({ t: (S.sort === x ? '✓ ' : '') + ({ updated: 'Tanggal Diedit', created: 'Tanggal Dibuat', title: 'Judul' })[x], chk: S.sort === x })) }); if (i >= 0) { S.sort = keys[i]; await saveMeta(); renderAll(); } break; }
@@ -3948,7 +3950,24 @@ const jTime = (s) => (s.start || DEFTIME(s.type, s.date)[0]).replace(':', '.') +
 async function saveJaga() { await DB.setMeta('jaga', JAGA); }
 async function loadJaga() { CLKEY = (await DB.getMeta('claudeKey')) || ''; AIPROV = (await DB.getMeta('aiProv')) || 'gemini'; const j = await DB.getMeta('jaga'); if (j && typeof j === 'object') JAGA = { ...JAGA, ...j, remind: { ...JAGA.remind, ...(j.remind || {}) }, hours: { ...JAGA.hours, ...(j.hours || {}), ...((j.hours && j.hours.biasa && j.hours.biasa.join() === '14:00,07:00' && !j.hoursSet) ? { biasa: ['16:00', '07:00'] } : {}) }, other: { dpjp: [], rsuh: [], pci: [], poli: [], ...(j.other || {}) } }; GEMKEY = (await DB.getMeta('gemKey')) || ''; GEMMODEL = (await DB.getMeta('gemModel')) || ''; }
 
-let TOPOPEN = false;
+let TOPOPEN = false, ROLLT = null, ROLLI = 0;
+function initRoll() {
+  clearInterval(ROLLT); const box = $('#foldersPin .jroll'); if (!box) return;
+  const sc = $('.jrl', box), n = +box.dataset.n, H = () => sc.clientHeight; let busy = 0, idle;
+  const dots = $$('.jdots i', box);
+  const go = (i, smooth) => sc.scrollTo({ top: i * H(), behavior: smooth ? 'smooth' : 'auto' });
+  requestAnimationFrame(() => go(ROLLI + 1, false));
+  sc.addEventListener('scroll', () => {
+    clearTimeout(idle); idle = setTimeout(() => {
+      let i = Math.round(sc.scrollTop / H());
+      if (i === 0) { i = n; go(i, false); } else if (i === n + 1) { i = 1; go(i, false); }
+      ROLLI = i - 1; dots.forEach((d, k) => d.classList.toggle('on', k === ROLLI));
+    }, 90);
+  }, { passive: true });
+  const hold = () => { busy = Date.now() + 8000; };
+  sc.addEventListener('touchstart', hold, { passive: true }); sc.addEventListener('wheel', hold, { passive: true });
+  ROLLT = setInterval(() => { if (document.hidden || Date.now() < busy || !document.body.contains(sc) || S.stack[S.stack.length - 1] !== 'folders') return; go(Math.round(sc.scrollTop / H()) + 1, true); }, 5000);
+}
 function jagaCardHTML() {
   const nx = jUpcoming()[0];
   const sub = nx ? `${jWhen(nx) || jDate(nx, { weekday: 'short', day: 'numeric', month: 'short' })} · ${esc(nx.type)} ${jTime(nx)}` : (JAGA.shifts.length ? 'Tidak ada jaga mendatang' : 'Unggah foto / PDF jadwal');
@@ -3956,10 +3975,11 @@ function jagaCardHTML() {
   const tm = FVIEW.top || 'one', tg = tm === 'auto' ? FVIEW.mode === 'grid' : tm === 'grid';
   let items = [`<button class="srow" id="openJaga">${SIC('#FF3B30', FICONS.calendar)}<span class="lb">Jadwal Jaga<small class="${hot ? 'hot' : ''}">${sub}</small></span>${I.chev}</button>`, tRowHTML(), piRowHTML(), linkRowHTML(), bookRowHTML()].filter(Boolean);
   if (tm === 'one') {
-    // satu menu terpenting (yang mendesak/merah) di atas, sisanya dilipat
+    // satu menu tampil; geser atas/bawah untuk ganti, berputar terus (yang mendesak duluan)
     const hi = items.findIndex((h) => /class="hot"/.test(h)); if (hi > 0) items = [items[hi], ...items.filter((_, i) => i !== hi)];
-    const n = items.length - 1;
-    return `<div class="group jcard jone${TOPOPEN ? ' open' : ''}">${items[0]}<div class="jmore">${items.slice(1).join('')}</div>${n ? `<button class="srow jtog" id="topToggle"><span class="lb">${TOPOPEN ? 'Tutup' : n + ' menu lainnya'}</span><svg class="ic jchev" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg></button>` : ''}</div>`;
+    const n = items.length; if (n < 2) return `<div class="group jcard">${items.join('')}</div>`;
+    const ring = [items[n - 1], ...items, items[0]];
+    return `<div class="group jcard jroll" data-n="${n}"><div class="jrl">${ring.map((h) => `<div class="jri2">${h}</div>`).join('')}</div><div class="jdots">${items.map((_, i) => `<i class="${i ? '' : 'on'}"></i>`).join('')}</div></div>`;
   }
   return `<div class="group jcard${tm === 'scroll' ? ' jsc' : tg ? ' jg' : ''}">${items.join('')}</div>`;
 }
