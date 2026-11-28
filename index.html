@@ -163,7 +163,7 @@ svg{display:block}
 .tarc{margin:14px 0 20px}.tarc summary{list-style:none;padding:10px 16px;font-weight:700;color:var(--sec);font-size:15px}.tarc summary::-webkit-details-marker{display:none}.tarc .tcard{opacity:.92}.tarb{font-size:13px;color:#34C759;font-weight:600}.tdone{color:#34C759!important}.tfiles{display:flex;flex-direction:column;gap:6px}.tfile{display:flex;align-items:center;gap:10px;background:var(--fill);border-radius:10px;padding:8px 10px;text-align:left;color:var(--ink);min-width:0}.tfx{flex:none;width:38px;height:44px;border-radius:5px;color:#fff;font-size:11px;font-weight:800;display:flex;align-items:flex-end;justify-content:center;padding-bottom:5px}.tfn{flex:1;min-width:0;font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.tfile small{color:var(--sec);font-size:12px;flex:none}
 .jcard.jg{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;background:none!important;overflow:visible;border-radius:0}.jcard.jg .srow{flex-direction:column;align-items:center;justify-content:flex-start;text-align:center;gap:6px;padding:12px 6px 10px;border-radius:16px;min-height:118px;background:color-mix(in srgb,var(--cell) 82%,transparent)}.jcard.jg .srow::before{display:none}.jcard.jg .srow .chev{display:none}.jcard.jg .srow .sic{width:42px;height:42px;border-radius:11px;margin:2px 0 4px;flex:none}.jcard.jg .srow .sic svg{width:24px;height:24px}.jcard.jg .lb{align-items:center;font-size:14px;line-height:1.2;width:100%}.jcard.jg small{font-size:11.5px;line-height:1.25;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;margin-top:3px;word-break:break-word}
 .jcard.jsc{display:flex;gap:10px;overflow-x:auto;overflow-y:hidden;background:none!important;border-radius:0;padding:0 0 2px;scroll-snap-type:x mandatory;scrollbar-width:none;-webkit-overflow-scrolling:touch}.jcard.jsc::-webkit-scrollbar{display:none}.jcard.jsc .srow{flex:0 0 42%;scroll-snap-align:start;flex-direction:column;align-items:flex-start;gap:6px;padding:11px 12px;border-radius:16px;min-height:104px;background:color-mix(in srgb,var(--cell) 82%,transparent)}.jcard.jsc .srow::before{display:none}.jcard.jsc .srow .chev{display:none}.jcard.jsc .srow .sic{width:32px;height:32px;border-radius:9px;flex:none}.jcard.jsc .lb{font-size:14.5px;line-height:1.2;width:100%}.jcard.jsc small{font-size:12px;line-height:1.25;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;margin-top:3px;word-break:break-word}
-.jcard{transition:max-height .28s ease,opacity .2s ease,margin .28s ease;max-height:900px}.jcard.hid{max-height:0!important;opacity:0;margin-top:0!important;margin-bottom:0!important;overflow:hidden!important;pointer-events:none}
+.jone .jmore{display:none}.jone.open .jmore{display:block}.jone .jmore .srow::before{content:"";position:absolute;top:0;right:0;left:58px;border-top:.5px solid var(--sep)}.jone .jtog{min-height:38px;padding:6px 16px;justify-content:center}.jone .jtog .lb{flex:none;font-weight:600;font-size:14px;color:var(--tint)}.jone .jtog .jchev{width:16px;height:16px;stroke:var(--tint);stroke-width:2.4;fill:none;transition:transform .2s}.jone.open .jtog .jchev{transform:rotate(180deg)}
 .skme{background:linear-gradient(135deg,#5856D6,#AF52DE)!important}.skg{padding:4px 0 6px}.skh{display:flex;flex-direction:column;padding:10px 16px 6px}.skh b{font-size:16px}.skh small{color:var(--sec);font-size:12.5px}.skp{display:flex;justify-content:space-between;gap:10px;padding:4px 16px 4px 28px;font-size:15px}.skp i{font-style:normal;color:var(--sec);font-size:12.5px;white-space:nowrap}.skp.me{color:var(--tint);font-weight:700}.sks{margin-top:4px}
 .tjg{display:grid;grid-template-columns:auto 1fr;gap:3px 12px;padding-left:30px;font-size:15px;line-height:1.3}.tjg span{color:var(--sec)}.tjg b{font-weight:600}.tjg b.me{color:var(--tint)}
 .tseg{display:flex;gap:6px;margin:0 0 8px 30px}.tseg button{padding:4px 12px;border-radius:14px;border:1px solid var(--sep);font-size:13px;color:var(--ink)}.tseg button.on{background:color-mix(in srgb,var(--tint) 18%,transparent);border-color:var(--tint);color:var(--tint);font-weight:600}
@@ -602,7 +602,7 @@ svg{display:block}
 <script>
 {
 /* ================= penyimpanan di perangkat (IndexedDB) ================= */
-const APP_VERSION = 'v88';
+const APP_VERSION = 'v89';
 const ERRLOG = [];
 addEventListener('error', (e) => ERRLOG.push(new Date().toTimeString().slice(0, 8) + ' ' + (e.message || e.type)));
 addEventListener('unhandledrejection', (e) => ERRLOG.push(new Date().toTimeString().slice(0, 8) + ' ' + ((e.reason && (e.reason.name + ': ' + e.reason.message)) || e.reason)));
@@ -2395,7 +2395,7 @@ async function renderSettings() {
     ${row('theme', SIC('#5856D6', FICONS.star), 'Tema & Latar', vl(THEMES[THEME.bg]?.n || 'Bawaan') + chev)}
     ${row('folders', SIC('#FF9500', FICONS.folder), 'Ikon, Nama & Urutan Folder', chev)}
     ${row('fview', SIC('#5AC8FA', 'M4 4h7v7H4zM13 4h7v7h-7zM4 13h7v7H4zM13 13h7v7h-7z'), 'Tampilan Folder', vl(FVIEW.mode === 'grid' ? 'Kotak' : 'Daftar') + chev)}
-    ${row('ftop', SIC('#FF9500', 'M4 5h16v4H4zM4 11h7v8H4zM13 11h7v8h-7z'), 'Tampilan Menu Atas', vl({ scroll: 'Geser ke Samping', auto: 'Ikuti Folder', list: 'Daftar', grid: 'Kotak' }[FVIEW.top || 'scroll']) + chev)}
+    ${row('ftop', SIC('#FF9500', 'M4 5h16v4H4zM4 11h7v8H4zM13 11h7v8h-7z'), 'Tampilan Menu Atas', vl({ one: 'Satu Menu (Lipat)', scroll: 'Geser ke Samping', auto: 'Ikuti Folder', list: 'Daftar', grid: 'Kotak' }[FVIEW.top || 'one']) + chev)}
     ${row('fpin', SIC('#8E8E93', 'M7 11V7a5 5 0 0 1 10 0v4M5 11h14v10H5z'), 'Kunci Folder di Atas', vl(FVIEW.pin ? 'sampai ' + esc(folderName(FVIEW.pin)) : 'Mati') + chev)}
     ${row('sort', SIC('#8E8E93', 'M4 6h16M7 12h10M10 18h4'), 'Urutkan Catatan', vl(sortL) + chev)}
   </div>
@@ -2432,7 +2432,7 @@ $('#setBody').addEventListener('click', async (e) => {
   switch (k) {
     case 'theme': themePicker(); break;
     case 'fview': { const i = await sheet({ title: 'Tampilan Folder', items: [{ t: (FVIEW.mode !== 'grid' ? '✓ ' : '') + 'Daftar' }, { t: (FVIEW.mode === 'grid' ? '✓ ' : '') + 'Kotak' }] }); if (i >= 0) { FVIEW.mode = i ? 'grid' : 'list'; await DB.setMeta('fview', FVIEW); renderFolders(); } break; }
-    case 'ftop': { const o = ['scroll', 'auto', 'list', 'grid'], cur = FVIEW.top || 'scroll'; const i = await sheet({ title: 'Tampilan Menu Atas (Jadwal Jaga, Tugas, Pembacaan, Link, Buku)', items: ['Geser ke samping (hemat tempat)', 'Ikuti tombol Daftar/Kotak folder', 'Selalu Daftar', 'Selalu Kotak'].map((t, k) => ({ t: (o[k] === cur ? '✓ ' : '') + t })) }); if (i >= 0) { FVIEW.top = o[i]; await DB.setMeta('fview', FVIEW); renderFolders(); } break; }
+    case 'ftop': { const o = ['one', 'scroll', 'auto', 'list', 'grid'], cur = FVIEW.top || 'one'; const i = await sheet({ title: 'Tampilan Menu Atas (Jadwal Jaga, Tugas, Pembacaan, Link, Buku)', items: ['Satu menu terpenting, sisanya dilipat ▾', 'Geser ke samping', 'Ikuti tombol Daftar/Kotak folder', 'Selalu Daftar', 'Selalu Kotak'].map((t, k) => ({ t: (o[k] === cur ? '✓ ' : '') + t })) }); if (i >= 0) { FVIEW.top = o[i]; await DB.setMeta('fview', FVIEW); renderFolders(); } break; }
     case 'fpin': { const ids = ['all', ...orderedIds()]; const i = await sheet({ title: 'Folder sampai mana yang dikunci (tidak ikut tergulir)?', items: [{ t: (!FVIEW.pin ? '✓ ' : '') + 'Mati — semua ikut tergulir' }, ...ids.map((id) => ({ t: (FVIEW.pin === id ? '✓ ' : '') + 'Sampai ' + folderName(id) }))] }); if (i >= 0) { FVIEW.pin = i ? ids[i - 1] : null; FVIEW.pinSet = true; await DB.setMeta('fview', FVIEW); renderFolders(); } break; }
     case 'folders': back(); S.editFolders = true; renderFolders(); toast('Ketuk Ubah untuk nama/ikon, seret ≡ untuk urutan'); break;
     case 'sort': { const keys = ['updated', 'created', 'title']; const i = await sheet({ title: 'Urutkan Catatan', items: keys.map((x) => ({ t: (S.sort === x ? '✓ ' : '') + ({ updated: 'Tanggal Diedit', created: 'Tanggal Dibuat', title: 'Judul' })[x], chk: S.sort === x })) }); if (i >= 0) { S.sort = keys[i]; await saveMeta(); renderAll(); } break; }
@@ -3941,12 +3941,20 @@ const jTime = (s) => (s.start || DEFTIME(s.type, s.date)[0]).replace(':', '.') +
 async function saveJaga() { await DB.setMeta('jaga', JAGA); }
 async function loadJaga() { CLKEY = (await DB.getMeta('claudeKey')) || ''; AIPROV = (await DB.getMeta('aiProv')) || 'gemini'; const j = await DB.getMeta('jaga'); if (j && typeof j === 'object') JAGA = { ...JAGA, ...j, remind: { ...JAGA.remind, ...(j.remind || {}) }, hours: { ...JAGA.hours, ...(j.hours || {}), ...((j.hours && j.hours.biasa && j.hours.biasa.join() === '14:00,07:00' && !j.hoursSet) ? { biasa: ['16:00', '07:00'] } : {}) }, other: { dpjp: [], rsuh: [], pci: [], poli: [], ...(j.other || {}) } }; GEMKEY = (await DB.getMeta('gemKey')) || ''; GEMMODEL = (await DB.getMeta('gemModel')) || ''; }
 
+let TOPOPEN = false;
 function jagaCardHTML() {
   const nx = jUpcoming()[0];
   const sub = nx ? `${jWhen(nx) || jDate(nx, { weekday: 'short', day: 'numeric', month: 'short' })} · ${esc(nx.type)} ${jTime(nx)}` : (JAGA.shifts.length ? 'Tidak ada jaga mendatang' : 'Unggah foto / PDF jadwal');
   const hot = nx && /Sedang|Hari ini|Besok/.test(jWhen(nx));
-  const tm = FVIEW.top || 'scroll', tg = tm === 'auto' ? FVIEW.mode === 'grid' : tm === 'grid';
-  return `<div class="group jcard${tm === 'scroll' ? ' jsc' : tg ? ' jg' : ''}"><button class="srow" id="openJaga">${SIC('#FF3B30', FICONS.calendar)}<span class="lb">Jadwal Jaga<small class="${hot ? 'hot' : ''}">${sub}</small></span>${I.chev}</button>${tRowHTML()}${piRowHTML()}${linkRowHTML()}${bookRowHTML()}</div>`;
+  const tm = FVIEW.top || 'one', tg = tm === 'auto' ? FVIEW.mode === 'grid' : tm === 'grid';
+  let items = [`<button class="srow" id="openJaga">${SIC('#FF3B30', FICONS.calendar)}<span class="lb">Jadwal Jaga<small class="${hot ? 'hot' : ''}">${sub}</small></span>${I.chev}</button>`, tRowHTML(), piRowHTML(), linkRowHTML(), bookRowHTML()].filter(Boolean);
+  if (tm === 'one') {
+    // satu menu terpenting (yang mendesak/merah) di atas, sisanya dilipat
+    const hi = items.findIndex((h) => /class="hot"/.test(h)); if (hi > 0) items = [items[hi], ...items.filter((_, i) => i !== hi)];
+    const n = items.length - 1;
+    return `<div class="group jcard jone${TOPOPEN ? ' open' : ''}">${items[0]}<div class="jmore">${items.slice(1).join('')}</div>${n ? `<button class="srow jtog" id="topToggle"><span class="lb">${TOPOPEN ? 'Tutup' : n + ' menu lainnya'}</span><svg class="ic jchev" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg></button>` : ''}</div>`;
+  }
+  return `<div class="group jcard${tm === 'scroll' ? ' jsc' : tg ? ' jg' : ''}">${items.join('')}</div>`;
 }
 /* ================= Jarkom Pembacaan Ilmiah ================= */
 const PICAL = 'fa98002ce9a43964c1a35643c982308487454997198bd1ff01e98d6424d38b2f@group.calendar.google.com';
@@ -4835,17 +4843,7 @@ $('#jagaBody').addEventListener('click', async (e) => {
   if (k === 'clear') { const { btn } = await alertBox({ title: 'Hapus semua jadwal jaga?', buttons: [{ t: 'Batal' }, { t: 'Hapus', des: 1 }] }); if (btn === 1) { JAGA.shifts = []; await saveJaga(); renderJaga(); renderFolders(); } }
 });
 ['#fJagaImg', '#fJagaCam', '#fJagaPdf'].forEach((s) => $(s).addEventListener('change', (e) => { const fs = [...e.target.files]; e.target.value = ''; if (fs.length) jagaUpload(fs); }));
-// menu atas ikut tergulir: sembunyi saat menggulir ke bawah, muncul lagi saat menggulir ke atas
-(() => { const sc = $('#sFolders'); let last = 0, acc = 0, lock = 0;
-  sc.addEventListener('scroll', () => {
-    const y = sc.scrollTop, d = y - last; last = y; if (Date.now() < lock) return;
-    const jc = $('#foldersPin .jcard'); if (!jc) return;
-    if (y < 40) { if (jc.classList.contains('hid')) { jc.classList.remove('hid'); lock = Date.now() + 350; } acc = 0; return; }
-    acc = (Math.sign(d) === Math.sign(acc) ? acc : 0) + d;
-    if (acc > 24 && !jc.classList.contains('hid')) { jc.classList.add('hid'); lock = Date.now() + 350; acc = 0; }
-    else if (acc < -24 && jc.classList.contains('hid')) { jc.classList.remove('hid'); lock = Date.now() + 350; acc = 0; }
-  }, { passive: true }); })();
-$('#fBox').addEventListener('click', (e) => { if (e.target.closest('#openJaga')) { e.stopPropagation(); openJaga(); } if (e.target.closest('#openLinks')) { e.stopPropagation(); openLinks(); } if (e.target.closest('#openPI')) { e.stopPropagation(); openJarkom(true); } if (e.target.closest('#openBooks')) { e.stopPropagation(); openBooks(); } if (e.target.closest('#openTugas')) { e.stopPropagation(); openTugas(); } }, true);
+$('#fBox').addEventListener('click', (e) => { if (e.target.closest('#topToggle')) { e.stopPropagation(); TOPOPEN = !TOPOPEN; renderFolders(); return; } if (e.target.closest('#openJaga')) { e.stopPropagation(); openJaga(); } if (e.target.closest('#openLinks')) { e.stopPropagation(); openLinks(); } if (e.target.closest('#openPI')) { e.stopPropagation(); openJarkom(true); } if (e.target.closest('#openBooks')) { e.stopPropagation(); openBooks(); } if (e.target.closest('#openTugas')) { e.stopPropagation(); openTugas(); } }, true);
 /* ================= Link Penting ================= */
 let LINKS = null;
 const LINK_SEED = () => ({ groups: [
