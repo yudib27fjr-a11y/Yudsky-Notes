@@ -163,6 +163,7 @@ svg{display:block}
 .tarc{margin:14px 0 20px}.tarc summary{list-style:none;padding:10px 16px;font-weight:700;color:var(--sec);font-size:15px}.tarc summary::-webkit-details-marker{display:none}.tarc .tcard{opacity:.92}.tarb{font-size:13px;color:#34C759;font-weight:600}.tdone{color:#34C759!important}.tfiles{display:flex;flex-direction:column;gap:6px}.tfile{display:flex;align-items:center;gap:10px;background:var(--fill);border-radius:10px;padding:8px 10px;text-align:left;color:var(--ink);min-width:0}.tfx{flex:none;width:38px;height:44px;border-radius:5px;color:#fff;font-size:11px;font-weight:800;display:flex;align-items:flex-end;justify-content:center;padding-bottom:5px}.tfn{flex:1;min-width:0;font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.tfile small{color:var(--sec);font-size:12px;flex:none}
 .jcard.jg{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;background:none!important;overflow:visible;border-radius:0}.jcard.jg .srow{flex-direction:column;align-items:center;justify-content:flex-start;text-align:center;gap:6px;padding:12px 6px 10px;border-radius:16px;min-height:118px;background:color-mix(in srgb,var(--cell) 82%,transparent)}.jcard.jg .srow::before{display:none}.jcard.jg .srow .chev{display:none}.jcard.jg .srow .sic{width:42px;height:42px;border-radius:11px;margin:2px 0 4px;flex:none}.jcard.jg .srow .sic svg{width:24px;height:24px}.jcard.jg .lb{align-items:center;font-size:14px;line-height:1.2;width:100%}.jcard.jg small{font-size:11.5px;line-height:1.25;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;margin-top:3px;word-break:break-word}
 .jcard.jsc{display:flex;gap:10px;overflow-x:auto;overflow-y:hidden;background:none!important;border-radius:0;padding:0 0 2px;scroll-snap-type:x mandatory;scrollbar-width:none;-webkit-overflow-scrolling:touch}.jcard.jsc::-webkit-scrollbar{display:none}.jcard.jsc .srow{flex:0 0 42%;scroll-snap-align:start;flex-direction:column;align-items:flex-start;gap:6px;padding:11px 12px;border-radius:16px;min-height:104px;background:color-mix(in srgb,var(--cell) 82%,transparent)}.jcard.jsc .srow::before{display:none}.jcard.jsc .srow .chev{display:none}.jcard.jsc .srow .sic{width:32px;height:32px;border-radius:9px;flex:none}.jcard.jsc .lb{font-size:14.5px;line-height:1.2;width:100%}.jcard.jsc small{font-size:12px;line-height:1.25;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;margin-top:3px;word-break:break-word}
+.jcard{transition:max-height .28s ease,opacity .2s ease,margin .28s ease;max-height:900px}.jcard.hid{max-height:0!important;opacity:0;margin-top:0!important;margin-bottom:0!important;overflow:hidden!important;pointer-events:none}
 .skme{background:linear-gradient(135deg,#5856D6,#AF52DE)!important}.skg{padding:4px 0 6px}.skh{display:flex;flex-direction:column;padding:10px 16px 6px}.skh b{font-size:16px}.skh small{color:var(--sec);font-size:12.5px}.skp{display:flex;justify-content:space-between;gap:10px;padding:4px 16px 4px 28px;font-size:15px}.skp i{font-style:normal;color:var(--sec);font-size:12.5px;white-space:nowrap}.skp.me{color:var(--tint);font-weight:700}.sks{margin-top:4px}
 .tjg{display:grid;grid-template-columns:auto 1fr;gap:3px 12px;padding-left:30px;font-size:15px;line-height:1.3}.tjg span{color:var(--sec)}.tjg b{font-weight:600}.tjg b.me{color:var(--tint)}
 .tseg{display:flex;gap:6px;margin:0 0 8px 30px}.tseg button{padding:4px 12px;border-radius:14px;border:1px solid var(--sep);font-size:13px;color:var(--ink)}.tseg button.on{background:color-mix(in srgb,var(--tint) 18%,transparent);border-color:var(--tint);color:var(--tint);font-weight:600}
@@ -601,7 +602,7 @@ svg{display:block}
 <script>
 {
 /* ================= penyimpanan di perangkat (IndexedDB) ================= */
-const APP_VERSION = 'v87';
+const APP_VERSION = 'v88';
 const ERRLOG = [];
 addEventListener('error', (e) => ERRLOG.push(new Date().toTimeString().slice(0, 8) + ' ' + (e.message || e.type)));
 addEventListener('unhandledrejection', (e) => ERRLOG.push(new Date().toTimeString().slice(0, 8) + ' ' + ((e.reason && (e.reason.name + ': ' + e.reason.message)) || e.reason)));
@@ -4834,6 +4835,16 @@ $('#jagaBody').addEventListener('click', async (e) => {
   if (k === 'clear') { const { btn } = await alertBox({ title: 'Hapus semua jadwal jaga?', buttons: [{ t: 'Batal' }, { t: 'Hapus', des: 1 }] }); if (btn === 1) { JAGA.shifts = []; await saveJaga(); renderJaga(); renderFolders(); } }
 });
 ['#fJagaImg', '#fJagaCam', '#fJagaPdf'].forEach((s) => $(s).addEventListener('change', (e) => { const fs = [...e.target.files]; e.target.value = ''; if (fs.length) jagaUpload(fs); }));
+// menu atas ikut tergulir: sembunyi saat menggulir ke bawah, muncul lagi saat menggulir ke atas
+(() => { const sc = $('#sFolders'); let last = 0, acc = 0, lock = 0;
+  sc.addEventListener('scroll', () => {
+    const y = sc.scrollTop, d = y - last; last = y; if (Date.now() < lock) return;
+    const jc = $('#foldersPin .jcard'); if (!jc) return;
+    if (y < 40) { if (jc.classList.contains('hid')) { jc.classList.remove('hid'); lock = Date.now() + 350; } acc = 0; return; }
+    acc = (Math.sign(d) === Math.sign(acc) ? acc : 0) + d;
+    if (acc > 24 && !jc.classList.contains('hid')) { jc.classList.add('hid'); lock = Date.now() + 350; acc = 0; }
+    else if (acc < -24 && jc.classList.contains('hid')) { jc.classList.remove('hid'); lock = Date.now() + 350; acc = 0; }
+  }, { passive: true }); })();
 $('#fBox').addEventListener('click', (e) => { if (e.target.closest('#openJaga')) { e.stopPropagation(); openJaga(); } if (e.target.closest('#openLinks')) { e.stopPropagation(); openLinks(); } if (e.target.closest('#openPI')) { e.stopPropagation(); openJarkom(true); } if (e.target.closest('#openBooks')) { e.stopPropagation(); openBooks(); } if (e.target.closest('#openTugas')) { e.stopPropagation(); openTugas(); } }, true);
 /* ================= Link Penting ================= */
 let LINKS = null;
